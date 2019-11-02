@@ -12,9 +12,12 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         private List<BasicTexture> _textures;
 
+        private Color _currentColor;
+
         public DrawingScene()
         {
             _textures = new List<BasicTexture>();
+            _currentColor = Color.Black;
         }
 
         public override void Update()
@@ -22,16 +25,15 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 Random random = new Random();
-                Color myColor = new Color((float)random.NextDouble(),
-                    (float)random.NextDouble(),
-                    (float)random.NextDouble());
 
-                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => myColor);
+                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => _currentColor);
 
+                // Vector2 oldPosition = GlobalParameters.GlobalMouse.oldMousePos;
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
+                // Vector2 currentPosition = pointPosition;
                 Vector2 pointDimensions = new Vector2(15, 15);
-                BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
 
+                BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
                 _textures.Add(point);
             }
 

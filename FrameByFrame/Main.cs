@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using FrameByFrame.src;
 using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Input;
@@ -18,6 +19,7 @@ namespace FrameByFrame
         SpriteBatch spriteBatch;
 
         BasicTexture cursor;
+        private Dictionary<string, BaseScene> Scenes;
         private BaseScene CurrentScene;
 
         public Main()
@@ -26,37 +28,29 @@ namespace FrameByFrame
             Content.RootDirectory = "Content";
 
             // this.IsFixedTimeStep = true;
-            this.graphics.SynchronizeWithVerticalRetrace = true;
+            this.TargetElapsedTime = TimeSpan.FromSeconds(1.0f / 100.0f);
+            //this.graphics.SynchronizeWithVerticalRetrace = true;
             // this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 16);
         }
 
-        /// <summary>
-        /// Allows the game to perform any initialization it needs to before starting to run.
-        /// This is where it can query for any required services and load any non-graphic
-        /// related content.  Calling base.Initialize will enumerate through any components
-        /// and initialize them as well.
-        /// </summary>
         protected override void Initialize()
         {
-
             GlobalParameters.screenWidth = 1600;
             GlobalParameters.screenHeight = 900;
-
-            // Globals.screenWidth = this.Window.ClientBounds.Width;
-            // Globals.screenHeight = this.Window.ClientBounds.Height;
 
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
 
-            CurrentScene = new DrawingScene();
+            Scenes.Add("Menu Scene", new MenuScene());
+            Scenes.Add("Projects Scene", new ProjectsScene());
+            Scenes.Add("Settings Scene", new SettingsScene());
+            Scenes.Add("Drawing Scene", new DrawingScene());
+
+            CurrentScene = Scenes["Menu Scene"];
             graphics.ApplyChanges();
             base.Initialize();
         }
 
-        /// <summary>
-        /// LoadContent will be called once per game and is the place to load
-        /// all of your content.
-        /// </summary>
         protected override void LoadContent()
         {
             GlobalParameters.GlobalContent = this.Content;
@@ -71,20 +65,11 @@ namespace FrameByFrame
             cursor = new BasicTexture("Static\\pencil-cursor", new Vector2(0, 0), new Vector2(28, 28));
         }
 
-        /// <summary>
-        /// UnloadContent will be called once per game and is the place to unload
-        /// game-specific content.
-        /// </summary>
         protected override void UnloadContent()
         {
 
         }
 
-        /// <summary>
-        /// Allows the game to run logic such as updating the world,
-        /// checking for collisions, gathering input, and playing audio.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
@@ -101,10 +86,6 @@ namespace FrameByFrame
             base.Update(gameTime);
         }
 
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.White);
@@ -117,9 +98,7 @@ namespace FrameByFrame
             base.Draw(gameTime);
         }
     }
-    /// <summary>
-    /// The main class.
-    /// </summary>
+
     public static class Program
     {
         /// <summary>
