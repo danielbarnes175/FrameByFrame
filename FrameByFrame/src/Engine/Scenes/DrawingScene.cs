@@ -25,15 +25,14 @@ namespace FrameByFrame.src.Engine.Scenes
                 Color myColor = new Color((float)random.NextDouble(),
                     (float)random.NextDouble(),
                     (float)random.NextDouble());
-                //initialize a texture
+
                 Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => myColor);
-                Console.WriteLine(texture.ToString());
+
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
                 Vector2 pointDimensions = new Vector2(15, 15);
                 BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
 
                 _textures.Add(point);
-                Console.WriteLine(_textures.Count);
             }
 
             if (GlobalParameters.GlobalKeyboard.GetPress("P"))

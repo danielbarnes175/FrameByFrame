@@ -24,6 +24,10 @@ namespace FrameByFrame
         {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
+
+            // this.IsFixedTimeStep = true;
+            this.graphics.SynchronizeWithVerticalRetrace = true;
+            // this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 16);
         }
 
         /// <summary>
