@@ -51,7 +51,10 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (GlobalParameters.GlobalKeyboard.GetPress("S"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
-            CheckColors();
+            if (GlobalParameters.GlobalMouse.LeftClickHold())
+            {
+                CheckSelection();
+            }
             base.Update();
         }
 
@@ -72,6 +75,12 @@ namespace FrameByFrame.src.Engine.Scenes
                buttons.Draw(offset);
            }
            base.Draw(offset);
+        }
+
+        public void CheckSelection()
+        {
+            CheckLayer();
+            CheckColors();
         }
 
         public void CheckColors()
@@ -97,6 +106,25 @@ namespace FrameByFrame.src.Engine.Scenes
             else if (clickPosition.X > 150 && clickPosition.X < 180 && clickPosition.Y > 50 && clickPosition.Y < 80)
             {
                 GlobalParameters.CurrentColor = Color.Yellow;
+            }
+        }
+
+        public void CheckLayer()
+        {
+            if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
+            Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
+            Console.WriteLine(clickPosition.X + " " + clickPosition.Y);
+            if (clickPosition.X > 1070 && clickPosition.X < 1220 && clickPosition.Y > 50 && clickPosition.Y < 100)
+            {
+                DrawingScene.selectedLayer = "_layer1";
+            }
+            if (clickPosition.X > 1240 && clickPosition.X < 1390 && clickPosition.Y > 50 && clickPosition.Y < 100)
+            {
+                DrawingScene.selectedLayer = "_layer2";
+            }
+            if (clickPosition.X > 1410 && clickPosition.X < 1560 && clickPosition.Y > 50 && clickPosition.Y < 100)
+            {
+                DrawingScene.selectedLayer = "_layer3";
             }
         }
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint)

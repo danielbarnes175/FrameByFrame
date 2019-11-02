@@ -12,9 +12,20 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         private List<BasicTexture> _textures;
 
+        private List<BasicTexture> _layer1;
+        private List<BasicTexture> _layer2;
+        private List<BasicTexture> _layer3;
+
+        public static string selectedLayer;
+
         public DrawingScene()
         {
             _textures = new List<BasicTexture>();
+            _layer1 = new List<BasicTexture>();
+            _layer2 = new List<BasicTexture>();
+            _layer3 = new List<BasicTexture>();
+
+            selectedLayer = "_layer1";
         }
 
         public override void LoadContent()
@@ -28,29 +39,32 @@ namespace FrameByFrame.src.Engine.Scenes
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Settings Scene"];
             if (GlobalParameters.GlobalMouse.LeftClickHold())
             {
-                Random random = new Random();
-
-                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => GlobalParameters.CurrentColor);
-
-                // Vector2 oldPosition = GlobalParameters.GlobalMouse.oldMousePos;
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
-                // Vector2 currentPosition = pointPosition;
                 Vector2 pointDimensions = new Vector2(15, 15);
 
+                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => GlobalParameters.CurrentColor);
                 BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
-                _textures.Add(point);
-            }
 
-            if (GlobalParameters.GlobalKeyboard.GetPress("P"))
-            {
-                System.Environment.Exit(0);
+                if (selectedLayer == "_layer1") _layer1.Add(point);
+                if (selectedLayer == "_layer2") _layer2.Add(point);
+                if (selectedLayer == "_layer3") _layer3.Add(point);
             }
             base.Update();
         }
 
         public override void Draw(Vector2 offset)
         {
-            foreach (BasicTexture point in _textures)
+            foreach (BasicTexture point in _layer3)
+            {
+                point.Draw(new Vector2(5, 25));
+            }
+
+            foreach (BasicTexture point in _layer2)
+            {
+                point.Draw(new Vector2(5, 25));
+            }
+
+            foreach (BasicTexture point in _layer1)
             {
                 point.Draw(new Vector2(5, 25));
             }
