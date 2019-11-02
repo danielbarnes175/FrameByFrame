@@ -14,6 +14,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
         }
 
+        public virtual void LoadContent()
+        {
+
+        }
+
         public virtual void Update()
         {
 

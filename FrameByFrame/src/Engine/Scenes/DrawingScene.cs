@@ -20,6 +20,11 @@ namespace FrameByFrame.src.Engine.Scenes
             _currentColor = Color.Black;
         }
 
+        public override void LoadContent()
+        {
+
+        }
+
         public override void Update()
         {
             if (GlobalParameters.GlobalMouse.LeftClickHold())

@@ -19,18 +19,16 @@ namespace FrameByFrame
         SpriteBatch spriteBatch;
 
         BasicTexture cursor;
-        private Dictionary<string, BaseScene> Scenes;
-        private BaseScene CurrentScene;
 
         public Main()
         {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
 
-            // this.IsFixedTimeStep = true;
-            this.TargetElapsedTime = TimeSpan.FromSeconds(1.0f / 100.0f);
-            //this.graphics.SynchronizeWithVerticalRetrace = true;
-            // this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 16);
+            this.IsFixedTimeStep = true;
+            //this.TargetElapsedTime = TimeSpan.FromSeconds(1.0f / 100.0f);
+            this.graphics.SynchronizeWithVerticalRetrace = true;
+            this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 8);
         }
 
         protected override void Initialize()
@@ -41,12 +39,13 @@ namespace FrameByFrame
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
 
-            Scenes.Add("Menu Scene", new MenuScene());
-            Scenes.Add("Projects Scene", new ProjectsScene());
-            Scenes.Add("Settings Scene", new SettingsScene());
-            Scenes.Add("Drawing Scene", new DrawingScene());
+            GlobalParameters.Scenes = new Dictionary<string, BaseScene>();
+            GlobalParameters.Scenes.Add("Menu Scene", (BaseScene)new MenuScene());
+            GlobalParameters.Scenes.Add("Projects Scene", new ProjectsScene());
+            GlobalParameters.Scenes.Add("Settings Scene", new SettingsScene());
+            GlobalParameters.Scenes.Add("Drawing Scene", new DrawingScene());
 
-            CurrentScene = Scenes["Menu Scene"];
+            GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
             graphics.ApplyChanges();
             base.Initialize();
         }
@@ -63,6 +62,11 @@ namespace FrameByFrame
             spriteBatch = new SpriteBatch(GraphicsDevice);
 
             cursor = new BasicTexture("Static\\pencil-cursor", new Vector2(0, 0), new Vector2(28, 28));
+
+            foreach (KeyValuePair<string, BaseScene> scene in GlobalParameters.Scenes)
+            {
+                scene.Value.LoadContent();
+            }
         }
 
         protected override void UnloadContent()
@@ -81,7 +85,7 @@ namespace FrameByFrame
             GlobalParameters.GlobalMouse.UpdateOld();
             GlobalParameters.GlobalKeyboard.UpdateOld();
 
-            CurrentScene.Update();
+            GlobalParameters.CurrentScene.Update();
 
             base.Update(gameTime);
         }
@@ -89,9 +93,9 @@ namespace FrameByFrame
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.White);
-            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
+            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
 
-            CurrentScene.Draw(Vector2.Zero);
+            GlobalParameters.CurrentScene.Draw(Vector2.Zero);
             cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X, GlobalParameters.GlobalMouse.newMousePos.Y), new Vector2(0, 0));
 
             GlobalParameters.GlobalSpriteBatch.End();

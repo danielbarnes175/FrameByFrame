@@ -17,6 +17,11 @@ namespace FrameByFrame.src.Engine.Scenes
             _textures = new List<BasicTexture>();
         }
 
+        public override void LoadContent()
+        {
+
+        }
+
         public override void Update()
         {
             
