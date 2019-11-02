@@ -48,6 +48,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _colors.Add(new BasicTexture(textureBlue, new Vector2(100, 90), pointDimensions));
             _colors.Add(new BasicTexture(textureGreen, new Vector2(135, 90), pointDimensions));
             _colors.Add(new BasicTexture(textureYellow, new Vector2(170, 90), pointDimensions));
+            _colors.Add(new BasicTexture("Static\\SettingsScene/Eraser", new Vector2(210, 90), pointDimensions));
         }
 
         public override void Update(GameTime gameTime)
@@ -111,6 +112,10 @@ namespace FrameByFrame.src.Engine.Scenes
             else if (clickPosition.X > 150 && clickPosition.X < 180 && clickPosition.Y > 50 && clickPosition.Y < 80)
             {
                 GlobalParameters.CurrentColor = Color.Yellow;
+            }
+            else if (clickPosition.X > 190 && clickPosition.X < 220 && clickPosition.Y > 50 && clickPosition.Y < 80)
+            {
+                GlobalParameters.CurrentColor = Color.White;
             }
         }
 
