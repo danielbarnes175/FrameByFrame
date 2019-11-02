@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -43,6 +44,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("T"))
+            {
+                RenderTarget2D texture = combineTextures();
+                SaveTextureAsPng("test" + currentFrame + ".png", texture);
+            }
             if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
@@ -182,6 +188,45 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 point.Draw(new Vector2(5, 25), opacity);
             }
+        }
+
+        private RenderTarget2D combineTextures()
+        {
+            RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth - 222, GlobalParameters.screenHeight);
+
+            // Set render target
+            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
+            GlobalParameters.GlobalGraphics.Clear(Color.White);
+            // Render your tiles as usual, this is just an example
+            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
+
+            foreach (BasicTexture texture in frames[currentFrame]._layer3)
+            {
+                texture.Draw(Vector2.Zero);
+            }
+            foreach (BasicTexture texture in frames[currentFrame]._layer2)
+            {
+                texture.Draw(Vector2.Zero);
+            }
+            foreach (BasicTexture texture in frames[currentFrame]._layer1)
+            {
+                texture.Draw(Vector2.Zero);
+            }
+            GlobalParameters.GlobalSpriteBatch.End();
+
+            // Unset render target
+            GlobalParameters.GlobalGraphics.SetRenderTarget(null);
+
+            return renderTarget2D;
+        }
+
+        private void SaveTextureAsPng(string filename, RenderTarget2D texture)
+        {
+            FileStream setStream = File.Open(filename, FileMode.Create);
+            StreamWriter writer = new StreamWriter(setStream);
+            texture.SaveAsPng(setStream, texture.Width, texture.Height);
+            setStream.Dispose();
+            Console.WriteLine("Saved Texture as PNG to " + Directory.GetCurrentDirectory());
         }
     }
 }

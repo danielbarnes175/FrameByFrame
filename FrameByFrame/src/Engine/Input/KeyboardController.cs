@@ -85,6 +85,8 @@ namespace FrameByFrame.src.Engine.Input
                     return Keys.P;
                 case "S":
                     return Keys.S;
+                case "T":
+                    return Keys.T;
                 case "W":
                     return Keys.W;
                 case "ESC":
