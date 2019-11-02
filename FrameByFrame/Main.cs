@@ -1,4 +1,7 @@
 ﻿using System;
+using FrameByFrame.src;
+using FrameByFrame.src.Engine;
+using FrameByFrame.src.Engine.Input;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -12,7 +15,9 @@ namespace FrameByFrame
     {
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
-        
+
+        BasicTexture cursor;
+
         public Main()
         {
             graphics = new GraphicsDeviceManager(this);
@@ -27,8 +32,17 @@ namespace FrameByFrame
         /// </summary>
         protected override void Initialize()
         {
-            // TODO: Add your initialization logic here
 
+            GlobalParameters.screenWidth = 1600;
+            GlobalParameters.screenHeight = 900;
+
+            // Globals.screenWidth = this.Window.ClientBounds.Width;
+            // Globals.screenHeight = this.Window.ClientBounds.Height;
+
+            graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
+            graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
+
+            graphics.ApplyChanges();
             base.Initialize();
         }
 
@@ -38,10 +52,16 @@ namespace FrameByFrame
         /// </summary>
         protected override void LoadContent()
         {
+            GlobalParameters.GlobalContent = this.Content;
+            GlobalParameters.GlobalSpriteBatch = new SpriteBatch(GraphicsDevice);
+
+            GlobalParameters.GlobalKeyboard = new KeyboardController();
+            GlobalParameters.GlobalMouse = new MouseController();
+
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            // TODO: use this.Content to load your game content here
+            cursor = new BasicTexture("Static\\pencil-cursor", new Vector2(0, 0), new Vector2(28, 28));
         }
 
         /// <summary>
@@ -50,7 +70,7 @@ namespace FrameByFrame
         /// </summary>
         protected override void UnloadContent()
         {
-            // TODO: Unload any non ContentManager content here
+
         }
 
         /// <summary>
@@ -63,7 +83,11 @@ namespace FrameByFrame
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            // TODO: Add your update logic here
+            GlobalParameters.GlobalMouse.Update();
+            GlobalParameters.GlobalKeyboard.Update();
+
+            GlobalParameters.GlobalMouse.UpdateOld();
+            GlobalParameters.GlobalKeyboard.UpdateOld();
 
             base.Update(gameTime);
         }
@@ -75,9 +99,11 @@ namespace FrameByFrame
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.White);
+            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
 
-            // TODO: Add your drawing code here
+            cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X, GlobalParameters.GlobalMouse.newMousePos.Y), new Vector2(0, 0));
 
+            GlobalParameters.GlobalSpriteBatch.End();
             base.Draw(gameTime);
         }
     }
