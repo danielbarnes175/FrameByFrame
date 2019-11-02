@@ -22,6 +22,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private bool isPlaying;
         private int timePlaying;
         public static int fps;
+        public string projectName;
 
         public DrawingScene()
         {
@@ -33,6 +34,11 @@ namespace FrameByFrame.src.Engine.Scenes
             isPlaying = false;
             timePlaying = 0;
             fps = 4;
+
+            Random random = new Random();
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            projectName = new string(Enumerable.Repeat(chars, 8)
+                .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
         public override void LoadContent()
@@ -46,8 +52,8 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("T"))
             {
-                RenderTarget2D texture = combineTextures();
-                SaveTextureAsPng("test" + currentFrame + ".png", texture);
+                RenderTarget2D texture = combineTextures(frames[currentFrame]);
+                SaveTextureAsPng("drawing" + currentFrame + ".png", texture);
             }
             if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
@@ -190,7 +196,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }
         }
 
-        private RenderTarget2D combineTextures()
+        private RenderTarget2D combineTextures(Frame givenFrame)
         {
             RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth - 222, GlobalParameters.screenHeight);
 
@@ -200,15 +206,15 @@ namespace FrameByFrame.src.Engine.Scenes
             // Render your tiles as usual, this is just an example
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
 
-            foreach (BasicTexture texture in frames[currentFrame]._layer3)
+            foreach (BasicTexture texture in givenFrame._layer3)
             {
                 texture.Draw(Vector2.Zero);
             }
-            foreach (BasicTexture texture in frames[currentFrame]._layer2)
+            foreach (BasicTexture texture in givenFrame._layer2)
             {
                 texture.Draw(Vector2.Zero);
             }
-            foreach (BasicTexture texture in frames[currentFrame]._layer1)
+            foreach (BasicTexture texture in givenFrame._layer1)
             {
                 texture.Draw(Vector2.Zero);
             }
@@ -220,13 +226,23 @@ namespace FrameByFrame.src.Engine.Scenes
             return renderTarget2D;
         }
 
+        public void ExportAnimation()
+        {
+            for (int i = 0; i < frames.Count; i++)
+            {
+                RenderTarget2D texture = combineTextures(frames[currentFrame]);
+                System.IO.Directory.CreateDirectory("Project/" + projectName);
+                SaveTextureAsPng("Projects/" + projectName + "/Frame_" + i + ".png", texture);
+            }
+        }
+
         private void SaveTextureAsPng(string filename, RenderTarget2D texture)
         {
             FileStream setStream = File.Open(filename, FileMode.Create);
             StreamWriter writer = new StreamWriter(setStream);
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
             setStream.Dispose();
-            Console.WriteLine("Saved Texture as PNG to " + Directory.GetCurrentDirectory());
+            Console.WriteLine("Saved Texture as PNG to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
         }
     }
 }
