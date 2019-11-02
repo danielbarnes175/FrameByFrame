@@ -26,6 +26,8 @@ namespace FrameByFrame.src
         public static Dictionary<string, BaseScene> Scenes;
         public static BaseScene CurrentScene;
 
+        public static SpriteFont font;
+
         public static Color CurrentColor;
     }
 }

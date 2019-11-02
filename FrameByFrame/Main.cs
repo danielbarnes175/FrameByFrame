@@ -59,6 +59,7 @@ namespace FrameByFrame
             GlobalParameters.GlobalMouse = new MouseController();
 
             GlobalParameters.CurrentColor = Color.Black;
+            GlobalParameters.font = Content.Load<SpriteFont>("Static\\Roboto");
 
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);

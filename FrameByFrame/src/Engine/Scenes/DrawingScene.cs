@@ -24,6 +24,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private int timePlaying;
         public static int fps;
         public string projectName;
+        private bool loadedScene;
 
         public DrawingScene()
         {
@@ -35,6 +36,7 @@ namespace FrameByFrame.src.Engine.Scenes
             isPlaying = false;
             timePlaying = 0;
             fps = 4;
+            loadedScene = false;
 
             Random random = new Random();
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -51,6 +53,10 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
+            if (!GlobalParameters.GlobalMouse.LeftClickHold())
+            {
+                loadedScene = true;
+            }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("T"))
             {
                 RenderTarget2D texture = combineTextures(frames[currentFrame]);
@@ -93,7 +99,7 @@ namespace FrameByFrame.src.Engine.Scenes
                     currentFrame -= 1;
                 }
             }
-            if (GlobalParameters.GlobalMouse.LeftClickHold())
+            if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
                 if (pointPosition.X >= GlobalParameters.screenWidth - 437) return;
@@ -111,26 +117,32 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
+            
             if (!isPlaying)
             {
                 DrawOnionSkin();
             }
 
             _sideMenu.Draw(offset);
-            foreach (BasicTexture point in frames[currentFrame]._layer3)
+            if (loadedScene)
             {
-                point.Draw(new Vector2(5, 25));
+                foreach (BasicTexture point in frames[currentFrame]._layer3)
+                {
+                    point.Draw(new Vector2(5, 25));
+                }
+
+                foreach (BasicTexture point in frames[currentFrame]._layer2)
+                {
+                    point.Draw(new Vector2(5, 25));
+                }
+
+                foreach (BasicTexture point in frames[currentFrame]._layer1)
+                {
+                    point.Draw(new Vector2(5, 25));
+                }
             }
 
-            foreach (BasicTexture point in frames[currentFrame]._layer2)
-            {
-                point.Draw(new Vector2(5, 25));
-            }
-
-            foreach (BasicTexture point in frames[currentFrame]._layer1)
-            {
-                point.Draw(new Vector2(5, 25));
-            }
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4), Color.Black);
             base.Draw(offset);
         }
 
