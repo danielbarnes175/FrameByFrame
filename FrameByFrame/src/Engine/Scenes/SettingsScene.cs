@@ -13,6 +13,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private List<BasicTexture> _textures;
         private List<BasicTexture> _colors;
         private BasicTexture _colorOutline;
+        private BasicTexture _paintBrush;
 
         public SettingsScene()
         {
@@ -22,7 +23,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void LoadContent()
         {
-
+            _paintBrush = new BasicTexture("Static\\SettingsScene/image_color-select", new Vector2(100, 40), new Vector2(64, 64));
+            _textures.Add(_paintBrush);
 
             Texture2D textureBlack = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Black);
             Texture2D textureRed = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Red);
