@@ -12,6 +12,7 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         private List<BasicTexture> _textures;
         private List<BasicTexture> _colors;
+        private List<BasicTexture> _layerButtons;
         private BasicTexture _colorOutline;
         private BasicTexture _paintBrush;
 
@@ -19,12 +20,17 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _textures = new List<BasicTexture>();
             _colors = new List<BasicTexture>();
+            _layerButtons = new List<BasicTexture>();
         }
 
         public override void LoadContent()
         {
             _paintBrush = new BasicTexture("Static\\SettingsScene/image_color-select", new Vector2(100, 40), new Vector2(64, 64));
             _textures.Add(_paintBrush);
+
+            _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-1", new Vector2(1150, 100), new Vector2(150, 50)));
+            _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-2", new Vector2( 1320, 100), new Vector2(150, 50)));
+            _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-3", new Vector2(1490, 100), new Vector2(150, 50)));
 
             Texture2D textureBlack = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Black);
             Texture2D textureRed = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Red);
@@ -59,6 +65,11 @@ namespace FrameByFrame.src.Engine.Scenes
            foreach (BasicTexture color in _colors)
            {
                color.Draw(offset);
+           }
+
+           foreach (BasicTexture buttons in _layerButtons)
+           {
+               buttons.Draw(offset);
            }
            base.Draw(offset);
         }
