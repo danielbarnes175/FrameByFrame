@@ -16,6 +16,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private BasicTexture _colorOutline;
         private BasicTexture _paintBrush;
         private BasicTexture _exportButton;
+        private BasicTexture _onion;
 
         public SettingsScene()
         {
@@ -49,6 +50,8 @@ namespace FrameByFrame.src.Engine.Scenes
             _colors.Add(new BasicTexture(textureGreen, new Vector2(135, 90), pointDimensions));
             _colors.Add(new BasicTexture(textureYellow, new Vector2(170, 90), pointDimensions));
             _colors.Add(new BasicTexture("Static\\SettingsScene/Eraser", new Vector2(210, 90), pointDimensions));
+
+            _onion = new BasicTexture("Static\\SettingsScene/Onion", new Vector2(210, 130), pointDimensions);
         }
 
         public override void Update(GameTime gameTime)
@@ -65,6 +68,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Draw(Vector2 offset)
         {
             _exportButton.Draw(offset);
+            _onion.Draw(offset);
            foreach (BasicTexture texture in _textures)
            {
                texture.Draw(offset);
@@ -79,7 +83,13 @@ namespace FrameByFrame.src.Engine.Scenes
            {
                buttons.Draw(offset);
            }
-           base.Draw(offset);
+
+           DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
+           string onionSkinEnabled = (scene.isOnionSkinLoaded) ? "enabled" : "disabled";
+           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor, new Vector2(230, 90), Color.Black);
+           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
+           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + DrawingScene.selectedLayer, new Vector2(1150, 150), Color.Black);
+            base.Draw(offset);
         }
 
         public void CheckSelection()
@@ -142,10 +152,16 @@ namespace FrameByFrame.src.Engine.Scenes
             
             if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
+            Console.WriteLine(clickPosition.X + " " + clickPosition.Y);
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
             {
                 DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
                 scene.ExportAnimation();
+            }
+            else if (clickPosition.X > 195 && clickPosition.X < 215 && clickPosition.Y > 90 && clickPosition.Y < 120)
+            {
+                DrawingScene scene = (DrawingScene) GlobalParameters.Scenes["Drawing Scene"];
+                scene.isOnionSkinLoaded = !(scene.isOnionSkinLoaded);
             }
         }
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint)

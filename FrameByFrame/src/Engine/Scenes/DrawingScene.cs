@@ -25,6 +25,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public static int fps;
         public string projectName;
         private bool loadedScene;
+        public bool isOnionSkinLoaded;
 
         public DrawingScene()
         {
@@ -38,6 +39,7 @@ namespace FrameByFrame.src.Engine.Scenes
             fps = 4;
             loadedScene = false;
 
+            isOnionSkinLoaded = true;
             Random random = new Random();
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             projectName = new string(Enumerable.Repeat(chars, 8)
@@ -118,7 +120,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Draw(Vector2 offset)
         {
             
-            if (!isPlaying)
+            if (!isPlaying && isOnionSkinLoaded)
             {
                 DrawOnionSkin();
             }
