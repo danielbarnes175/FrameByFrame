@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine
 {
-    class BasicTexture
+    public class BasicTexture
     {
         public float rotation;
         public Vector2 position, dimensions;

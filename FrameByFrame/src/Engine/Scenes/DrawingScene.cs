@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FrameByFrame.src.Engine.Animation;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -10,22 +11,19 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class DrawingScene : BaseScene
     {
-        private List<BasicTexture> _textures;
-
-        private List<BasicTexture> _layer1;
-        private List<BasicTexture> _layer2;
-        private List<BasicTexture> _layer3;
-
         public static string selectedLayer;
+
+        private List<Frame> frames;
+        private int currentFrame;
+        private int totalFrames;
 
         public DrawingScene()
         {
-            _textures = new List<BasicTexture>();
-            _layer1 = new List<BasicTexture>();
-            _layer2 = new List<BasicTexture>();
-            _layer3 = new List<BasicTexture>();
-
             selectedLayer = "_layer1";
+            frames = new List<Frame>();
+            frames.Add(new Frame());
+            currentFrame = 0;
+            totalFrames = 1;
         }
 
         public override void LoadContent()
@@ -37,6 +35,23 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (GlobalParameters.GlobalKeyboard.GetPress("W"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Settings Scene"];
+            if (GlobalParameters.GlobalKeyboard.GetPress("M"))
+            {
+                currentFrame += 1;
+                if (currentFrame > totalFrames - 1)
+                {
+                    frames.Add(new Frame());
+                    totalFrames += 1;
+                }
+            }
+
+            if (GlobalParameters.GlobalKeyboard.GetPress("N"))
+            {
+                if (currentFrame > 0)
+                {
+                    currentFrame -= 1;
+                }
+            }
             if (GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
@@ -45,26 +60,26 @@ namespace FrameByFrame.src.Engine.Scenes
                 Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => GlobalParameters.CurrentColor);
                 BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
 
-                if (selectedLayer == "_layer1") _layer1.Add(point);
-                if (selectedLayer == "_layer2") _layer2.Add(point);
-                if (selectedLayer == "_layer3") _layer3.Add(point);
+                if (selectedLayer == "_layer1") frames[currentFrame]._layer1.Add(point);
+                if (selectedLayer == "_layer2") frames[currentFrame]._layer2.Add(point);
+                if (selectedLayer == "_layer3") frames[currentFrame]._layer3.Add(point);
             }
             base.Update();
         }
 
         public override void Draw(Vector2 offset)
         {
-            foreach (BasicTexture point in _layer3)
+            foreach (BasicTexture point in frames[currentFrame]._layer3)
             {
                 point.Draw(new Vector2(5, 25));
             }
 
-            foreach (BasicTexture point in _layer2)
+            foreach (BasicTexture point in frames[currentFrame]._layer2)
             {
                 point.Draw(new Vector2(5, 25));
             }
 
-            foreach (BasicTexture point in _layer1)
+            foreach (BasicTexture point in frames[currentFrame]._layer1)
             {
                 point.Draw(new Vector2(5, 25));
             }

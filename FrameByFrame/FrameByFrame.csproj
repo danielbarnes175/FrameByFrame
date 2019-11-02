@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="src\Engine\Animation\Frame.cs" />
     <Compile Include="src\Engine\BasicTexture.cs" />
     <Compile Include="src\Engine\Input\KeyboardController.cs" />
     <Compile Include="src\Engine\Input\Keyboard\KeyboardKeys.cs" />
