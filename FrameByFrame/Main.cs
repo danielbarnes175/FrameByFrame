@@ -58,6 +58,8 @@ namespace FrameByFrame
             GlobalParameters.GlobalKeyboard = new KeyboardController();
             GlobalParameters.GlobalMouse = new MouseController();
 
+            GlobalParameters.CurrentColor = Color.Black;
+
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
 

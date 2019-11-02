@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Input;
 using FrameByFrame.src.Engine.Scenes;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -24,5 +25,7 @@ namespace FrameByFrame.src
 
         public static Dictionary<string, BaseScene> Scenes;
         public static BaseScene CurrentScene;
+
+        public static Color CurrentColor;
     }
 }
