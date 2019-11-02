@@ -48,6 +48,8 @@
     <Compile Include="src\Engine\Input\KeyboardController.cs" />
     <Compile Include="src\Engine\Input\Keyboard\KeyboardKeys.cs" />
     <Compile Include="src\Engine\Input\MouseController.cs" />
+    <Compile Include="src\Engine\Scenes\BaseScene.cs" />
+    <Compile Include="src\Engine\Scenes\DrawingScene.cs" />
     <Compile Include="src\GlobalParameters.cs" />
   </ItemGroup>
   <ItemGroup>

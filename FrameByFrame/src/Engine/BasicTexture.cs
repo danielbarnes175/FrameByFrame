@@ -22,6 +22,14 @@ namespace FrameByFrame.src.Engine
             texture = GlobalParameters.GlobalContent.Load<Texture2D>(PATH);
         }
 
+        public BasicTexture(Texture2D texture, Vector2 POS, Vector2 dimensions)
+        {
+            position = POS;
+            this.dimensions = dimensions;
+
+            this.texture = texture;
+        }
+
         public virtual void Update()
         {
 

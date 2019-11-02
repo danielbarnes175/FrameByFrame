@@ -17,6 +17,7 @@ namespace FrameByFrame.src
 
         public static ContentManager GlobalContent;
         public static SpriteBatch GlobalSpriteBatch;
+        public static GraphicsDevice GlobalGraphics;
         public static MouseController GlobalMouse;
         public static KeyboardController GlobalKeyboard;
     }

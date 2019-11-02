@@ -2,6 +2,7 @@
 using FrameByFrame.src;
 using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Input;
+using FrameByFrame.src.Engine.Scenes;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -17,6 +18,7 @@ namespace FrameByFrame
         SpriteBatch spriteBatch;
 
         BasicTexture cursor;
+        private BaseScene CurrentScene;
 
         public Main()
         {
@@ -42,6 +44,7 @@ namespace FrameByFrame
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
 
+            CurrentScene = new DrawingScene();
             graphics.ApplyChanges();
             base.Initialize();
         }
@@ -54,7 +57,7 @@ namespace FrameByFrame
         {
             GlobalParameters.GlobalContent = this.Content;
             GlobalParameters.GlobalSpriteBatch = new SpriteBatch(GraphicsDevice);
-
+            GlobalParameters.GlobalGraphics = graphics.GraphicsDevice;
             GlobalParameters.GlobalKeyboard = new KeyboardController();
             GlobalParameters.GlobalMouse = new MouseController();
 
@@ -89,6 +92,8 @@ namespace FrameByFrame
             GlobalParameters.GlobalMouse.UpdateOld();
             GlobalParameters.GlobalKeyboard.UpdateOld();
 
+            CurrentScene.Update();
+
             base.Update(gameTime);
         }
 
@@ -101,6 +106,7 @@ namespace FrameByFrame
             GraphicsDevice.Clear(Color.White);
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
 
+            CurrentScene.Draw(Vector2.Zero);
             cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X, GlobalParameters.GlobalMouse.newMousePos.Y), new Vector2(0, 0));
 
             GlobalParameters.GlobalSpriteBatch.End();
