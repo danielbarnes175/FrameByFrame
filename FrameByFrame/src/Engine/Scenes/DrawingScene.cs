@@ -13,12 +13,14 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         public static string selectedLayer;
 
+        private BasicTexture _sideMenu;
         private List<Frame> frames;
         private int currentFrame;
         private int totalFrames;
 
         private bool isPlaying;
         private int timePlaying;
+        public static int fps;
 
         public DrawingScene()
         {
@@ -29,15 +31,20 @@ namespace FrameByFrame.src.Engine.Scenes
             totalFrames = 1;
             isPlaying = false;
             timePlaying = 0;
+            fps = 4;
         }
 
         public override void LoadContent()
         {
-
+            Texture2D textureMenu = CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange);
+            Vector2 menuDimensions = new Vector2(400, 800);
+            _sideMenu = new BasicTexture(textureMenu, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 2), menuDimensions);
         }
 
         public override void Update(GameTime gameTime)
         {
+            if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
+                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
             {
                 isPlaying = !isPlaying;
@@ -76,6 +83,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
+                if (pointPosition.X >= GlobalParameters.screenWidth - 437) return;
                 Vector2 pointDimensions = new Vector2(15, 15);
 
                 Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => GlobalParameters.CurrentColor);
@@ -90,6 +98,12 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
+            if (!isPlaying)
+            {
+                DrawOnionSkin();
+            }
+
+            _sideMenu.Draw(offset);
             foreach (BasicTexture point in frames[currentFrame]._layer3)
             {
                 point.Draw(new Vector2(5, 25));
@@ -109,7 +123,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void Animate(GameTime gameTime)
         {
-            if (timePlaying % 3 != 0) return;
+            if (timePlaying % fps != 0) return;
             currentFrame += 1;
             if (currentFrame > totalFrames-1)
                 currentFrame = 0;
@@ -132,6 +146,42 @@ namespace FrameByFrame.src.Engine.Scenes
             texture.SetData(data);
 
             return texture;
+        }
+
+        public void DrawOnionSkin()
+        {
+            if (currentFrame - 3 >= 0)
+            {
+                DrawLayersWithOpacity(currentFrame - 3, 0.1f);
+            }
+
+            if (currentFrame - 2 >= 0)
+            {
+                DrawLayersWithOpacity(currentFrame - 2, 0.15f);
+            }
+
+            if (currentFrame - 1 >= 0)
+            {
+                DrawLayersWithOpacity(currentFrame - 1, 0.25f);
+            }
+        }
+
+        private void DrawLayersWithOpacity(int frame, float opacity)
+        {
+            foreach (BasicTexture point in frames[frame]._layer3)
+            {
+                point.Draw(new Vector2(5, 25), opacity);
+            }
+
+            foreach (BasicTexture point in frames[frame]._layer2)
+            {
+                point.Draw(new Vector2(5, 25), opacity);
+            }
+
+            foreach (BasicTexture point in frames[frame]._layer1)
+            {
+                point.Draw(new Vector2(5, 25), opacity);
+            }
         }
     }
 }

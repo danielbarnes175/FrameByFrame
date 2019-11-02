@@ -87,6 +87,8 @@ namespace FrameByFrame.src.Engine.Input
                     return Keys.S;
                 case "W":
                     return Keys.W;
+                case "ESC":
+                    return Keys.Escape;
             }
 
             return Keys.Sleep;

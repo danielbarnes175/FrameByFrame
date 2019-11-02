@@ -78,8 +78,6 @@ namespace FrameByFrame
 
         protected override void Update(GameTime gameTime)
         {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
             GlobalParameters.GlobalMouse.Update();
             GlobalParameters.GlobalKeyboard.Update();
 
