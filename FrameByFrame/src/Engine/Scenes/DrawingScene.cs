@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Animation;
+using ImageMagick;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -230,10 +231,13 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             for (int i = 0; i < frames.Count; i++)
             {
-                RenderTarget2D texture = combineTextures(frames[currentFrame]);
-                System.IO.Directory.CreateDirectory("Project/" + projectName);
+                RenderTarget2D texture = combineTextures(frames[i]);
+                System.IO.Directory.CreateDirectory("Projects/" + projectName);
                 SaveTextureAsPng("Projects/" + projectName + "/Frame_" + i + ".png", texture);
             }
+
+            CreateGif("Projects/" + projectName + "/" + projectName + ".gif");
+            Console.WriteLine("Saved Texture as PNG to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
         }
 
         private void SaveTextureAsPng(string filename, RenderTarget2D texture)
@@ -242,7 +246,21 @@ namespace FrameByFrame.src.Engine.Scenes
             StreamWriter writer = new StreamWriter(setStream);
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
             setStream.Dispose();
-            Console.WriteLine("Saved Texture as PNG to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
+            
+        }
+
+        private void CreateGif(string filename)
+        {
+            using (MagickImageCollection collection = new MagickImageCollection())
+            {
+                for (int i = 0; i < frames.Count; i++)
+                {
+                    collection.Add("Projects/" + projectName + "/Frame_" + i + ".png");
+                    collection[0].AnimationDelay = 8;
+                }
+
+                collection.Write(filename);
+            }
         }
     }
 }

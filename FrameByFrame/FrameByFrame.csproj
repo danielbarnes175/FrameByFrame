@@ -57,10 +57,14 @@
     <Compile Include="src\GlobalParameters.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Magick.NET-Q16-AnyCPU, Version=7.14.5.0, Culture=neutral, PublicKeyToken=2004825badfa91ec, processorArchitecture=MSIL">
+      <HintPath>..\packages\Magick.NET-Q16-AnyCPU.7.14.5\lib\net40\Magick.NET-Q16-AnyCPU.dll</HintPath>
+    </Reference>
     <Reference Include="MonoGame.Framework">
       <HintPath>$(MonoGameInstallDirectory)\MonoGame\v3.0\Assemblies\DesktopGL\MonoGame.Framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
@@ -141,6 +145,7 @@
     <Content Include="Content\Static\SettingsScene\button_export.xnb">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Content\Dynamic\" />
