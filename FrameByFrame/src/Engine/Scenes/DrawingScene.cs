@@ -38,7 +38,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
-            if (GlobalParameters.GlobalKeyboard.GetPress("P"))
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
             {
                 isPlaying = !isPlaying;
                 timePlaying = 0;
@@ -52,12 +52,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
             if (isPlaying)
             {
-                Console.WriteLine(timePlaying);
                 timePlaying += 1;
                 Animate(gameTime);
                 return;
             }
-            if (GlobalParameters.GlobalKeyboard.GetPress("M"))
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("M"))
             {
                 currentFrame += 1;
                 if (currentFrame > totalFrames - 1)
@@ -67,7 +66,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 }
             }
 
-            if (GlobalParameters.GlobalKeyboard.GetPress("N"))
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("N"))
             {
                 if (currentFrame > 0)
                 {

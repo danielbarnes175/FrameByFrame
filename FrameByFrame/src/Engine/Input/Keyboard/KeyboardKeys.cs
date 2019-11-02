@@ -24,7 +24,6 @@ namespace FrameByFrame.src.Engine.Input.Keyboard
 
         }
 
-
         public void MakePrint(string KEY)
         {
             display = KEY;

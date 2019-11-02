@@ -17,8 +17,7 @@ namespace FrameByFrame.src.Engine.Input
 {
     public class KeyboardController
     {
-        public KeyboardState newKeyboard, oldKeyboard;
-        public List<KeyboardKeys> pressedKeys = new List<KeyboardKeys>(), previousPressedKeys = new List<KeyboardKeys>();
+        private KeyboardState _currentKeyboard, _previousKeyboard;
 
         public KeyboardController()
         {
@@ -27,49 +26,70 @@ namespace FrameByFrame.src.Engine.Input
 
         public virtual void Update()
         {
-            newKeyboard = Microsoft.Xna.Framework.Input.Keyboard.GetState();
-
-            GetPressedKeys();
-
+            _previousKeyboard = _currentKeyboard;
+            _currentKeyboard = Microsoft.Xna.Framework.Input.Keyboard.GetState();
         }
 
         public void UpdateOld()
         {
-            oldKeyboard = newKeyboard;
-
-            previousPressedKeys = new List<KeyboardKeys>();
-            for (int i = 0; i < pressedKeys.Count; i++)
-            {
-                previousPressedKeys.Add(pressedKeys[i]);
-            }
+            
         }
 
         public bool GetPress(string KEY)
         {
+            Keys key = GetKeyFromString(KEY);
+            return IsKeyHeldDown(key);
+        }
 
-            for (int i = 0; i < pressedKeys.Count; i++)
+        public bool GetPressSingle(string KEY)
+        {
+            Keys key = GetKeyFromString(KEY);
+            return OnKeyPress(key);
+        }
+
+        public bool OnKeyPress(Keys key)
+        {
+            if (_currentKeyboard.IsKeyDown(key) &&
+                _previousKeyboard.IsKeyUp(key))
             {
-
-                if (pressedKeys[i].key == KEY)
-                {
-                    return true;
-                }
-
+                return true;
             }
 
-
             return false;
+        }
+        public bool IsKeyHeldDown(Keys key)
+        {
+            return _currentKeyboard.IsKeyDown(key);
         }
 
         public virtual void GetPressedKeys()
         {
-            pressedKeys.Clear();
-            for (int i = 0; i < newKeyboard.GetPressedKeys().Length; i++)
+            
+        }
+
+        public virtual Microsoft.Xna.Framework.Input.Keys GetKeyFromString(string KEY)
+        {
+            switch (KEY)
             {
-
-                pressedKeys.Add(new KeyboardKeys(newKeyboard.GetPressedKeys()[i].ToString(), 1));
-
+                case "A":
+                    break;
+                case "B":
+                    break;
+                case "C":
+                    break;
+                case "M":
+                    return Keys.M;
+                case "N":
+                    return Keys.N;
+                case "P":
+                    return Keys.P;
+                case "S":
+                    return Keys.S;
+                case "W":
+                    return Keys.W;
             }
+
+            return Keys.Sleep;
         }
     }
 }

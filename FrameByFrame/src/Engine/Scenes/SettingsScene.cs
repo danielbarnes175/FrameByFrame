@@ -113,7 +113,6 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
-            Console.WriteLine(clickPosition.X + " " + clickPosition.Y);
             if (clickPosition.X > 1070 && clickPosition.X < 1220 && clickPosition.Y > 50 && clickPosition.Y < 100)
             {
                 DrawingScene.selectedLayer = "_layer1";
