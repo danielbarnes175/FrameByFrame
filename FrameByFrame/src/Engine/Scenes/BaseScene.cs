@@ -9,24 +9,12 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class BaseScene
     {
-        public BaseScene()
-        {
+        public BaseScene() { }
 
-        }
+        public virtual void LoadContent() { }
 
-        public virtual void LoadContent()
-        {
+        public virtual void Update(GameTime gameTime) { }
 
-        }
-
-        public virtual void Update()
-        {
-
-        }
-
-        public virtual void Draw(Vector2 offset)
-        {
-
-        }
+        public virtual void Draw(Vector2 offset) { }
     }
 }

@@ -29,7 +29,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _logo = new BasicTexture("Static\\MenuScene/logo", new Vector2(0, 0), new Vector2(400, 400));
         }
 
-        public override void Update()
+        public override void Update(GameTime gameTime)
         {
             if (GlobalParameters.GlobalMouse.LeftClickHold())
             {
@@ -51,7 +51,7 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
             }
-            base.Update();
+            base.Update(gameTime);
         }
 
         public override void Draw(Vector2 offset)

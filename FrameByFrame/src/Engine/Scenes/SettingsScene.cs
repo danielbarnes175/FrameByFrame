@@ -47,7 +47,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _colors.Add(new BasicTexture(textureYellow, new Vector2(170, 90), pointDimensions));
         }
 
-        public override void Update()
+        public override void Update(GameTime gameTime)
         {
             if (GlobalParameters.GlobalKeyboard.GetPress("S"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
@@ -55,7 +55,7 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 CheckSelection();
             }
-            base.Update();
+            base.Update(gameTime);
         }
 
         public override void Draw(Vector2 offset)

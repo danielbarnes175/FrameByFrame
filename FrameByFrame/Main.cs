@@ -28,7 +28,7 @@ namespace FrameByFrame
             this.IsFixedTimeStep = true;
             //this.TargetElapsedTime = TimeSpan.FromSeconds(1.0f / 100.0f);
             this.graphics.SynchronizeWithVerticalRetrace = true;
-            this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 8);
+            this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 16);
         }
 
         protected override void Initialize()
@@ -80,14 +80,13 @@ namespace FrameByFrame
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
-
             GlobalParameters.GlobalMouse.Update();
             GlobalParameters.GlobalKeyboard.Update();
 
             GlobalParameters.GlobalMouse.UpdateOld();
             GlobalParameters.GlobalKeyboard.UpdateOld();
 
-            GlobalParameters.CurrentScene.Update();
+            GlobalParameters.CurrentScene.Update(gameTime);
 
             base.Update(gameTime);
         }

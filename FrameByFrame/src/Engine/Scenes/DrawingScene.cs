@@ -17,6 +17,9 @@ namespace FrameByFrame.src.Engine.Scenes
         private int currentFrame;
         private int totalFrames;
 
+        private bool isPlaying;
+        private int timePlaying;
+
         public DrawingScene()
         {
             selectedLayer = "_layer1";
@@ -24,6 +27,8 @@ namespace FrameByFrame.src.Engine.Scenes
             frames.Add(new Frame());
             currentFrame = 0;
             totalFrames = 1;
+            isPlaying = false;
+            timePlaying = 0;
         }
 
         public override void LoadContent()
@@ -31,10 +36,27 @@ namespace FrameByFrame.src.Engine.Scenes
 
         }
 
-        public override void Update()
+        public override void Update(GameTime gameTime)
         {
+            if (GlobalParameters.GlobalKeyboard.GetPress("P"))
+            {
+                isPlaying = !isPlaying;
+                timePlaying = 0;
+            }
+
             if (GlobalParameters.GlobalKeyboard.GetPress("W"))
+            {
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Settings Scene"];
+                isPlaying = false;
+            }
+
+            if (isPlaying)
+            {
+                Console.WriteLine(timePlaying);
+                timePlaying += 1;
+                Animate(gameTime);
+                return;
+            }
             if (GlobalParameters.GlobalKeyboard.GetPress("M"))
             {
                 currentFrame += 1;
@@ -64,7 +86,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 if (selectedLayer == "_layer2") frames[currentFrame]._layer2.Add(point);
                 if (selectedLayer == "_layer3") frames[currentFrame]._layer3.Add(point);
             }
-            base.Update();
+            base.Update(gameTime);
         }
 
         public override void Draw(Vector2 offset)
@@ -84,6 +106,14 @@ namespace FrameByFrame.src.Engine.Scenes
                 point.Draw(new Vector2(5, 25));
             }
             base.Draw(offset);
+        }
+
+        public void Animate(GameTime gameTime)
+        {
+            if (timePlaying % 3 != 0) return;
+            currentFrame += 1;
+            if (currentFrame > totalFrames-1)
+                currentFrame = 0;
         }
 
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint)
