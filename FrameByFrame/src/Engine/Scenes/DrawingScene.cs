@@ -190,17 +190,17 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (currentFrame - 3 >= 0)
             {
-                DrawLayersWithOpacity(currentFrame - 3, 0.1f);
+                DrawLayersWithOpacity(currentFrame - 3, 0.01f);
             }
 
             if (currentFrame - 2 >= 0)
             {
-                DrawLayersWithOpacity(currentFrame - 2, 0.15f);
+                DrawLayersWithOpacity(currentFrame - 2, 0.05f);
             }
 
             if (currentFrame - 1 >= 0)
             {
-                DrawLayersWithOpacity(currentFrame - 1, 0.25f);
+                DrawLayersWithOpacity(currentFrame - 1, 0.1f);
             }
         }
 
@@ -262,7 +262,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }
 
             CreateGif("Projects/" + projectName + "/" + projectName + ".gif");
-            Console.WriteLine("Saved Texture as PNG to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
+            Console.WriteLine("Exported Animation as GIF to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
         }
 
         private void SaveTextureAsPng(string filename, RenderTarget2D texture)
