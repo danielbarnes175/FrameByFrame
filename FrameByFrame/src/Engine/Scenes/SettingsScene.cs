@@ -18,9 +18,11 @@ namespace FrameByFrame.src.Engine.Scenes
         private BasicTexture _onion;
         private BasicTexture _backArrow;
         private BasicTexture _toggleSizeButton;
+        private bool isExporting;
 
         public SettingsScene()
         {
+            isExporting = false;
             _textures = new List<BasicTexture>();
             _colors = new List<BasicTexture>();
             _layerButtons = new List<BasicTexture>();
@@ -59,6 +61,12 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
+            if (isExporting)
+            {
+                DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
+                scene.ExportAnimation();
+                isExporting = false;
+            }
             if (GlobalParameters.GlobalKeyboard.GetPress("S"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
             if (GlobalParameters.GlobalMouse.LeftClickHold())
@@ -114,7 +122,12 @@ namespace FrameByFrame.src.Engine.Scenes
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor.ToString(), new Vector2(230, 90), Color.Black);
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + DrawingScene.selectedLayer, new Vector2(1100, 150), Color.Black);
-           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
+           
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
+            if (isExporting)
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Exporting Animation...", new Vector2(GlobalParameters.screenWidth - 200, GlobalParameters.screenHeight - 90), Color.Black);
+            }
             base.Draw(offset);
         }
 
@@ -180,8 +193,7 @@ namespace FrameByFrame.src.Engine.Scenes
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
             {
-                DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-                scene.ExportAnimation();
+                isExporting = true;
             }
             else if (clickPosition.X > 55 && clickPosition.X < 130 && clickPosition.Y > 760 && clickPosition.Y < 835)
             {
