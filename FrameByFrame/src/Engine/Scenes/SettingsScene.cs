@@ -13,7 +13,6 @@ namespace FrameByFrame.src.Engine.Scenes
         private List<BasicTexture> _textures;
         private List<BasicTexture> _colors;
         private List<BasicTexture> _layerButtons;
-        private BasicTexture _colorOutline;
         private BasicTexture _paintBrush;
         private BasicTexture _exportButton;
         private BasicTexture _onion;

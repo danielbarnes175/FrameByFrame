@@ -66,8 +66,30 @@ namespace FrameByFrame.src.Engine.Scenes
                 RenderTarget2D texture = combineTextures(frames[currentFrame]);
                 SaveTextureAsPng("drawing" + currentFrame + ".png", texture);
             }
+
             if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
+            {
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
+
+                // Reset all values again, basically calling the constructor as if it were new.'
+                selectedLayer = "_layer1";
+                frames = new List<Frame>();
+                frames.Add(new Frame());
+                currentFrame = 0;
+                totalFrames = 1;
+                isPlaying = false;
+                timePlaying = 0;
+                fps = 4;
+                loadedScene = false;
+                brushSize = 15;
+
+                isOnionSkinLoaded = true;
+                Random random = new Random();
+                const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                projectName = new string(Enumerable.Repeat(chars, 8)
+                    .Select(s => s[random.Next(s.Length)]).ToArray());
+            }
+
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
             {
                 isPlaying = !isPlaying;
@@ -183,7 +205,7 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"W\" - Open Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 120 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"S\" - Close Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 140 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"O\" - Toggle Onion Skin", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 160 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 180 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu WITHOUT Saving", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 180 - 150), Color.Black);
             base.Draw(offset);
         }
 
@@ -289,7 +311,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 SaveTextureAsPng("Projects/" + projectName + "/Frame_" + i + ".png", texture);
             }
 
-            CreateGif("Projects/" + projectName + "/" + projectName + ".gif");
+            CreateGif("Projects/" + projectName + "/_" + projectName + ".gif");
             Console.WriteLine("Exported Animation as GIF to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
         }
 
