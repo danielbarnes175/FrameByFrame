@@ -26,6 +26,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public string projectName;
         public bool loadedScene;
         public bool isOnionSkinLoaded;
+        public int brushSize;
 
         public DrawingScene()
         {
@@ -38,6 +39,7 @@ namespace FrameByFrame.src.Engine.Scenes
             timePlaying = 0;
             fps = 4;
             loadedScene = false;
+            brushSize = 15;
 
             isOnionSkinLoaded = true;
             Random random = new Random();
@@ -109,9 +111,9 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
                 if (pointPosition.X >= GlobalParameters.screenWidth - 437) return;
-                Vector2 pointDimensions = new Vector2(15, 15);
+                Vector2 pointDimensions = new Vector2(brushSize, brushSize);
 
-                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, 15, 15, pixel => GlobalParameters.CurrentColor);
+                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor);
                 BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
 
                 if (selectedLayer == "_layer1") frames[currentFrame]._layer1.Add(point);

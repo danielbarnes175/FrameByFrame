@@ -82,7 +82,6 @@ namespace FrameByFrame
             GlobalParameters.GlobalMouse.Update();
             GlobalParameters.GlobalKeyboard.Update();
 
-            GlobalParameters.GlobalMouse.UpdateOld();
             GlobalParameters.GlobalKeyboard.UpdateOld();
 
             GlobalParameters.CurrentScene.Update(gameTime);
@@ -93,7 +92,7 @@ namespace FrameByFrame
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.White);
-            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
+            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.DepthRead, RasterizerState.CullCounterClockwise);
 
             GlobalParameters.CurrentScene.Draw(Vector2.Zero);
             cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X, GlobalParameters.GlobalMouse.newMousePos.Y), new Vector2(0, 0));

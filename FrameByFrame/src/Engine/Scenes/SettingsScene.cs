@@ -18,6 +18,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private BasicTexture _exportButton;
         private BasicTexture _onion;
         private BasicTexture _backArrow;
+        private BasicTexture _toggleSizeButton;
 
         public SettingsScene()
         {
@@ -54,6 +55,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             _onion = new BasicTexture("Static\\SettingsScene/Onion", new Vector2(210, 130), pointDimensions);
             _backArrow  = new BasicTexture("Static\\SettingsScene/Arrow_point-left", new Vector2(100, GlobalParameters.screenHeight - 75), new Vector2(96, 96));
+            _toggleSizeButton = new BasicTexture("Static\\SettingsScene/button_change-size", new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight - 30), new Vector2(120, 24)); 
         }
 
         public override void Update(GameTime gameTime)
@@ -64,6 +66,26 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 CheckSelection();
             }
+
+            if (GlobalParameters.GlobalMouse.LeftClick())
+            {
+                Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
+                if (clickPosition.X > 195 && clickPosition.X < 215 && clickPosition.Y > 90 && clickPosition.Y < 120)
+                {
+                    DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
+                    scene.isOnionSkinLoaded = !(scene.isOnionSkinLoaded);
+                }
+                else if (clickPosition.X > 734 && clickPosition.X < 794 && clickPosition.Y > 830 && clickPosition.Y < 855)
+                {
+                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize -= 1;
+                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize <= 0) ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize = 1;
+                }
+                else if (clickPosition.X > 794 && clickPosition.X < 853 && clickPosition.Y > 830 && clickPosition.Y < 855)
+                {
+                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize += 1;
+                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize >= 30) ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize = 30;
+                }
+            }
             base.Update(gameTime);
         }
 
@@ -72,6 +94,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _exportButton.Draw(offset);
             _onion.Draw(offset);
             _backArrow.Draw(offset);
+            _toggleSizeButton.Draw(offset);
            foreach (BasicTexture texture in _textures)
            {
                texture.Draw(offset);
@@ -92,6 +115,7 @@ namespace FrameByFrame.src.Engine.Scenes
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor.ToString(), new Vector2(230, 90), Color.Black);
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + DrawingScene.selectedLayer, new Vector2(1100, 150), Color.Black);
+           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
             base.Draw(offset);
         }
 
@@ -155,16 +179,10 @@ namespace FrameByFrame.src.Engine.Scenes
             
             if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
-            Console.WriteLine(clickPosition.X + " " + clickPosition.Y);
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
             {
                 DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
                 scene.ExportAnimation();
-            }
-            else if (clickPosition.X > 195 && clickPosition.X < 215 && clickPosition.Y > 90 && clickPosition.Y < 120)
-            {
-                DrawingScene scene = (DrawingScene) GlobalParameters.Scenes["Drawing Scene"];
-                scene.isOnionSkinLoaded = !(scene.isOnionSkinLoaded);
             }
             else if (clickPosition.X > 55 && clickPosition.X < 130 && clickPosition.Y > 760 && clickPosition.Y < 835)
             {
