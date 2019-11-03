@@ -42,7 +42,7 @@ namespace FrameByFrame.src.Engine.Scenes
             arrowLeft.rotation = -1.571f;
             _textures.Add(arrowRight);
             _textures.Add(arrowLeft);
-
+            _textures.Add(new BasicTexture("Static\\ProjectsScene/button_view-project-directory", new Vector2(GlobalParameters.screenWidth - 200, GlobalParameters.screenHeight - 30), new Vector2(372, 50)));
             LoadAnimations();
         }
 
@@ -91,6 +91,23 @@ namespace FrameByFrame.src.Engine.Scenes
                     previewFrame = 0;
                     timePlaying = 0;
                 }
+                else if (pointPosition.X > 1208 && pointPosition.X < 1580 && pointPosition.Y > 820 && pointPosition.Y < 866)
+                {
+                    string path = Directory.GetCurrentDirectory() + "/" + "Projects" + Path.DirectorySeparatorChar;
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
+                        {
+                            FileName = path,
+                            UseShellExecute = true,
+                            Verb = "open"
+                        });
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                }
             }
 
             timePlaying += 1;
@@ -111,7 +128,8 @@ namespace FrameByFrame.src.Engine.Scenes
            {
                texture.Draw(offset);
            }
-           base.Draw(offset);
+           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Current Project Shown: " + projects[currentPreview].Substring(9), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+            base.Draw(offset);
         }
 
         public void LoadProjects()
