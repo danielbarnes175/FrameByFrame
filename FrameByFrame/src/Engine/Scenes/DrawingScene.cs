@@ -24,7 +24,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private int timePlaying;
         public static int fps;
         public string projectName;
-        private bool loadedScene;
+        public bool loadedScene;
         public bool isOnionSkinLoaded;
 
         public DrawingScene()
@@ -84,6 +84,10 @@ namespace FrameByFrame.src.Engine.Scenes
                 Animate(gameTime);
                 return;
             }
+
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
+                isOnionSkinLoaded = !isOnionSkinLoaded;
+
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("M"))
             {
                 currentFrame += 1;
@@ -126,9 +130,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }
 
             _sideMenu.Draw(offset);
-            if (loadedScene)
-            {
-                foreach (BasicTexture point in frames[currentFrame]._layer3)
+            foreach (BasicTexture point in frames[currentFrame]._layer3)
                 {
                     point.Draw(new Vector2(5, 25));
                 }
@@ -142,9 +144,16 @@ namespace FrameByFrame.src.Engine.Scenes
                 {
                     point.Draw(new Vector2(5, 25));
                 }
-            }
 
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"M\" - Next Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 40 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"N\" - Previous Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 60 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"P\" - Play/Pause Animation", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 80 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"W\" - Open Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 100 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"S\" - Close Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 120 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"O\" - Toggle Onion Skin", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 140 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 160 - 150), Color.Black);
             base.Draw(offset);
         }
 
