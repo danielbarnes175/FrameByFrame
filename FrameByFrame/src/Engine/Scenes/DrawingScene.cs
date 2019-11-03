@@ -90,6 +90,11 @@ namespace FrameByFrame.src.Engine.Scenes
                     .Select(s => s[random.Next(s.Length)]).ToArray());
             }
 
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
+            {
+                deleteFrame(frames, currentFrame);
+            }
+
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
             {
                 isPlaying = !isPlaying;
@@ -107,6 +112,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 timePlaying += 1;
                 Animate(gameTime);
                 return;
+            }
+
+            if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
+            {
+                if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new List<BasicTexture>();
+                if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new List<BasicTexture>();
+                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new List<BasicTexture>();
             }
 
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
@@ -151,27 +163,6 @@ namespace FrameByFrame.src.Engine.Scenes
             base.Update(gameTime);
         }
 
-        private List<Frame> InsertFrame(List<Frame> givenFrames, int givenCurrentFrame)
-        {
-            List<Frame> newFrames = new List<Frame>();
-
-            for (int i = 0; i < givenFrames.Count; i++)
-            {
-                if (i == givenCurrentFrame)
-                {
-                    newFrames.Add(new Frame());
-                    newFrames.Add(givenFrames[i]);
-                }
-                else
-                {
-                    newFrames.Add(givenFrames[i]);
-                }
-                
-            }
-
-            return newFrames;
-        }
-
         public override void Draw(Vector2 offset)
         {
             
@@ -182,30 +173,32 @@ namespace FrameByFrame.src.Engine.Scenes
 
             _sideMenu.Draw(offset);
             foreach (BasicTexture point in frames[currentFrame]._layer3)
-                {
-                    point.Draw(new Vector2(5, 25));
-                }
+            {
+                point.Draw(new Vector2(5, 25));
+            }
 
-                foreach (BasicTexture point in frames[currentFrame]._layer2)
-                {
-                    point.Draw(new Vector2(5, 25));
-                }
+            foreach (BasicTexture point in frames[currentFrame]._layer2)
+            {
+                point.Draw(new Vector2(5, 25));
+            }
 
-                foreach (BasicTexture point in frames[currentFrame]._layer1)
-                {
-                    point.Draw(new Vector2(5, 25));
-                }
+            foreach (BasicTexture point in frames[currentFrame]._layer1)
+            {
+                point.Draw(new Vector2(5, 25));
+            }
 
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"M\" - Next Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 40 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"N\" - Previous Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 60 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"B\" - Insert Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 80 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"B\" - Insert a New Frame Before the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 80 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"P\" - Play/Pause Animation", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 100 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"W\" - Open Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 120 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"S\" - Close Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 140 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"O\" - Toggle Onion Skin", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 160 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu WITHOUT Saving", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 180 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"DELETE\" - Delete the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 200 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"BACKSPACE\" - Delete the Current Layer", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 220 - 150), Color.Black);
             base.Draw(offset);
         }
 
@@ -234,6 +227,44 @@ namespace FrameByFrame.src.Engine.Scenes
             texture.SetData(data);
 
             return texture;
+        }
+
+        private void deleteFrame(List<Frame> givenFrames, int givenCurrentFrame)
+        {
+            if (totalFrames == 1) return;
+
+            List<Frame> newFrames = new List<Frame>();
+            for (int i = 0; i < frames.Count; i++)
+            {
+                if (i != givenCurrentFrame)
+                {
+                    newFrames.Add(givenFrames[i]);
+                }
+            }
+
+            frames = newFrames;
+            totalFrames = frames.Count;
+        }
+
+        private List<Frame> InsertFrame(List<Frame> givenFrames, int givenCurrentFrame)
+        {
+            List<Frame> newFrames = new List<Frame>();
+
+            for (int i = 0; i < givenFrames.Count; i++)
+            {
+                if (i == givenCurrentFrame)
+                {
+                    newFrames.Add(new Frame());
+                    newFrames.Add(givenFrames[i]);
+                }
+                else
+                {
+                    newFrames.Add(givenFrames[i]);
+                }
+
+            }
+
+            return newFrames;
         }
 
         public void DrawOnionSkin()

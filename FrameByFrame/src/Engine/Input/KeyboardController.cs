@@ -93,6 +93,10 @@ namespace FrameByFrame.src.Engine.Input
                     return Keys.W;
                 case "ESC":
                     return Keys.Escape;
+                case "DELETE":
+                    return Keys.Delete;
+                case "BACKSPACE":
+                    return Keys.Back;
             }
 
             return Keys.Sleep;

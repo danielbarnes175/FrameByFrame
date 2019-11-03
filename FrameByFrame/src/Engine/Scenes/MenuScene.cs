@@ -39,6 +39,7 @@ namespace FrameByFrame.src.Engine.Scenes
                                                                              && clickPosition.Y < GlobalParameters.screenHeight / 2)
                 {
                     GlobalParameters.CurrentScene = GlobalParameters.Scenes["Projects Scene"];
+                    ((ProjectsScene)GlobalParameters.Scenes["Projects Scene"]).LoadAnimations();
                 }
                 if (clickPosition.X > GlobalParameters.screenWidth / 2 + 15 && clickPosition.X < GlobalParameters.screenWidth / 2 + 300
                                                                              && clickPosition.Y > GlobalParameters.screenHeight / 2 - 54

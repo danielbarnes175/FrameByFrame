@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -25,12 +26,6 @@ namespace FrameByFrame.src.Engine.Scenes
             timePlaying = 0;
             fps = 4;
             _textures = new List<BasicTexture>();
-            animations = new List<Animation.Animation>();
-            LoadProjects();
-            for (int i = 0; i < projects.Count; i++)
-            {
-                Console.WriteLine(projects[i]);
-            }
 
             currentPreview = 0;
             previewFrame = 0;
@@ -48,23 +43,10 @@ namespace FrameByFrame.src.Engine.Scenes
             _textures.Add(arrowRight);
             _textures.Add(arrowLeft);
 
-            for (int i = 0; i < projects.Count; i++)
-            {
-                animations.Add(new Animation.Animation());
-                int frameCounter = 0;
-                while (true)
-                {
-                    Texture2D pngTexture = getTextureFromPng(projects[i], frameCounter);
-                    if (pngTexture == null) break;
-                    BasicTexture preview = new BasicTexture(pngTexture,
-                        new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
-                        new Vector2(300, 300));
-                    animations[i].Frames.Add(preview);
-                    frameCounter++;
-                }
-            }
+            LoadAnimations();
         }
 
+        [DebuggerNonUserCode]
         private Texture2D getTextureFromPng(string projectDirectoryName, int whichFrame)
         {
             FileStream setStream;
@@ -155,6 +137,27 @@ namespace FrameByFrame.src.Engine.Scenes
             texture.SetData(data);
 
             return texture;
+        }
+
+        public void LoadAnimations()
+        {
+            LoadProjects();
+            animations = new List<Animation.Animation>();
+            for (int i = 0; i < projects.Count; i++)
+            {
+                animations.Add(new Animation.Animation());
+                int frameCounter = 0;
+                while (true)
+                {
+                    Texture2D pngTexture = getTextureFromPng(projects[i], frameCounter);
+                    if (pngTexture == null) break;
+                    BasicTexture preview = new BasicTexture(pngTexture,
+                        new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
+                        new Vector2(300, 300));
+                    animations[i].Frames.Add(preview);
+                    frameCounter++;
+                }
+            }
         }
     }
 }
