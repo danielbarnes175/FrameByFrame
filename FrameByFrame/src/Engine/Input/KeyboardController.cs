@@ -74,7 +74,7 @@ namespace FrameByFrame.src.Engine.Input
                 case "A":
                     break;
                 case "B":
-                    break;
+                    return Keys.B;
                 case "C":
                     break;
                 case "M":
