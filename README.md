@@ -1,15 +1,19 @@
 # Frame by Frame
 
-A simple animation program for creating frame by frame animations. This project was started as part of SquirrelHacks in November 2019. I am hoping to expand upon it further than what I worked on at the hackathon.
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/danielbarnes175/FrameByFrame) ![GitHub All Releases](https://img.shields.io/github/downloads/danielbarnes175/FrameByFrame/total) ![GitHub repo size](https://img.shields.io/github/repo-size/danielbarnes175/FrameByFrame) 
+
+Frame by Frame is a simple animation program for creating frame by frame animations. Frame by Frame was started as a hackathon project for SquirrelHacks in November 2019. The long term vision for Frame by Frame is to have it be a fully featured animation program that is simpler and easier to use compared to standard industry programs. 
 
 ## Demo
 
 Here is a video showing off the project: https://youtu.be/1b9OknXMA1E
 
+This demo is based off of the initial project immediately after the hackathon in November 2019, so it may not reflect the project in its current state.
+
+## Contributing
+
+To contribute to Frame by Frame, please view our [Contributing Guidelines](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md)
+
 ## Contact
 
 For questions or concerns, feel free to reach out to me at danielbarnes175@gmail.com
-
-## Disclaimer
-
-Additionally, the code here is kind of awful. There were many moments during the hackathon where I was tired and I did not abstract my code nearly as much as I should have. There is a lot of code duplication, and classes with tons of code, making them a little hard to follow. Down the line I plan to do a complete refactor, but for the sake of showing off what I did in the hackathon, I will be keeping it for at least a little while.
