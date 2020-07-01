@@ -293,7 +293,7 @@ namespace FrameByFrame.src.Engine.Scenes
             // Set render target
             GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
             GlobalParameters.GlobalGraphics.Clear(Color.White);
-            // Render your tiles as usual, this is just an example
+
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
 
             foreach (BasicTexture texture in givenFrame._layer3)
@@ -326,7 +326,6 @@ namespace FrameByFrame.src.Engine.Scenes
             }
 
             CreateGif("Projects/" + projectName + "/_" + projectName + ".gif");
-            Console.WriteLine("Exported Animation as GIF to " + Directory.GetCurrentDirectory() + "Projects/" + projectName);
         }
 
         private void SaveTextureAsPng(string filename, RenderTarget2D texture)
@@ -335,7 +334,6 @@ namespace FrameByFrame.src.Engine.Scenes
             StreamWriter writer = new StreamWriter(setStream);
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
             setStream.Dispose();
-            
         }
 
         private void CreateGif(string filename)

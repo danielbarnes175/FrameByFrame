@@ -29,6 +29,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
             currentPreview = 0;
             previewFrame = 0;
+
+            if (!Directory.Exists("Projects"))
+            {
+                Directory.CreateDirectory("Projects");
+            }
         }
 
         public override void LoadContent()
@@ -47,18 +52,9 @@ namespace FrameByFrame.src.Engine.Scenes
         }
 
         [DebuggerNonUserCode]
-        private Texture2D getTextureFromPng(string projectDirectoryName, int whichFrame)
+        private Texture2D getTextureFromPng(string filename)
         {
-            FileStream setStream;
-            string Filename = projectDirectoryName + "/Frame_" + whichFrame + ".png";
-            try
-            {
-                setStream = File.Open(Filename, FileMode.Open);
-            }
-            catch (FileNotFoundException e) // If the file isn't found, then I've obviously gone through all my files. Don't question it.
-            {
-                return null;
-            }
+            FileStream setStream = File.Open(filename, FileMode.Open);
 
             Texture2D NewTexture = Texture2D.FromStream(GlobalParameters.GlobalGraphics, setStream);
             setStream.Dispose();
@@ -105,7 +101,7 @@ namespace FrameByFrame.src.Engine.Scenes
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
+                        //Console.WriteLine(e.Message);
                     }
                 }
             }
@@ -122,7 +118,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
 
         public override void Draw(Vector2 offset)
-        {
+        { 
             animations[currentPreview].Frames[previewFrame].Draw(offset);
            foreach (BasicTexture texture in _textures)
            {
@@ -167,14 +163,24 @@ namespace FrameByFrame.src.Engine.Scenes
                 int frameCounter = 0;
                 while (true)
                 {
-                    Texture2D pngTexture = getTextureFromPng(projects[i], frameCounter);
-                    if (pngTexture == null) break;
+                    string filename = projects[i] + "/Frame_" + frameCounter + ".png";
+                    if (!File.Exists(filename)) break;
+                    Texture2D pngTexture = getTextureFromPng(filename);
+
                     BasicTexture preview = new BasicTexture(pngTexture,
                         new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
                         new Vector2(300, 300));
                     animations[i].Frames.Add(preview);
                     frameCounter++;
                 }
+            }
+
+            if (animations.Count <= 0)
+            {
+                currentPreview = 0;
+                previewFrame = 0;
+                timePlaying = 0;
+                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
             }
         }
     }
