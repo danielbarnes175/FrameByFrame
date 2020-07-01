@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,10 +17,12 @@ namespace FrameByFrame.src.Engine.Scenes
         private BasicTexture _viewProjectsButtons;
         private BasicTexture _newProjectButton;
         private BasicTexture _logo;
+        private bool cannotLoadProjects;
 
         public MenuScene()
         {
             _textures = new List<BasicTexture>();
+            cannotLoadProjects = false;
         }
 
         public override void LoadContent()
@@ -38,8 +41,17 @@ namespace FrameByFrame.src.Engine.Scenes
                                                                              && clickPosition.Y > GlobalParameters.screenHeight / 2 - 54
                                                                              && clickPosition.Y < GlobalParameters.screenHeight / 2)
                 {
-                    GlobalParameters.CurrentScene = GlobalParameters.Scenes["Projects Scene"];
-                    ((ProjectsScene)GlobalParameters.Scenes["Projects Scene"]).LoadAnimations();
+                    var directories = Directory.GetDirectories("Projects/");
+                    if (directories.Length > 0)
+                    {
+                        cannotLoadProjects = false;
+                        GlobalParameters.CurrentScene = GlobalParameters.Scenes["Projects Scene"];
+                        ((ProjectsScene) GlobalParameters.Scenes["Projects Scene"]).LoadAnimations();
+                    }
+                    else
+                    {
+                        cannotLoadProjects = true;
+                    }
                 }
                 if (clickPosition.X > GlobalParameters.screenWidth / 2 + 15 && clickPosition.X < GlobalParameters.screenWidth / 2 + 300
                                                                              && clickPosition.Y > GlobalParameters.screenHeight / 2 - 54
@@ -64,6 +76,11 @@ namespace FrameByFrame.src.Engine.Scenes
            {
                texture.Draw(offset);
            }
+
+            if (cannotLoadProjects)
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "No projects found", new Vector2(GlobalParameters.screenWidth / 2 - 250, GlobalParameters.screenHeight / 2 + 40), Color.Black);
+            }
            base.Draw(offset);
         }
     }

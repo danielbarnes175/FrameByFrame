@@ -174,14 +174,6 @@ namespace FrameByFrame.src.Engine.Scenes
                     frameCounter++;
                 }
             }
-
-            if (animations.Count <= 0)
-            {
-                currentPreview = 0;
-                previewFrame = 0;
-                timePlaying = 0;
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
-            }
         }
     }
 }
