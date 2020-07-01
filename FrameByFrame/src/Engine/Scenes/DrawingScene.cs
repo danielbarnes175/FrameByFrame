@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Services;
 using ImageMagick;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -51,7 +52,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void LoadContent()
         {
-            Texture2D textureMenu = CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
+            Texture2D textureMenu = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
             Vector2 menuDimensions = new Vector2(400, 800);
             _sideMenu = new BasicTexture(textureMenu, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 2), menuDimensions);
         }
@@ -154,7 +155,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 if (pointPosition.X >= GlobalParameters.screenWidth - 437) return;
                 Vector2 pointDimensions = new Vector2(brushSize, brushSize);
 
-                Texture2D texture = CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
+                Texture2D texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
                 BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
 
                 if (selectedLayer == "_layer1") frames[currentFrame]._layer1.Add(point);
@@ -207,47 +208,8 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (timePlaying % fps != 0) return;
             currentFrame += 1;
-            if (currentFrame > totalFrames-1)
+            if (currentFrame > totalFrames - 1)
                 currentFrame = 0;
-        }
-
-        public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint, Shapes shape)
-        {
-            //initialize a texture
-            Texture2D texture = new Texture2D(device, width, height);
-
-            //the array holds the color for each pixel in the texture
-            Color[] data = new Color[width * height];
-            switch (shape)
-            {
-                case Shapes.CIRCLE:
-                    for (int i = 0; i<height; i++)
-                    {
-                        for (int j = 0; j<width; j++)
-                        {
-                            double distance = Math.Sqrt(Math.Pow(i - height / 2, 2) + Math.Pow(j - width / 2, 2));
-                            if (distance <= width / 2.0)
-                            {
-                                data[width * i + j] = paint(width* i + j);
-                            }
-                        }
-                    }
-                    break;
-                case Shapes.RECTANGLE:
-                    for (int pixel = 0; pixel<data.Count(); pixel++)
-                    {
-                        //the function applies the color according to the specified pixel
-                        data[pixel] = paint(pixel);
-                    }
-                    break;
-            }
-
-            
-
-            //set the color
-            texture.SetData(data);
-
-            return texture;
         }
 
         private void deleteFrame(List<Frame> givenFrames, int givenCurrentFrame)

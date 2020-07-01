@@ -55,6 +55,7 @@
     <Compile Include="src\Engine\Scenes\MenuScene.cs" />
     <Compile Include="src\Engine\Scenes\SettingsScene.cs" />
     <Compile Include="src\Engine\Scenes\DrawingScene.cs" />
+    <Compile Include="src\Engine\Services\DrawingService.cs" />
     <Compile Include="src\Engine\Shapes.cs" />
     <Compile Include="src\GlobalParameters.cs" />
   </ItemGroup>
