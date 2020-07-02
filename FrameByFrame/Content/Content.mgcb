@@ -169,7 +169,7 @@
 /processorParam:TextureFormat=Color
 /build:logo.png
 
-#begin Onion.jpg
+#begin Onion.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -179,7 +179,7 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Onion.jpg
+/build:Onion.png
 
 #begin pencil-cursor.png
 /importer:TextureImporter
