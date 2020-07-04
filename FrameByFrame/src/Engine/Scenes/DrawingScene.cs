@@ -32,9 +32,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public DrawingScene()
         {
-            selectedLayer = "_layer1";
-            frames = new List<Frame>();
-            frames.Add(new Frame());
+            
             currentFrame = 0;
             totalFrames = 1;
             isPlaying = false;
@@ -52,6 +50,10 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void LoadContent()
         {
+            selectedLayer = "_layer1";
+            frames = new List<Frame>();
+            frames.Add(new Frame());
+
             Texture2D textureMenu = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
             Vector2 menuDimensions = new Vector2(400, 800);
             _sideMenu = new BasicTexture(textureMenu, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 2), menuDimensions);
@@ -118,7 +120,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
             {
-                if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new List<BasicTexture>();
+               // if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new List<BasicTexture>();
                 if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new List<BasicTexture>();
                 if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new List<BasicTexture>();
             }
@@ -158,7 +160,15 @@ namespace FrameByFrame.src.Engine.Scenes
                 Texture2D texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
                 BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
 
-                if (selectedLayer == "_layer1") frames[currentFrame]._layer1.Add(point);
+                List<BasicTexture> newLayer = new List<BasicTexture>
+                {
+                    frames[currentFrame]._layer1,
+                    point
+                };
+                Texture2D newLayerTexture = combineTextures(newLayer);
+                frames[currentFrame]._layer1 = new BasicTexture(newLayerTexture, new Vector2(Frame.width / 2, Frame.height / 2), new Vector2(Frame.width, Frame.height));
+
+                //if (selectedLayer == "_layer1") frames[currentFrame]._layer1.EditTexture(point);
                 if (selectedLayer == "_layer2") frames[currentFrame]._layer2.Add(point);
                 if (selectedLayer == "_layer3") frames[currentFrame]._layer3.Add(point);
             }
@@ -167,7 +177,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
-            
+            GlobalParameters.GlobalGraphics.Clear(Color.Blue);
             if (!isPlaying && isOnionSkinLoaded)
             {
                 DrawOnionSkin();
@@ -184,10 +194,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 point.Draw(new Vector2(5, 25));
             }
 
+            /*
             foreach (BasicTexture point in frames[currentFrame]._layer1)
             {
                 point.Draw(new Vector2(5, 25));
             }
+            */
+            frames[currentFrame]._layer1.Draw(new Vector2(5 , 25));
 
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
@@ -280,12 +293,15 @@ namespace FrameByFrame.src.Engine.Scenes
                 point.Draw(new Vector2(5, 25), opacity);
             }
 
+            /*
             foreach (BasicTexture point in frames[frame]._layer1)
             {
                 point.Draw(new Vector2(5, 25), opacity);
             }
+            */
         }
 
+        // Combine multiple layers
         private RenderTarget2D combineTextures(Frame givenFrame)
         {
             RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth - 222, GlobalParameters.screenHeight);
@@ -304,10 +320,36 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 texture.Draw(Vector2.Zero);
             }
+            /*
             foreach (BasicTexture texture in givenFrame._layer1)
             {
                 texture.Draw(Vector2.Zero);
             }
+            */
+            GlobalParameters.GlobalSpriteBatch.End();
+
+            // Unset render target
+            GlobalParameters.GlobalGraphics.SetRenderTarget(null);
+
+            return renderTarget2D;
+        }
+
+        // combine new point for single layer
+        private RenderTarget2D combineTextures(List<BasicTexture> givenTextures)
+        {
+            RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, (int)givenTextures[0].dimensions.X, (int)givenTextures[0].dimensions.Y);
+
+            // Set render target
+            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
+            GlobalParameters.GlobalGraphics.Clear(Color.Blue);
+
+            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
+
+            foreach (BasicTexture texture in givenTextures)
+            {
+                texture.Draw(Vector2.Zero);
+            }
+
             GlobalParameters.GlobalSpriteBatch.End();
 
             // Unset render target

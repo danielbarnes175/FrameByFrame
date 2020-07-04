@@ -25,10 +25,15 @@ namespace FrameByFrame
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
 
-            this.IsFixedTimeStep = true;
-            //this.TargetElapsedTime = TimeSpan.FromSeconds(1.0f / 100.0f);
-            this.graphics.SynchronizeWithVerticalRetrace = true;
-            this.TargetElapsedTime = new System.TimeSpan(0, 0, 0, 0, 16);
+            // Max fps with refresh rate
+            this.IsFixedTimeStep = false;
+            this.graphics.SynchronizeWithVerticalRetrace = false;
+
+            // Try to get a certain fps
+//            int targetFPS = 300;
+//            this.graphics.SynchronizeWithVerticalRetrace = false; //Vsync
+//            this.IsFixedTimeStep = true;
+//            TargetElapsedTime = TimeSpan.FromMilliseconds(1000.0f / targetFPS);
         }
 
         protected override void Initialize()
