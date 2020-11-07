@@ -30,10 +30,10 @@ namespace FrameByFrame
             this.graphics.SynchronizeWithVerticalRetrace = false;
 
             // Try to get a certain fps
-//            int targetFPS = 300;
-//            this.graphics.SynchronizeWithVerticalRetrace = false; //Vsync
-//            this.IsFixedTimeStep = true;
-//            TargetElapsedTime = TimeSpan.FromMilliseconds(1000.0f / targetFPS);
+            /*int targetFPS = 60;
+            this.graphics.SynchronizeWithVerticalRetrace = false; //Vsync
+            this.IsFixedTimeStep = true;
+            TargetElapsedTime = TimeSpan.FromMilliseconds(1000.0f / targetFPS);*/
         }
 
         protected override void Initialize()

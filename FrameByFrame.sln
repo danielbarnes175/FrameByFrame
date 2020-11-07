@@ -1,28 +1,25 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
-VisualStudioVersion = 16.0.29306.81
+VisualStudioVersion = 16.0.30621.155
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrameByFrame", "FrameByFrame\FrameByFrame.csproj", "{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrameByFrame", "FrameByFrame\FrameByFrame.csproj", "{28DD5575-CA44-4D44-AB1B-546FB26C0EF3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-		ReleaseMac|Any CPU = ReleaseMac|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}.ReleaseMac|Any CPU.ActiveCfg = ReleaseMac|Any CPU
-		{91C6EE50-8104-4402-A0CF-1718CEDCB3E3}.ReleaseMac|Any CPU.Build.0 = ReleaseMac|Any CPU
+		{28DD5575-CA44-4D44-AB1B-546FB26C0EF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28DD5575-CA44-4D44-AB1B-546FB26C0EF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28DD5575-CA44-4D44-AB1B-546FB26C0EF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28DD5575-CA44-4D44-AB1B-546FB26C0EF3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {F7BD5876-4E13-4B0A-98EE-F80FCAB4F17F}
+		SolutionGuid = {953D451A-BF79-426B-BFF6-73DDB1548328}
 	EndGlobalSection
 EndGlobal
