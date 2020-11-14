@@ -48,7 +48,6 @@ namespace FrameByFrame.src.Engine
 
         public virtual void Draw(Vector2 OFFSET, float opacity)
         {
-            System.Diagnostics.Debug.WriteLine(opacity);
             if (texture != null)
             {
                 GlobalParameters.GlobalSpriteBatch.Draw(texture,

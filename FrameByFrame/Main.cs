@@ -26,14 +26,14 @@ namespace FrameByFrame
             Content.RootDirectory = "Content";
 
             // Max fps with refresh rate
-            this.IsFixedTimeStep = false;
-            this.graphics.SynchronizeWithVerticalRetrace = false;
+            // this.IsFixedTimeStep = false;
+            // this.graphics.SynchronizeWithVerticalRetrace = false;
 
             // Try to get a certain fps
-            /*int targetFPS = 60;
+            int targetFPS = 60;
             this.graphics.SynchronizeWithVerticalRetrace = false; //Vsync
             this.IsFixedTimeStep = true;
-            TargetElapsedTime = TimeSpan.FromMilliseconds(1000.0f / targetFPS);*/
+            TargetElapsedTime = TimeSpan.FromMilliseconds(1000.0f / targetFPS);
         }
 
         protected override void Initialize()

@@ -21,6 +21,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private List<Frame> frames;
         private int currentFrame;
         private int totalFrames;
+        private Texture2D drawToolTexture;
 
         private bool isPlaying;
         private int timePlaying;
@@ -54,6 +55,8 @@ namespace FrameByFrame.src.Engine.Scenes
             frames = new List<Frame>();
             frames.Add(new Frame());
 
+            
+            drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
             Texture2D textureMenu = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
             Vector2 menuDimensions = new Vector2(400, 800);
             _sideMenu = new BasicTexture(textureMenu, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 2), menuDimensions);
@@ -159,16 +162,10 @@ namespace FrameByFrame.src.Engine.Scenes
             }
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
-                Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
-                Vector2 pointDimensions = new Vector2(brushSize, brushSize);
-
-                if (pointPosition.X >= GlobalParameters.screenWidth - 437) return;
-
-                Texture2D texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
-                BasicTexture point = new BasicTexture(texture, pointPosition, pointDimensions);
+                if (GlobalParameters.GlobalMouse.newMousePos.X >= GlobalParameters.screenWidth - 437) return;
 
                 BasicTexture layer = null;
-                switch(selectedLayer)
+                switch (selectedLayer)
                 {
                     case "_layer1":
                         layer = frames[currentFrame]._layer1;
@@ -181,11 +178,22 @@ namespace FrameByFrame.src.Engine.Scenes
                         break;
                 }
 
-                List<BasicTexture> newLayer = new List<BasicTexture>
+                List<BasicTexture> newLayer = new List<BasicTexture> { layer };
+                Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
+                Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
+                Vector2 pointDimensions = new Vector2(brushSize, brushSize);
+                int numInterpolations = 30;
+
+                for (int i = 0; i < numInterpolations; i++)
                 {
-                    layer,
-                    point
-                };
+                    float newY = (i * ((mousePositionCur.Y - mousePositionOld.Y) / numInterpolations)) + mousePositionOld.Y;
+                    float newX = (i * ((mousePositionCur.X - mousePositionOld.X) / numInterpolations)) + mousePositionOld.X;
+
+                    Vector2 pointPosition = new Vector2(newX, newY);
+                    
+                    BasicTexture point = new BasicTexture(drawToolTexture, pointPosition, pointDimensions);
+                    newLayer.Add(point);
+                }
 
                 Texture2D newLayerTexture = combineTextures(newLayer);
 
