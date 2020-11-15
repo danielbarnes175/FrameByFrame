@@ -54,7 +54,6 @@ namespace FrameByFrame.src.Engine.Scenes
             selectedLayer = "_layer1";
             frames = new List<Frame>();
             frames.Add(new Frame());
-
             
             drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
             Texture2D textureMenu = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
@@ -182,7 +181,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
                 Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
                 Vector2 pointDimensions = new Vector2(brushSize, brushSize);
-                int numInterpolations = 30;
+                int numInterpolations = 300;
 
                 for (int i = 0; i < numInterpolations; i++)
                 {
@@ -227,7 +226,7 @@ namespace FrameByFrame.src.Engine.Scenes
             frames[currentFrame]._layer3.Draw(new Vector2(5, 25));
             frames[currentFrame]._layer2.Draw(new Vector2(5, 25));
             frames[currentFrame]._layer1.Draw(new Vector2(5, 25));
-
+            
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"M\" - Next Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 40 - 150), Color.Black);
@@ -346,17 +345,22 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalGraphics.Clear(new Color());
 
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
-            
+
             foreach (BasicTexture texture in givenTextures)
             {
                 texture.Draw(Vector2.Zero);
             }
-
+            
             GlobalParameters.GlobalSpriteBatch.End();
-
+            
             // Unset render target
             GlobalParameters.GlobalGraphics.SetRenderTarget(null);
             return renderTarget2D;
+        }
+
+        public void setDrawTool()
+        {
+            drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
         }
 
         public void ExportAnimation()

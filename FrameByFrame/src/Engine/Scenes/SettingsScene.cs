@@ -166,6 +166,8 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 GlobalParameters.CurrentColor = Color.White;
             }
+
+            ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).setDrawTool();
         }
 
         public void CheckLayer()
