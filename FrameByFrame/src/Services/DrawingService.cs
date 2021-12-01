@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using FrameByFrame.src.UI;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -45,6 +46,42 @@ namespace FrameByFrame.src.Engine.Services
             texture.SetData(data);
 
             return texture;
+        }
+
+        public static void SetColors(BasicColor[,] layer, Texture2D color, Vector2 pointPosition, Shapes shape, int brushSize)
+        {
+            switch (shape)
+            {
+                case Shapes.CIRCLE:
+                    for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
+                    {
+                        for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
+                        {
+                            float positionX = i;
+                            float positionY = j;
+                            if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
+                            {
+                                BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
+                                if (positionX < 0 || positionY < 0 || positionX >= Frame.width || positionY >= Frame.height) return;
+                                layer[(int)positionX, (int)positionY] = point;
+                            }
+                        }
+                    }
+                    break;
+                case Shapes.RECTANGLE:
+                    for (int i = -1 * (brushSize / 2); i < brushSize / 2; i++)
+                    {
+                        for (int j = -1 * (brushSize / 2); j < brushSize / 2; j++)
+                        {
+                            float positionX = pointPosition.X + i;
+                            float positionY = pointPosition.Y + j;
+                            BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
+                            if (positionX < 0 || positionY < 0 || positionX >= Frame.width || positionY >= Frame.height) return;
+                            layer[(int)positionX, (int)positionY] = point;
+                        }
+                    }
+                    break;
+            }
         }
     }
 }

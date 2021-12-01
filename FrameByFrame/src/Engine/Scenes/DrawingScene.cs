@@ -129,12 +129,6 @@ namespace FrameByFrame.src.Engine.Scenes
 
             if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
             {
-                int width = Frame.width;
-                int height = Frame.height;
-
-                Texture2D texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height, pixel => new Color(), Shapes.RECTANGLE);
-
-                // TODO
                 if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicColor[Frame.width, Frame.height];
                 if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new BasicColor[Frame.width, Frame.height];
                 if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicColor[Frame.width, Frame.height];
@@ -166,10 +160,10 @@ namespace FrameByFrame.src.Engine.Scenes
                 frames = InsertFrame(frames, currentFrame);
                 totalFrames += 1;
             }
+
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
                 if (GlobalParameters.GlobalMouse.newMousePos.X >= GlobalParameters.screenWidth - 437) return;
-
                 if (GlobalParameters.GlobalMouse.newMousePos.X >= Frame.width || GlobalParameters.GlobalMouse.newMousePos.Y >= Frame.height) return;
 
                 BasicColor[,] layer = null;
@@ -188,7 +182,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
                 Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
                 Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
-                int numInterpolations = 300;
+                int numInterpolations = 100;
 
                 for (int i = 0; i < numInterpolations; i++)
                 {
@@ -197,9 +191,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
                     if (newX >= Frame.width || newX <= 0 || newY <= 0 || newY >= Frame.height) return;
                     Vector2 pointPosition = new Vector2(newX, newY);
-                    
+                    Vector2 pointPosition2 = new Vector2(newX + 200, newY);
+
                     BasicColor point = new BasicColor(frames[currentFrame].colors[0], pointPosition, new Vector2(1,1));
-                    layer[(int)pointPosition.X, (int)pointPosition.Y] = point;
+                    BasicColor point2 = new BasicColor(frames[currentFrame].colors[0], pointPosition2, new Vector2(1, 1));
+                    DrawingService.SetColors(layer, frames[currentFrame].colors[0], pointPosition, Shapes.CIRCLE, brushSize);
                 }
             }
             base.Update(gameTime);
@@ -309,7 +305,6 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void DrawLayersWithOpacity(int frame, float opacity)
         {
-            System.Diagnostics.Debug.WriteLine("Opacity for onion skin: " + opacity);
             for (int i = 0; i < frameSize.X; i++)
             {
                 for (int j = 0; j < frameSize.Y; j++)

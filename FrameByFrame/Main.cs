@@ -40,6 +40,7 @@ namespace FrameByFrame
         {
             GlobalParameters.screenWidth = 1600;
             GlobalParameters.screenHeight = 900;
+            this.IsMouseVisible = true;
 
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
