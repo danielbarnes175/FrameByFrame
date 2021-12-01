@@ -135,9 +135,9 @@ namespace FrameByFrame.src.Engine.Scenes
                 Texture2D texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height, pixel => new Color(), Shapes.RECTANGLE);
 
                 // TODO
-                /*if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));
-                if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));
-                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));*/
+                if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicColor[Frame.width, Frame.height];
+                if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new BasicColor[Frame.width, Frame.height];
+                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicColor[Frame.width, Frame.height];
             }
 
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
@@ -309,16 +309,17 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void DrawLayersWithOpacity(int frame, float opacity)
         {
+            System.Diagnostics.Debug.WriteLine("Opacity for onion skin: " + opacity);
             for (int i = 0; i < frameSize.X; i++)
             {
                 for (int j = 0; j < frameSize.Y; j++)
                 {
-                    if (frames[currentFrame]._layer3[i, j] != null)
-                        frames[currentFrame]._layer3[i, j].Draw(opacity);
-                    if (frames[currentFrame]._layer2[i, j] != null)
-                        frames[currentFrame]._layer2[i, j].Draw(opacity);
-                    if (frames[currentFrame]._layer1[i, j] != null)
-                        frames[currentFrame]._layer1[i, j].Draw(opacity);
+                    if (frames[frame]._layer3[i, j] != null)
+                        frames[frame]._layer3[i, j].Draw(opacity);
+                    if (frames[frame]._layer2[i, j] != null)
+                        frames[frame]._layer2[i, j].Draw(opacity);
+                    if (frames[frame]._layer1[i, j] != null)
+                        frames[frame]._layer1[i, j].Draw(opacity);
                 }
             }
         }
