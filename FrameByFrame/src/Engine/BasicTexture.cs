@@ -14,12 +14,27 @@ namespace FrameByFrame.src.Engine
         public Vector2 position, dimensions;
         public Texture2D texture;
 
+        public Color[] data;
+        public Color[,] colorData;
+
         public BasicTexture(string PATH, Vector2 POS, Vector2 dimensions)
         {
             position = POS;
             this.dimensions = dimensions;
 
             texture = GlobalParameters.GlobalContent.Load<Texture2D>(PATH);
+
+            data = new Color[this.texture.Width * this.texture.Height];
+            this.texture.GetData<Color>(data);
+            colorData = new Color[this.texture.Width, this.texture.Height];
+
+            for (int x = 0; x < texture.Width; x++)
+            {
+                for (int y = 0; y < texture.Height; y++)
+                {
+                    colorData[x, y] = data[x + y * texture.Width];
+                }
+            }
         }
 
         public BasicTexture(Texture2D texture, Vector2 POS, Vector2 dimensions)
@@ -28,6 +43,18 @@ namespace FrameByFrame.src.Engine
             this.dimensions = dimensions;
 
             this.texture = texture;
+
+            data = new Color[this.texture.Width * this.texture.Height];
+            this.texture.GetData<Color>(data);
+            colorData = new Color[this.texture.Width, this.texture.Height];
+
+            for (int x = 0; x < texture.Width; x++)
+            {
+                for (int y = 0; y < texture.Height; y++)
+                {
+                    colorData[x, y] = data[x + y * texture.Width];
+                }
+            }
         }
 
         public virtual void Update()

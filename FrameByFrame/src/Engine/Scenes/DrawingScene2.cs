@@ -1,4 +1,4 @@
-﻿using System;
+﻿/*using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -13,7 +13,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
-    public class DrawingScene : BaseScene
+    public class DrawingScene2 : BaseScene
     {
         public static string selectedLayer;
 
@@ -31,10 +31,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public bool isOnionSkinLoaded;
         public int brushSize;
 
-        public Vector2 frameSize;
-        public Vector2 framePosition;
-
-        public DrawingScene()
+        public DrawingScene2()
         {
             
             currentFrame = 0;
@@ -44,9 +41,6 @@ namespace FrameByFrame.src.Engine.Scenes
             fps = 4;
             loadedScene = false;
             brushSize = 15;
-
-            frameSize = new Vector2(1165, 850);
-            framePosition = new Vector2(0, 0);
 
             isOnionSkinLoaded = true;
             Random random = new Random();
@@ -59,7 +53,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             selectedLayer = "_layer1";
             frames = new List<Frame>();
-            frames.Add(new Frame(framePosition, frameSize));
+            frames.Add(new Frame());
             
             drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
             Texture2D textureMenu = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
@@ -87,7 +81,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 // Reset all values again, basically calling the constructor as if it were new.
                 selectedLayer = "_layer1";
                 frames = new List<Frame>();
-                frames.Add(new Frame(framePosition, frameSize));
+                frames.Add(new Frame());
                 currentFrame = 0;
                 totalFrames = 1;
                 isPlaying = false;
@@ -135,9 +129,9 @@ namespace FrameByFrame.src.Engine.Scenes
                 Texture2D texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height, pixel => new Color(), Shapes.RECTANGLE);
 
                 // TODO
-                /*if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));
+                *//*if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));
                 if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));
-                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));*/
+                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicTexture(texture, new Vector2(width / 2, height / 2), new Vector2(width, height));*//*
             }
 
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
@@ -148,7 +142,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 currentFrame += 1;
                 if (currentFrame > totalFrames - 1)
                 {
-                    frames.Add(new Frame(framePosition, frameSize));
+                    frames.Add(new Frame());
                     totalFrames += 1;
                 }
             }
@@ -170,9 +164,7 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 if (GlobalParameters.GlobalMouse.newMousePos.X >= GlobalParameters.screenWidth - 437) return;
 
-                if (GlobalParameters.GlobalMouse.newMousePos.X >= Frame.width || GlobalParameters.GlobalMouse.newMousePos.Y >= Frame.height) return;
-
-                BasicColor[,] layer = null;
+                BasicTexture layer = null;
                 switch (selectedLayer)
                 {
                     case "_layer1":
@@ -186,8 +178,10 @@ namespace FrameByFrame.src.Engine.Scenes
                         break;
                 }
 
+                List<BasicTexture> newLayer = new List<BasicTexture> { layer };
                 Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
                 Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
+                Vector2 pointDimensions = new Vector2(brushSize, brushSize);
                 int numInterpolations = 300;
 
                 for (int i = 0; i < numInterpolations; i++)
@@ -195,11 +189,25 @@ namespace FrameByFrame.src.Engine.Scenes
                     float newY = (i * ((mousePositionCur.Y - mousePositionOld.Y) / numInterpolations)) + mousePositionOld.Y;
                     float newX = (i * ((mousePositionCur.X - mousePositionOld.X) / numInterpolations)) + mousePositionOld.X;
 
-                    if (newX >= Frame.width || newX <= 0 || newY <= 0 || newY >= Frame.height) return;
                     Vector2 pointPosition = new Vector2(newX, newY);
                     
-                    BasicColor point = new BasicColor(frames[currentFrame].colors[0], pointPosition, new Vector2(1,1));
-                    layer[(int)pointPosition.X, (int)pointPosition.Y] = point;
+                    BasicTexture point = new BasicTexture(drawToolTexture, pointPosition, pointDimensions);
+                    newLayer.Add(point);
+                }
+
+                Texture2D newLayerTexture = combineTextures(newLayer);
+
+                switch (selectedLayer)
+                {
+                    case "_layer1":
+                        frames[currentFrame]._layer1 = new BasicTexture(newLayerTexture, new Vector2(Frame.width / 2, Frame.height / 2), new Vector2(Frame.width, Frame.height));
+                        break;
+                    case "_layer2":
+                        frames[currentFrame]._layer2 = new BasicTexture(newLayerTexture, new Vector2(Frame.width / 2, Frame.height / 2), new Vector2(Frame.width, Frame.height));
+                        break;
+                    case "_layer3":
+                        frames[currentFrame]._layer3 = new BasicTexture(newLayerTexture, new Vector2(Frame.width / 2, Frame.height / 2), new Vector2(Frame.width, Frame.height));
+                        break;
                 }
             }
             base.Update(gameTime);
@@ -216,18 +224,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
             _sideMenu.Draw(offset);
 
-            for (int i = 0; i < frameSize.X; i++)
-            {
-                for (int j = 0; j < frameSize.Y; j++)
-                {
-                    if (frames[currentFrame]._layer3[i, j] != null)
-                        frames[currentFrame]._layer3[i, j].Draw(1.0f);
-                    if (frames[currentFrame]._layer2[i, j] != null)
-                        frames[currentFrame]._layer2[i, j].Draw(1.0f);
-                    if (frames[currentFrame]._layer1[i, j] != null)
-                        frames[currentFrame]._layer1[i, j].Draw(1.0f);
-                }
-            }
+            frames[currentFrame]._layer3.Draw(new Vector2(0,0));
+            frames[currentFrame]._layer2.Draw(new Vector2(0,0));
+            frames[currentFrame]._layer1.Draw(new Vector2(0,0));
             
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
@@ -277,7 +276,7 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 if (i == givenCurrentFrame)
                 {
-                    newFrames.Add(new Frame(framePosition, frameSize));
+                    newFrames.Add(new Frame());
                     newFrames.Add(givenFrames[i]);
                 }
                 else
@@ -309,18 +308,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void DrawLayersWithOpacity(int frame, float opacity)
         {
-            for (int i = 0; i < frameSize.X; i++)
-            {
-                for (int j = 0; j < frameSize.Y; j++)
-                {
-                    if (frames[currentFrame]._layer3[i, j] != null)
-                        frames[currentFrame]._layer3[i, j].Draw(opacity);
-                    if (frames[currentFrame]._layer2[i, j] != null)
-                        frames[currentFrame]._layer2[i, j].Draw(opacity);
-                    if (frames[currentFrame]._layer1[i, j] != null)
-                        frames[currentFrame]._layer1[i, j].Draw(opacity);
-                }
-            }
+            frames[frame]._layer3.Draw(new Vector2(5, 25), opacity);
+            frames[frame]._layer2.Draw(new Vector2(5, 25), opacity);
+            frames[frame]._layer1.Draw(new Vector2(5, 25), opacity);
         }
 
         // Combine multiple layers
@@ -334,18 +324,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
 
-            for (int i = 0; i < frameSize.X; i++)
-            {
-                for (int j = 0; j < frameSize.Y; j++)
-                {
-                    if (frames[currentFrame]._layer3[i, j] != null)
-                        givenFrame._layer3[i, j].Draw(1.0f);
-                    if (frames[currentFrame]._layer2[i, j] != null)
-                        givenFrame._layer2[i, j].Draw(1.0f);
-                    if (frames[currentFrame]._layer1[i, j] != null)
-                        givenFrame._layer1[i, j].Draw(1.0f);
-                }
-            }
+            givenFrame._layer3.Draw(new Vector2(5, 25));
+            givenFrame._layer2.Draw(new Vector2(5, 25));
+            givenFrame._layer1.Draw(new Vector2(5, 25));
 
             GlobalParameters.GlobalSpriteBatch.End();
 
@@ -418,3 +399,4 @@ namespace FrameByFrame.src.Engine.Scenes
         }
     }
 }
+*/

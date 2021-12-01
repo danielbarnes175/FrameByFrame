@@ -100,7 +100,7 @@ namespace FrameByFrame
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.DepthRead, RasterizerState.CullCounterClockwise);
 
             GlobalParameters.CurrentScene.Draw(Vector2.Zero);
-            cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X, GlobalParameters.GlobalMouse.newMousePos.Y), new Vector2(0, 0));
+            cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X - 5, GlobalParameters.GlobalMouse.newMousePos.Y - 25), new Vector2(0, 0));
 
             GlobalParameters.GlobalSpriteBatch.End();
             base.Draw(gameTime);
