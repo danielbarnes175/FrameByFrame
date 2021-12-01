@@ -119,7 +119,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         { 
-            animations[currentPreview].Frames[previewFrame].Draw(offset);
+           animations[currentPreview].Frames[previewFrame].Draw(offset);
            foreach (BasicTexture texture in _textures)
            {
                texture.Draw(offset);

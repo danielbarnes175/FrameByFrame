@@ -211,6 +211,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }
 
             _sideMenu.Draw(offset);
+            frames[currentFrame].Draw(1.0f);
 
             for (int i = 0; i < frameSize.X; i++)
             {
