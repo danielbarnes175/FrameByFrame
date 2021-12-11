@@ -60,107 +60,52 @@ namespace FrameByFrame.src.Engine.Scenes
             selectedLayer = "_layer1";
             frames = new List<Frame>();
             frames.Add(new Frame(framePosition, frameSize));
-            
-            drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
-            Texture2D textureMenu = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 400, 800, pixel => Color.Orange, Shapes.RECTANGLE);
-            Vector2 menuDimensions = new Vector2(400, 800);
-            _sideMenu = new BasicTexture(textureMenu, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 2), menuDimensions);
         }
 
         public override void Update(GameTime gameTime)
         {
+            handleKeyboardShortcuts();
+            handleIsPlaying(gameTime);
+            handleMouseShortcuts();
+
+            base.Update(gameTime);
+        }
+
+        public override void Draw(Vector2 offset)
+        {
+            GlobalParameters.GlobalGraphics.Clear(Color.Blue);
+
+            drawCurrentFrame();
+
+            /*
+            _sideMenu.Draw(offset);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"M\" - Next Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 40 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"N\" - Previous Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 60 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"B\" - Insert a New Frame Before the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 80 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"P\" - Play/Pause Animation", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 100 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"W\" - Open Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 120 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"S\" - Close Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 140 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"O\" - Toggle Onion Skin", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 160 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu WITHOUT Saving", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 180 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"DELETE\" - Delete the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 200 - 150), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"BACKSPACE\" - Delete the Current Layer", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 220 - 150), Color.Black);
+           
+            */
+            base.Draw(offset);
+        }
+
+
+        private void handleMouseShortcuts()
+        {
+            // So we don't start drawing until we load the scene
             if (!GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 loadedScene = true;
             }
 
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("T"))
-            {
-                RenderTarget2D texture = combineTextures(frames[currentFrame]);
-                SaveTextureAsPng("drawing" + currentFrame + ".png", texture);
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
-            {
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
-
-                // Reset all values again, basically calling the constructor as if it were new.
-                selectedLayer = "_layer1";
-                frames = new List<Frame>();
-                frames.Add(new Frame(framePosition, frameSize));
-                currentFrame = 0;
-                totalFrames = 1;
-                isPlaying = false;
-                timePlaying = 0;
-                fps = 4;
-                loadedScene = false;
-                brushSize = 15;
-
-                isOnionSkinLoaded = true;
-                Random random = new Random();
-                const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                projectName = new string(Enumerable.Repeat(chars, 8)
-                    .Select(s => s[random.Next(s.Length)]).ToArray());
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
-            {
-                deleteFrame(frames, currentFrame);
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
-            {
-                isPlaying = !isPlaying;
-                timePlaying = 0;
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPress("W"))
-            {
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Settings Scene"];
-                isPlaying = false;
-            }
-
-            if (isPlaying)
-            {
-                timePlaying += 1;
-                Animate(gameTime);
-                return;
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
-            {
-                if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicColor[Frame.width, Frame.height];
-                if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new BasicColor[Frame.width, Frame.height];
-                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicColor[Frame.width, Frame.height];
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
-                isOnionSkinLoaded = !isOnionSkinLoaded;
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("M"))
-            {
-                currentFrame += 1;
-                if (currentFrame > totalFrames - 1)
-                {
-                    frames.Add(new Frame(framePosition, frameSize));
-                    totalFrames += 1;
-                }
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("N"))
-            {
-                if (currentFrame > 0)
-                {
-                    currentFrame -= 1;
-                }
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("B"))
-            {
-                frames = InsertFrame(frames, currentFrame);
-                totalFrames += 1;
-            }
-
+            // Draw on current frame
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
                 if (GlobalParameters.GlobalMouse.newMousePos.X >= GlobalParameters.screenWidth - 437) return;
@@ -191,27 +136,31 @@ namespace FrameByFrame.src.Engine.Scenes
 
                     if (newX >= Frame.width || newX <= 0 || newY <= 0 || newY >= Frame.height) return;
                     Vector2 pointPosition = new Vector2(newX, newY);
-                    Vector2 pointPosition2 = new Vector2(newX + 200, newY);
 
-                    BasicColor point = new BasicColor(frames[currentFrame].colors[0], pointPosition, new Vector2(1,1));
-                    BasicColor point2 = new BasicColor(frames[currentFrame].colors[0], pointPosition2, new Vector2(1, 1));
                     DrawingService.SetColors(layer, frames[currentFrame].colors[0], pointPosition, Shapes.CIRCLE, brushSize);
                 }
             }
-            base.Update(gameTime);
         }
 
-        public override void Draw(Vector2 offset)
+        private void handleIsPlaying(GameTime gameTime)
         {
-            GlobalParameters.GlobalGraphics.Clear(Color.Blue);
+
+            if (isPlaying)
+            {
+                timePlaying += 1;
+                Animate(gameTime);
+                return;
+            }
+        }
+
+        private void drawCurrentFrame()
+        {
+            frames[currentFrame].Draw(1.0f);
 
             if (!isPlaying && isOnionSkinLoaded)
             {
                 DrawOnionSkin();
             }
-
-            _sideMenu.Draw(offset);
-            frames[currentFrame].Draw(1.0f);
 
             for (int i = 0; i < frameSize.X; i++)
             {
@@ -225,22 +174,100 @@ namespace FrameByFrame.src.Engine.Scenes
                         frames[currentFrame]._layer1[i, j].Draw(1.0f);
                 }
             }
-            
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"M\" - Next Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 40 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"N\" - Previous Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 60 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"B\" - Insert a New Frame Before the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 80 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"P\" - Play/Pause Animation", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 100 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"W\" - Open Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 120 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"S\" - Close Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 140 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"O\" - Toggle Onion Skin", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 160 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu WITHOUT Saving", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 180 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"DELETE\" - Delete the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 200 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"BACKSPACE\" - Delete the Current Layer", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 220 - 150), Color.Black);
-            base.Draw(offset);
         }
 
+        public void handleKeyboardShortcuts()
+        {
+            // Save current frame as png
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("T"))
+            {
+                RenderTarget2D texture = combineTextures(frames[currentFrame]);
+                SaveTextureAsPng("drawing" + currentFrame + ".png", texture);
+            }
+
+            // Exit drawing
+            if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
+            {
+                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
+
+                // Reset all values again, basically calling the constructor as if it were new.
+                selectedLayer = "_layer1";
+                frames = new List<Frame>();
+                frames.Add(new Frame(framePosition, frameSize));
+                currentFrame = 0;
+                totalFrames = 1;
+                isPlaying = false;
+                timePlaying = 0;
+                fps = 4;
+                loadedScene = false;
+                brushSize = 15;
+
+                isOnionSkinLoaded = true;
+                Random random = new Random();
+                const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                projectName = new string(Enumerable.Repeat(chars, 8)
+                    .Select(s => s[random.Next(s.Length)]).ToArray());
+            }
+
+            // Delete current frame
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
+            {
+                deleteFrame(frames, currentFrame);
+            }
+
+            // Toggle animation playing
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
+            {
+                isPlaying = !isPlaying;
+                timePlaying = 0;
+            }
+
+            // Switch to settings scene
+            if (GlobalParameters.GlobalKeyboard.GetPress("W"))
+            {
+                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Settings Scene"];
+                isPlaying = false;
+            }
+
+            // Erase current frame
+            if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
+            {
+                if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicColor[Frame.width, Frame.height];
+                if (selectedLayer == "_layer2") frames[currentFrame]._layer2 = new BasicColor[Frame.width, Frame.height];
+                if (selectedLayer == "_layer3") frames[currentFrame]._layer3 = new BasicColor[Frame.width, Frame.height];
+            }
+
+            // Toggle Onion Skin
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
+                isOnionSkinLoaded = !isOnionSkinLoaded;
+
+            // Load next frame
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("M"))
+            {
+                currentFrame += 1;
+                if (currentFrame > totalFrames - 1)
+                {
+                    frames.Add(new Frame(framePosition, frameSize));
+                    totalFrames += 1;
+                }
+            }
+
+            // Load previous frame
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("N"))
+            {
+                if (currentFrame > 0)
+                {
+                    currentFrame -= 1;
+                }
+            }
+
+            // Insert a frame
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("B"))
+            {
+                frames = InsertFrame(frames, currentFrame);
+                totalFrames += 1;
+            }
+        }
         public void Animate(GameTime gameTime)
         {
             if (timePlaying % fps != 0) return;
