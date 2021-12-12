@@ -20,8 +20,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private List<Frame> frames;
         private List<UIElement> components;
-        private int currentFrame;
-        private int totalFrames;
+        public int currentFrame;
+        public int totalFrames;
 
         private bool isPlaying;
         private int timePlaying;
@@ -45,9 +45,6 @@ namespace FrameByFrame.src.Engine.Scenes
             loadedScene = false;
             brushSize = 15;
 
-            frameSize = new Vector2(1200, 800);
-            framePosition = new Vector2(GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2, GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
-
             isOnionSkinLoaded = true;
             Random random = new Random();
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -58,8 +55,6 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void LoadContent()
         {
             selectedLayer = "_layer1";
-            frames = new List<Frame>();
-            frames.Add(new Frame(framePosition, frameSize));
 
             components = new List<UIElement>();
             Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
@@ -69,10 +64,46 @@ namespace FrameByFrame.src.Engine.Scenes
             Texture2D menuButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 100, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
             RedirectButton menuButton = new RedirectButton("Menu Scene", menuButtonTexture, new Vector2(0, 0), new Vector2(100, (int)(GlobalParameters.screenHeight * 0.05f)), "MENU", Color.White);
 
+            Texture2D helpButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(100, 100, 200), Shapes.RECTANGLE);
+            Overlay helpOverlay = new Overlay(helpButtonTexture, new Vector2(500, 500), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+            PopupButton helpButton = new PopupButton(helpOverlay, helpButtonTexture, new Vector2(menuButton.position.X + menuButton.dimensions.X, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+
+            Texture2D settingsButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(255, 255, 0), Shapes.RECTANGLE);
+            Overlay settingsOverlay = new Overlay(settingsButtonTexture, new Vector2(600, 500), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+            PopupButton settingsButton = new PopupButton(settingsOverlay, settingsButtonTexture, new Vector2(helpButton.position.X + helpButton.dimensions.X, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+
+            Texture2D colorButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(200, 0, 255), Shapes.CIRCLE);
+            Overlay colorOverlay = new Overlay(colorButtonTexture, new Vector2(1100, 500), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+            PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - colorButtonTexture.Width, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+
+            Texture2D layerButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(0, 0, 255), Shapes.RECTANGLE);
+            Overlay layerOverlay = new Overlay(layerButtonTexture, new Vector2(750, 500), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+            PopupButton layerButton = new PopupButton(layerOverlay, layerButtonTexture, new Vector2(colorButton.position.X - colorButton.dimensions.X, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+
+            // TODO ADD TOGGLE BUTTONS
+            // Eraser, Paint, Play
+
+            // TODO ADD Clickable Buttons
+            // +1 Frame, Last Frame, -1 Frame, First Frame
+
+            Texture2D frameCounterTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 150, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(0, 0, 0), Shapes.RECTANGLE);
+            UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X, 0), new Vector2(frameCounterTexture.Width, frameCounterTexture.Height));
+
             navbar.uiElements.Add(menuButton);
+            navbar.uiElements.Add(helpButton);
+            navbar.uiElements.Add(settingsButton);
+            navbar.uiElements.Add(colorButton);
+            navbar.uiElements.Add(layerButton);
+            navbar.uiElements.Add(frameCounter);
 
             // Add the navbar to this scene
             components.Add(navbar);
+
+            // Load Frame
+            frames = new List<Frame>();
+            frameSize = new Vector2(1200, 800);
+            framePosition = new Vector2(GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2, GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2 + menuButton.dimensions.Y / 2);
+            frames.Add(new Frame(framePosition, frameSize));
         }
 
         public override void Update(GameTime gameTime)
@@ -250,7 +281,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 isPlaying = false;
             }
 
-            // Erase current frame
+            // Erase current layer
             if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
             {
                 if (selectedLayer == "_layer1") frames[currentFrame]._layer1 = new BasicColor[Frame.width, Frame.height];
