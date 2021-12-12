@@ -62,8 +62,8 @@ namespace FrameByFrame.src.Engine.Services
                             if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
                             {
                                 BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                                if (positionX < 0 || positionY < 0 || positionX >= Frame.width || positionY >= Frame.height) return;
-                                layer[(int)positionX, (int)positionY] = point;
+                                if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.width + (int)Frame.position.X || positionY >= Frame.height + (int)Frame.position.Y) continue;
+                                layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
                             }
                         }
                     }

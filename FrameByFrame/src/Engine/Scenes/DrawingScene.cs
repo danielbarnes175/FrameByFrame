@@ -45,8 +45,8 @@ namespace FrameByFrame.src.Engine.Scenes
             loadedScene = false;
             brushSize = 15;
 
-            frameSize = new Vector2(1165, 850);
-            framePosition = new Vector2(0, 0);
+            frameSize = new Vector2(500, 500);
+            framePosition = new Vector2(GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2, GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
 
             isOnionSkinLoaded = true;
             Random random = new Random();
@@ -73,7 +73,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
-            GlobalParameters.GlobalGraphics.Clear(Color.Blue);
+            GlobalParameters.GlobalGraphics.Clear(Color.Gray);
 
             drawCurrentFrame();
 
@@ -108,9 +108,6 @@ namespace FrameByFrame.src.Engine.Scenes
             // Draw on current frame
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
-                if (GlobalParameters.GlobalMouse.newMousePos.X >= GlobalParameters.screenWidth - 437) return;
-                if (GlobalParameters.GlobalMouse.newMousePos.X >= Frame.width || GlobalParameters.GlobalMouse.newMousePos.Y >= Frame.height) return;
-
                 BasicColor[,] layer = null;
                 switch (selectedLayer)
                 {
@@ -131,11 +128,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
                 for (int i = 0; i < numInterpolations; i++)
                 {
-                    float newY = (i * ((mousePositionCur.Y - mousePositionOld.Y) / numInterpolations)) + mousePositionOld.Y;
-                    float newX = (i * ((mousePositionCur.X - mousePositionOld.X) / numInterpolations)) + mousePositionOld.X;
-
-                    if (newX >= Frame.width || newX <= 0 || newY <= 0 || newY >= Frame.height) return;
-                    Vector2 pointPosition = new Vector2(newX, newY);
+                    float newX = (i * ((mousePositionCur.X - mousePositionOld.X) / numInterpolations)) + mousePositionOld.X - framePosition.X;
+                    float newY = (i * ((mousePositionCur.Y - mousePositionOld.Y) / numInterpolations)) + mousePositionOld.Y - framePosition.Y;
+                    
+                    if (newX >= Frame.width + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.height + framePosition.Y) return;
+                    Vector2 pointPosition = new Vector2(newX + framePosition.X, newY + framePosition.Y);
 
                     DrawingService.SetColors(layer, frames[currentFrame].colors[0], pointPosition, Shapes.CIRCLE, brushSize);
                 }

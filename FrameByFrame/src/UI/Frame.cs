@@ -11,7 +11,8 @@ namespace FrameByFrame.src.UI
     public class Frame
     {
         public Matrix transform;
-        public Vector2 position;
+        
+        private Rectangle drawRectangle;
 
         public BasicColor[,] _layer1;
         public BasicColor[,] _layer2;
@@ -20,15 +21,19 @@ namespace FrameByFrame.src.UI
         public Texture2D[] colors;
         public Texture2D background;
 
+        public static Vector2 position;
         public static int width { get; set; }
         public static int height { get; set; }
 
-        public Frame(Vector2 position, Vector2 dimensions)
+        public Frame(Vector2 givenPosition, Vector2 dimensions)
         {
             width = (int)dimensions.X;
             height = (int)dimensions.Y;
-            this.position = position;
+
+            position = givenPosition;
             transform = Matrix.Identity;
+
+            drawRectangle = new Rectangle((int)position.X, (int)position.Y, width, height);
 
             colors = new Texture2D[2];
             colors[0] = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => Color.Black, Shapes.RECTANGLE);
@@ -44,11 +49,15 @@ namespace FrameByFrame.src.UI
         {
             if (background != null)
             {
-                System.Diagnostics.Debug.WriteLine(position.X);
+                System.Diagnostics.Debug.WriteLine(drawRectangle);
                 GlobalParameters.GlobalSpriteBatch.Draw(background,
-                    new Rectangle((int)position.X, (int)position.Y, width, height),
-                    null, Color.White * opacity, 0.0f,
-                    position, new SpriteEffects(), 0.2f);
+                    drawRectangle, 
+                    null, 
+                    Color.White * opacity, 
+                    0.0f,
+                    new Vector2(0,0), 
+                    new SpriteEffects(), 
+                    0.2f);
             }
         }
     }

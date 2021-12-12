@@ -10,9 +10,9 @@ namespace FrameByFrame.src.Engine
     {
         public Vector2 position, dimensions;
         public Texture2D texture;
-        public BasicColor(Texture2D texture, Vector2 POS, Vector2 dimensions)
+        public BasicColor(Texture2D texture, Vector2 position, Vector2 dimensions)
         {
-            position = POS;
+            this.position = position;
             this.dimensions = dimensions;
 
             this.texture = texture;
