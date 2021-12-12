@@ -11,16 +11,19 @@ namespace FrameByFrame.src.UI.Components.Buttons
     public class RedirectButton : Button
     {
         public string target;
+        public string text;
 
-        public RedirectButton(string target, string path, Vector2 position, Vector2 dimensions) : base(path, position, dimensions)
+        public RedirectButton(string target, string path, Vector2 position, Vector2 dimensions, string text = null) : base(path, position, dimensions)
         {
             this.target = target;
+            this.text = text;
             isBeingMousedOver = false;
         }
 
-        public RedirectButton(string target, Texture2D texture, Vector2 position, Vector2 dimensions) : base(texture, position, dimensions)
+        public RedirectButton(string target, Texture2D texture, Vector2 position, Vector2 dimensions, string text = null) : base(texture, position, dimensions)
         {
             this.target = target;
+            this.text = text;
             isBeingMousedOver = false;
         }
 
@@ -49,6 +52,11 @@ namespace FrameByFrame.src.UI.Components.Buttons
                         (int)dimensions.Y), null, color, rotation,
                     new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
             }
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, text, new Vector2(position.X + (dimensions.X / 2), position.Y + (dimensions.Y / 2)), Color.Black);
+            }
         }
 
         public override void Draw(Vector2 offset, float opacity)
@@ -61,15 +69,29 @@ namespace FrameByFrame.src.UI.Components.Buttons
                         (int)dimensions.Y), null, color * opacity, rotation,
                     new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
             }
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, text, new Vector2(position.X + (dimensions.X / 2), position.Y + (dimensions.Y / 2)), Color.Black);
+            }
         }
 
         public override void Draw(Vector2 offset, Vector2 origin)
         {
             Color color = isBeingMousedOver ? new Color(255, 255, 255, 0.8f) : Color.White;
-            GlobalParameters.GlobalSpriteBatch.Draw(texture,
+            if (texture != null)
+            {
+                GlobalParameters.GlobalSpriteBatch.Draw(texture,
                 new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
                     (int)dimensions.Y), null, color, rotation, new Vector2(origin.X, origin.Y),
                 new SpriteEffects(), 0.2f);
+            }
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                Vector2 stringSize = GlobalParameters.font.MeasureString(text);
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, text, new Vector2(position.X + ((dimensions.X - stringSize.X) / 2), position.Y + ((dimensions.Y - stringSize.Y) / 2)), Color.Black);
+            }
         }
     }
 }

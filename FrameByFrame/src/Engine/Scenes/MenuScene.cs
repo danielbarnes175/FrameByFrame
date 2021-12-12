@@ -31,7 +31,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             Vector2 projectsButtonLocation = new Vector2(GlobalParameters.screenWidth / 2 - 300, GlobalParameters.screenHeight / 2);
             Vector2 drawButtonLocation = new Vector2(GlobalParameters.screenWidth / 2 + 15, GlobalParameters.screenHeight / 2);
-            _uiElements.Add(new RedirectButton("Projects Scene", "Static\\MenuScene/button_view-animations", projectsButtonLocation, new Vector2(280, 54)));
+            _uiElements.Add(new RedirectButton("Projects Scene", "Static\\MenuScene/button_view-animations", projectsButtonLocation, new Vector2(280, 54), "YOOOOOOOOOOOOOOOOO"));
             _uiElements.Add(new RedirectButton("Drawing Scene", "Static\\MenuScene/button_new-animation", drawButtonLocation, new Vector2(285, 54)));
             _logo = new BasicTexture("Static\\MenuScene/logo", new Vector2(0, 0), new Vector2(400, 400));
         }
