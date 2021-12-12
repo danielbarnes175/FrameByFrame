@@ -22,22 +22,22 @@ namespace FrameByFrame.src.UI
 
         public override void Update()
         {
+            base.Update();
+
             foreach (UIElement element in uiElements)
             {
                 element.Update();
             }
-
-            base.Update();
         }
 
-        public override void Draw(Vector2 offset)
+        public override void Draw(Vector2 offset, Vector2 origin)
         {
+            base.Draw(offset, origin);
             foreach (UIElement element in uiElements)
             {
-                element.Draw(offset);
+                element.Draw(offset, origin);
             }
 
-            base.Draw(offset);
         }
     }
 }

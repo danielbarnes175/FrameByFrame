@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.UI;
+using FrameByFrame.src.UI.Components.Buttons;
 using ImageMagick;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -61,8 +62,17 @@ namespace FrameByFrame.src.Engine.Scenes
             frames.Add(new Frame(framePosition, frameSize));
 
             components = new List<UIElement>();
-            Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
-            components.Add(new Container(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, GlobalParameters.screenHeight * 0.04f)));
+            Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
+            Container navbar = new Container(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, GlobalParameters.screenHeight * 0.05f));
+
+            // Create Navbar child components
+            Texture2D menuButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 100, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
+            RedirectButton menuButton = new RedirectButton("Menu Scene", menuButtonTexture, new Vector2(0, 0), new Vector2(100, (int)(GlobalParameters.screenHeight * 0.05f)), "MENU", Color.White);
+
+            navbar.uiElements.Add(menuButton);
+
+            // Add the navbar to this scene
+            components.Add(navbar);
         }
 
         public override void Update(GameTime gameTime)
@@ -87,8 +97,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
             foreach (UIElement element in components)
             {
-                element.Draw(offset);
+                element.Draw(offset, new Vector2(0, 0));
             }
+
             /*
             _sideMenu.Draw(offset);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);

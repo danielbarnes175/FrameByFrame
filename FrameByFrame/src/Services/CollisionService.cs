@@ -10,7 +10,7 @@ namespace FrameByFrame.src.Services
     public static class CollisionService
     {
         /**
-         * Helper method to determine if two textures collide. Returns true if they collide, otherwise false. Adapted from lecture notes.
+         * Helper method to determine if two textures collide. Returns true if they collide, otherwise false.
          */
         public static bool CheckTexturesCollision(BasicTexture texture1, BasicTexture texture2)
         {
@@ -43,7 +43,6 @@ namespace FrameByFrame.src.Services
             if (rect1.Intersects(mouseRect))
             {
                 Rectangle intersection = Rectangle.Intersect(rect1, mouseRect);
-                Console.WriteLine("Intersecting!");
                 for (int x = intersection.X; x < intersection.X + intersection.Width; x++)
                 {
                     for (int y = intersection.Y; y < intersection.Y + intersection.Height; y++)

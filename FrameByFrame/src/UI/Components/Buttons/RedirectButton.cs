@@ -54,7 +54,7 @@ namespace FrameByFrame.src.UI.Components.Buttons
                 GlobalParameters.GlobalSpriteBatch.Draw(texture,
                     new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
                         (int)dimensions.Y), null, color, rotation,
-                    new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
+                    new Vector2(0, 0), new SpriteEffects(), 0.2f);
             }
 
             if (!string.IsNullOrEmpty(text))
