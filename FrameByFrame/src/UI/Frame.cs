@@ -49,7 +49,6 @@ namespace FrameByFrame.src.UI
         {
             if (background != null)
             {
-                System.Diagnostics.Debug.WriteLine(drawRectangle);
                 GlobalParameters.GlobalSpriteBatch.Draw(background,
                     drawRectangle, 
                     null, 

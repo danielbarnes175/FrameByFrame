@@ -17,11 +17,10 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         public static string selectedLayer;
 
-        private BasicTexture _sideMenu;
         private List<Frame> frames;
+        private List<UIElement> components;
         private int currentFrame;
         private int totalFrames;
-        private Texture2D drawToolTexture;
 
         private bool isPlaying;
         private int timePlaying;
@@ -45,7 +44,7 @@ namespace FrameByFrame.src.Engine.Scenes
             loadedScene = false;
             brushSize = 15;
 
-            frameSize = new Vector2(500, 500);
+            frameSize = new Vector2(1200, 800);
             framePosition = new Vector2(GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2, GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
 
             isOnionSkinLoaded = true;
@@ -60,6 +59,10 @@ namespace FrameByFrame.src.Engine.Scenes
             selectedLayer = "_layer1";
             frames = new List<Frame>();
             frames.Add(new Frame(framePosition, frameSize));
+
+            components = new List<UIElement>();
+            Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
+            components.Add(new Container(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, GlobalParameters.screenHeight * 0.04f)));
         }
 
         public override void Update(GameTime gameTime)
@@ -68,15 +71,24 @@ namespace FrameByFrame.src.Engine.Scenes
             handleIsPlaying(gameTime);
             handleMouseShortcuts();
 
+            foreach (UIElement element in components)
+            {
+                element.Update();
+            }
+
             base.Update(gameTime);
         }
 
         public override void Draw(Vector2 offset)
         {
-            GlobalParameters.GlobalGraphics.Clear(Color.Gray);
+            GlobalParameters.GlobalGraphics.Clear(new Color(45, 45, 45));
 
             drawCurrentFrame();
 
+            foreach (UIElement element in components)
+            {
+                element.Draw(offset);
+            }
             /*
             _sideMenu.Draw(offset);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrame + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
@@ -100,9 +112,10 @@ namespace FrameByFrame.src.Engine.Scenes
         private void handleMouseShortcuts()
         {
             // So we don't start drawing until we load the scene
-            if (!GlobalParameters.GlobalMouse.LeftClickHold())
+            if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene)
             {
                 loadedScene = true;
+                return;
             }
 
             // Draw on current frame
@@ -124,7 +137,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
                 Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
                 Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
-                int numInterpolations = 100;
+                int numInterpolations = 300;
 
                 for (int i = 0; i < numInterpolations; i++)
                 {
@@ -401,7 +414,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void setDrawTool()
         {
-            drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
+            // drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
         }
 
         public void ExportAnimation()
