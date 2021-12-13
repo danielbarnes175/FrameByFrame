@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.UI;
 using FrameByFrame.src.UI.Components.Buttons;
+using FrameByFrame.src.UI.Components.Buttons.Components;
 using ImageMagick;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -31,6 +32,8 @@ namespace FrameByFrame.src.Engine.Scenes
         public bool isOnionSkinLoaded;
         public int brushSize;
 
+        public DrawingTools drawingTool;
+
         public Vector2 frameSize;
         public Vector2 framePosition;
 
@@ -44,6 +47,7 @@ namespace FrameByFrame.src.Engine.Scenes
             fps = 4;
             loadedScene = false;
             brushSize = 15;
+            drawingTool = DrawingTools.DRAW;
 
             isOnionSkinLoaded = true;
             Random random = new Random();
@@ -80,14 +84,25 @@ namespace FrameByFrame.src.Engine.Scenes
             Overlay layerOverlay = new Overlay(layerButtonTexture, new Vector2(750, 500), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
             PopupButton layerButton = new PopupButton(layerOverlay, layerButtonTexture, new Vector2(colorButton.position.X - colorButton.dimensions.X, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
 
-            // TODO ADD TOGGLE BUTTONS
-            // Eraser, Paint, Play
+            List<RadioButton> buttons = new List<RadioButton>();
 
+            Texture2D eraserSelectedTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(255, 0, 0), Shapes.RECTANGLE);
+            Texture2D eraserUnselectedTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(0, 255, 0), Shapes.RECTANGLE);
+            Texture2D drawSelectedTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(255, 255, 0), Shapes.RECTANGLE);
+            Texture2D drawUnselectedTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 50, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(0, 255, 255), Shapes.RECTANGLE);
+
+            EraserButton eraser = new EraserButton(eraserSelectedTexture, eraserUnselectedTexture, false, new Vector2(layerButton.position.X - layerButton.dimensions.X, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+            DrawButton draw = new DrawButton(drawSelectedTexture, drawUnselectedTexture, true, new Vector2(eraser.position.X - eraser.dimensions.X, 0), new Vector2(50, (int)(GlobalParameters.screenHeight * 0.05f)));
+
+            buttons.Add(draw);
+            buttons.Add(eraser);
+
+            ButtonGroup toolButtons = new ButtonGroup(buttons);
             // TODO ADD Clickable Buttons
-            // +1 Frame, Last Frame, -1 Frame, First Frame
+            // +1 Frame, Last Frame, -1 Frame, First Frame, Play
 
             Texture2D frameCounterTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 150, (int)(GlobalParameters.screenHeight * 0.05f), pixel => new Color(0, 0, 0), Shapes.RECTANGLE);
-            UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X, 0), new Vector2(frameCounterTexture.Width, frameCounterTexture.Height));
+            UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X + settingsButton.dimensions.X, 0), new Vector2(frameCounterTexture.Width, frameCounterTexture.Height));
 
             navbar.uiElements.Add(menuButton);
             navbar.uiElements.Add(helpButton);
@@ -95,13 +110,14 @@ namespace FrameByFrame.src.Engine.Scenes
             navbar.uiElements.Add(colorButton);
             navbar.uiElements.Add(layerButton);
             navbar.uiElements.Add(frameCounter);
+            navbar.buttonGroups.Add(toolButtons);
 
             // Add the navbar to this scene
             components.Add(navbar);
 
             // Load Frame
             frames = new List<Frame>();
-            frameSize = new Vector2(1200, 800);
+            frameSize = new Vector2(200, 200);
             framePosition = new Vector2(GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2, GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2 + menuButton.dimensions.Y / 2);
             frames.Add(new Frame(framePosition, frameSize));
         }

@@ -1,4 +1,5 @@
-﻿using FrameByFrame.src.UI;
+﻿using FrameByFrame.src.Engine.Scenes;
+using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -53,17 +54,20 @@ namespace FrameByFrame.src.Engine.Services
             switch (shape)
             {
                 case Shapes.CIRCLE:
-                    for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
+                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).drawingTool != DrawingTools.ERASER)
                     {
-                        for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
+                        for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
                         {
-                            float positionX = i;
-                            float positionY = j;
-                            if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
+                            for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
                             {
-                                BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                                if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.width + (int)Frame.position.X || positionY >= Frame.height + (int)Frame.position.Y) continue;
-                                layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
+                                float positionX = i;
+                                float positionY = j;
+                                if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
+                                {
+                                    BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
+                                    if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.width + (int)Frame.position.X || positionY >= Frame.height + (int)Frame.position.Y) continue;
+                                    layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
+                                }
                             }
                         }
                     }

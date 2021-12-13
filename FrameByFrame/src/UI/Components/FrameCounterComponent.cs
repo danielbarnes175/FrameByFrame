@@ -31,7 +31,7 @@ namespace FrameByFrame.src.UI.Components.Buttons
             int currentFrame = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).currentFrame;
             int frameCount = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).totalFrames;
 
-            text = currentFrame + " / " + frameCount;
+            text = (currentFrame+1) + " / " + frameCount;
 
             base.Update();
         }
