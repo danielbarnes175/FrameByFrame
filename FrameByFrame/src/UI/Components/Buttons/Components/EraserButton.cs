@@ -10,6 +10,7 @@ namespace FrameByFrame.src.UI.Components.Buttons.Components
 {
     public class EraserButton : RadioButton
     {
+        public EraserButton(string selectedTexturePath, string unselectedTexturePath, bool isSelected, Vector2 position, Vector2 dimensions) : base(selectedTexturePath, unselectedTexturePath, isSelected, position, dimensions) { }
         public EraserButton(Texture2D selectedTexture, Texture2D unselectedTexture, bool isSelected, Vector2 position, Vector2 dimensions) : base(selectedTexture, unselectedTexture, isSelected, position, dimensions) { }
         
         public override void Update()

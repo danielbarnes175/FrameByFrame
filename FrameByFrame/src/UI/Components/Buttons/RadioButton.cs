@@ -12,8 +12,15 @@ namespace FrameByFrame.src.UI.Components.Buttons
         public Texture2D selectedTexture;
         public Texture2D unselectedTexture;
 
+        public RadioButton(string selectedTexturePath, string unselectedTexturePath, bool isSelected, Vector2 position, Vector2 dimensions) : base(unselectedTexturePath, position, dimensions)
+        {
+            selectedTexture = GlobalParameters.GlobalContent.Load<Texture2D>(selectedTexturePath);
+            unselectedTexture = GlobalParameters.GlobalContent.Load<Texture2D>(unselectedTexturePath);
+        }
+
         public RadioButton(Texture2D selectedTexture, Texture2D unselectedTexture, bool isSelected, Vector2 position, Vector2 dimensions) : base(unselectedTexture, position, dimensions)
         {
+            
             this.selectedTexture = selectedTexture;
             this.unselectedTexture = unselectedTexture;
 
