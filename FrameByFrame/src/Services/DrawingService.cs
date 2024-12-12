@@ -49,6 +49,68 @@ namespace FrameByFrame.src.Engine.Services
             return texture;
         }
 
+        public static void DrawLine(BasicColor[,] layer, Vector2 start, Vector2 end, int brushSize, Texture2D texture)
+        {
+            if (layer == null || texture == null) return;
+
+            int x0 = (int)start.X;
+            int y0 = (int)start.Y;
+            int x1 = (int)end.X;
+            int y1 = (int)end.Y;
+
+            // Bresenham's Line Algorithm
+            int dx = Math.Abs(x1 - x0);
+            int dy = Math.Abs(y1 - y0);
+            int sx = x0 < x1 ? 1 : -1;
+            int sy = y0 < y1 ? 1 : -1;
+            int err = dx - dy;
+
+            while (true)
+            {
+                // Draw a circle at the current point to simulate the brush
+                SetBrush(layer, new Vector2(x0, y0), brushSize, texture);
+
+                if (x0 == x1 && y0 == y1) break;
+
+                int e2 = 2 * err;
+                if (e2 > -dy)
+                {
+                    err -= dy;
+                    x0 += sx;
+                }
+                if (e2 < dx)
+                {
+                    err += dx;
+                    y0 += sy;
+                }
+            }
+        }
+
+        private static void SetBrush(BasicColor[,] layer, Vector2 center, int brushSize, Texture2D texture)
+        {
+            int radius = brushSize / 2;
+            int cx = (int)center.X;
+            int cy = (int)center.Y;
+
+            for (int x = -radius; x <= radius; x++)
+            {
+                for (int y = -radius; y <= radius; y++)
+                {
+                    int px = cx + x;
+                    int py = cy + y;
+
+                    // Check bounds
+                    if (px < 0 || py < 0 || px >= layer.GetLength(0) || py >= layer.GetLength(1)) continue;
+
+                    // Check if the point is within the circular brush
+                    if (x * x + y * y <= radius * radius)
+                    {
+                        layer[px, py] = new BasicColor(texture, new Vector2(px, py), new Vector2(1, 1));
+                    }
+                }
+            }
+        }
+
         public static void SetColors(BasicColor[,] layer, Texture2D color, Vector2 pointPosition, Shapes shape, int brushSize)
         {
             switch (shape)

@@ -1,15 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.UI;
-using FrameByFrame.src.UI.Components.Buttons;
-using FrameByFrame.src.UI.Components.Buttons.Components;
-using ImageMagick;
+using FrameByFrame.src.UI.Components;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -19,104 +13,80 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         public static string selectedLayer;
 
+        // Frame Management
         private LinkedList<Frame> frames;
         private LinkedListNode<Frame> currentFrame;
-        private List<UIElement> components;
-        public int currentFrameCount;
-        public int totalFrames;
-
-        private bool isPlaying;
-        private int timePlaying;
-        public static int fps;
-        public string projectName;
-        public bool loadedScene;
-        public bool isOnionSkinLoaded;
-        public int brushSize;
-
-        public DrawingTools drawingTool;
 
         public Vector2 frameSize;
         public Vector2 framePosition;
 
+        public int currentFrameCount;
+        public int totalFrames;
+
+        // Animation
+        private bool isPlaying;
+        private double playbackTimer;
+
+        private int timePlaying;
+        public static int fps;
+
+        // Tools
+        public DrawingTools drawingTool;
+        private List<UIElement> components;
+
+        // Project Info
+        public string projectName;
+
+        public bool loadedScene;
+        public bool isOnionSkinLoaded;
+        public int brushSize;
+        private int maxOnionFrames = 3;
+        private float baseOpacity = 0.1f;
+
         public DrawingScene()
+        {
+            InitializeDefaults();
+        }
+        private void InitializeDefaults()
         {
             currentFrameCount = 0;
             totalFrames = 1;
             isPlaying = false;
-            timePlaying = 0;
-            fps = 4;
+            timePlaying = 1;
             loadedScene = false;
             brushSize = 15;
             drawingTool = DrawingTools.DRAW;
-
             isOnionSkinLoaded = true;
-            Random random = new Random();
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            projectName = new string(Enumerable.Repeat(chars, 8)
-                .Select(s => s[random.Next(s.Length)]).ToArray());
+            fps = 12;
+
+            frames = new LinkedList<Frame>();
+            projectName = $"Project_{DateTime.Now:yyyyMMdd_HHmmss}";
         }
 
         public override void LoadContent()
         {
             selectedLayer = "_layer1";
 
+            SetupUI();
+            InitializeFrames();
+        }
+
+        private void SetupUI()
+        {
             components = new List<UIElement>();
             Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 32, pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
-            Container navbar = new Container(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 32));
+            DrawingNavbarComponent navbar = new DrawingNavbarComponent(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 32));
 
-            // Create Navbar child components
-            Texture2D menuButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 100, 32, pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
-            RedirectButton menuButton = new RedirectButton("Menu Scene", menuButtonTexture, new Vector2(0, 0), new Vector2(100, 32), "MENU", Color.White);
-
-            Texture2D helpButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(100, 100, 200), Shapes.RECTANGLE);
-            Overlay helpOverlay = new Overlay("Static\\SettingsScene/button_export", new Vector2(500, 500), new Vector2(32, 32));
-            PopupButton helpButton = new PopupButton(helpOverlay, "Static\\DrawingScene/help", new Vector2(menuButton.position.X + menuButton.dimensions.X, 0), new Vector2(32, 32));
-
-            //Texture2D settingsButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(255, 255, 0), Shapes.RECTANGLE);
-            Overlay settingsOverlay = new Overlay("Static\\SettingsScene/button_export", new Vector2(600, 500), new Vector2(32, 32));
-            PopupButton settingsButton = new PopupButton(settingsOverlay, "Static\\DrawingScene/gear", new Vector2(helpButton.position.X + helpButton.dimensions.X, 0), new Vector2(32, 32));
-
-            Texture2D colorButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(200, 0, 255), Shapes.CIRCLE);
-            Overlay colorOverlay = new Overlay(colorButtonTexture, new Vector2(1100, 500), new Vector2(32, 32));
-            PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - colorButtonTexture.Width, 0), new Vector2(32, 32));
-
-            Texture2D layerButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(0, 0, 255), Shapes.RECTANGLE);
-            Overlay layerOverlay = new Overlay(layerButtonTexture, new Vector2(732, 500), new Vector2(32, 32));
-            PopupButton layerButton = new PopupButton(layerOverlay, "Static\\DrawingScene/layers", new Vector2(colorButton.position.X - colorButton.dimensions.X, 0), new Vector2(32, 32));
-
-            List<RadioButton> buttons = new List<RadioButton>();
-
-            Texture2D eraserSelectedTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(255, 0, 0), Shapes.RECTANGLE);
-            Texture2D eraserUnselectedTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(0, 255, 0), Shapes.RECTANGLE);
-
-            EraserButton eraser = new EraserButton("Static\\DrawingScene/eraser_selected", "Static\\DrawingScene/eraser", false, new Vector2(layerButton.position.X - layerButton.dimensions.X, 0), new Vector2(32, 32));
-            DrawButton draw = new DrawButton("Static\\DrawingScene/brush_selected", "Static\\DrawingScene/brush", true, new Vector2(eraser.position.X - eraser.dimensions.X, 0), new Vector2(32, 32));
-
-            buttons.Add(draw);
-            buttons.Add(eraser);
-
-            ButtonGroup toolButtons = new ButtonGroup(buttons);
-            // TODO ADD Clickable Buttons
-            // +1 Frame, Last Frame, -1 Frame, First Frame, Play
-
-            Texture2D frameCounterTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 132, 32, pixel => new Color(0, 0, 0), Shapes.RECTANGLE);
-            UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X + settingsButton.dimensions.X, 0), new Vector2(frameCounterTexture.Width, frameCounterTexture.Height));
-
-            navbar.uiElements.Add(menuButton);
-            navbar.uiElements.Add(helpButton);
-            navbar.uiElements.Add(settingsButton);
-            navbar.uiElements.Add(colorButton);
-            navbar.uiElements.Add(layerButton);
-            navbar.uiElements.Add(frameCounter);
-            navbar.buttonGroups.Add(toolButtons);
-
-            // Add the navbar to this scene
             components.Add(navbar);
+        }
 
-            // Load Frame
-            frames = new LinkedList<Frame>();
+        private void InitializeFrames()
+        {
             frameSize = new Vector2(1200, 800);
-            framePosition = new Vector2(GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2, GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2 + menuButton.dimensions.Y / 2);
+            framePosition = new Vector2(
+                GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2,
+                GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
+
             frames.AddLast(new Frame(framePosition, frameSize));
             currentFrame = frames.First;
         }
@@ -146,22 +116,6 @@ namespace FrameByFrame.src.Engine.Scenes
                 element.Draw(offset, new Vector2(0, 0));
             }
 
-            /*
-            _sideMenu.Draw(offset);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, currentFrameCount + 1 + " / " + totalFrames, new Vector2(GlobalParameters.screenWidth - 225, GlobalParameters.screenHeight / 4 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Controls: ", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 20 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"M\" - Next Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 40 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"N\" - Previous Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 60 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"B\" - Insert a New Frame Before the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 80 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"P\" - Play/Pause Animation", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 100 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"W\" - Open Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 120 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"S\" - Close Settings Menu", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 140 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"O\" - Toggle Onion Skin", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 160 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"ESC\" - Return to Main Menu WITHOUT Saving", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 180 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"DELETE\" - Delete the Current Frame", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 200 - 150), Color.Black);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "\"BACKSPACE\" - Delete the Current Layer", new Vector2(GlobalParameters.screenWidth - 400, GlobalParameters.screenHeight / 4 + 220 - 150), Color.Black);
-           
-            */
             base.Draw(offset);
         }
 
@@ -178,40 +132,14 @@ namespace FrameByFrame.src.Engine.Scenes
             // Draw on current frame
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
-                BasicColor[,] layer = null;
-                switch (selectedLayer)
-                {
-                    case "_layer1":
-                        layer = currentFrame.Value._layer1;
-                        break;
-                    case "_layer2":
-                        layer = currentFrame.Value._layer2;
-                        break;
-                    case "_layer3":
-                        layer = currentFrame.Value._layer3;
-                        break;
-                }
-
-                Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
-                Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
-                int numInterpolations;
-
-                float xChange = mousePositionCur.X - mousePositionOld.X;
-                float yChange = mousePositionCur.Y - mousePositionOld.Y;
-
-                float distance = (float) Math.Ceiling((Math.Sqrt(Math.Pow(xChange, 2) + Math.Pow(yChange, 2))) / 2);
-
-                for (int i = 0; i < distance; i++)
-                {
-                    float newX = (i * (xChange / distance)) + mousePositionOld.X - framePosition.X;
-                    float newY = (i * (yChange / distance)) + mousePositionOld.Y - framePosition.Y;
-                    
-                    if (newX >= Frame.width + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.height + framePosition.Y) return;
-                    Vector2 pointPosition = new Vector2(newX + framePosition.X, newY + framePosition.Y);
-
-                    DrawingService.SetColors(layer, currentFrame.Value.colors[0], pointPosition, Shapes.CIRCLE, brushSize);
-                }
+                DrawOnCurrentLayer();
             }
+        }
+
+        private void ResetScene()
+        {
+            InitializeDefaults();
+            LoadContent();
         }
 
         private void handleIsPlaying(GameTime gameTime)
@@ -227,65 +155,47 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void drawCurrentFrame()
         {
-            currentFrame.Value.Draw(1.0f);
+            currentFrame?.Value.Draw(1.0f);
 
             if (!isPlaying && isOnionSkinLoaded)
             {
-                DrawOnionSkin();
+                drawOnionSkin();
             }
 
-            for (int i = 0; i < frameSize.X; i++)
+            drawFrameWithOpacity(currentFrame?.Value, 1.0f);
+        }
+
+        public void drawOnionSkin()
+        {
+            for (int i = 1; i <= maxOnionFrames; i++)
             {
-                for (int j = 0; j < frameSize.Y; j++)
+                var frame = frames.ElementAtOrDefault(currentFrameCount - i);
+                if (frame != null)
                 {
-                    if (currentFrame.Value._layer3[i, j] != null)
-                        currentFrame.Value._layer3[i, j].Draw(1.0f);
-                    if (currentFrame.Value._layer2[i, j] != null)
-                        currentFrame.Value._layer2[i, j].Draw(1.0f);
-                    if (currentFrame.Value._layer1[i, j] != null)
-                        currentFrame.Value._layer1[i, j].Draw(1.0f);
+                    float opacity = baseOpacity * (maxOnionFrames - i + 1);
+                    frame.DrawLayers(opacity);
                 }
             }
         }
 
+        private void drawFrameWithOpacity(Frame frame, float opacity)
+        {
+            frame?.DrawLayers(opacity);
+        }
+
         public void handleKeyboardShortcuts()
         {
-            // Save current frame as png
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("T"))
-            {
-                RenderTarget2D texture = combineTextures(currentFrame.Value);
-                SaveTextureAsPng("drawing" + currentFrameCount + ".png", texture);
-            }
-
             // Exit drawing
             if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
             {
+                ResetScene();
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
-
-                // Reset all values again, basically calling the constructor as if it were new.
-                selectedLayer = "_layer1";
-                frames = new LinkedList<Frame>();
-                frames.AddLast(new Frame(framePosition, frameSize));
-                currentFrameCount = 0;
-                totalFrames = 1;
-                isPlaying = false;
-                timePlaying = 0;
-                fps = 4;
-                loadedScene = false;
-                brushSize = 15;
-
-                isOnionSkinLoaded = true;
-                Random random = new Random();
-                const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                projectName = new string(Enumerable.Repeat(chars, 8)
-                    .Select(s => s[random.Next(s.Length)]).ToArray());
             }
 
             // Delete current frame
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
             {
-                // TODO fix
-                //deleteFrame(frames, currentFrameCount);
+                deleteFrame();
             }
 
             // Toggle animation playing
@@ -340,190 +250,110 @@ namespace FrameByFrame.src.Engine.Scenes
             // Insert a frame
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("B"))
             {
-                // TODO fix
-                //frames = InsertFrame(frames, currentFrameCount);
-                //totalFrames += 1;
+                insertFrame();
             }
         }
         public void Animate(GameTime gameTime)
         {
-            if (timePlaying % fps != 0) return;
-            currentFrameCount += 1;
-            if (currentFrameCount > totalFrames - 1)
+            // Calculate the time between frames based on fps (frames per second)
+            double frameDuration = 1.0 / fps; // Duration of each frame in seconds
+
+            // Increment the playback timer by the elapsed time since the last frame
+            playbackTimer += gameTime.ElapsedGameTime.TotalSeconds;
+
+            // If the playback timer exceeds the frame duration, advance the animation
+            if (playbackTimer >= frameDuration)
             {
-                currentFrameCount = 0;
-                currentFrame = frames.First;
-            } else
-            {
-                currentFrame = currentFrame.Next;
+                playbackTimer -= frameDuration;
+                currentFrameCount = (currentFrameCount + 1) % totalFrames;
+                currentFrame = currentFrame.Next ?? frames.First;
             }
         }
 
-        private void deleteFrame(List<Frame> givenFrames, int givencurrentFrameCount)
+        private void deleteFrame()
         {
-            if (totalFrames == 1) return;
+            // Can't delete the only frame
+            if (frames.Count <= 1) return;
 
-            LinkedList<Frame> newFrames = new LinkedList<Frame>();
-            for (int i = 0; i < frames.Count; i++)
-            {
-                if (i != givencurrentFrameCount)
-                {
-                    newFrames.AddLast(givenFrames[i]);
-                }
-            }
-
-            frames = newFrames;
-            totalFrames = frames.Count;
+            var toRemove = currentFrame;
+            currentFrame = currentFrame.Previous ?? currentFrame.Next;
+            frames.Remove(toRemove);
+            totalFrames--;
+            currentFrameCount = Math.Max(0, currentFrameCount - 1);
         }
 
-        private List<Frame> InsertFrame(List<Frame> givenFrames, int givencurrentFrameCount)
+        private void insertFrame()
         {
-            List<Frame> newFrames = new List<Frame>();
-
-            for (int i = 0; i < givenFrames.Count; i++)
-            {
-                if (i == givencurrentFrameCount)
-                {
-                    newFrames.Add(new Frame(framePosition, frameSize));
-                    newFrames.Add(givenFrames[i]);
-                }
-                else
-                {
-                    newFrames.Add(givenFrames[i]);
-                }
-            }
-
-            return newFrames;
+            var newFrame = new Frame(framePosition, frameSize);
+            frames.AddBefore(currentFrame, newFrame);
+            totalFrames++;
+            currentFrame = currentFrame.Previous;
         }
 
-        public void DrawOnionSkin()
+        private void DrawOnCurrentLayer()
         {
-            if (currentFrameCount - 3 >= 0)
-            {
-                DrawLayersWithOpacity(currentFrameCount - 3, 0.1f);
-            }
+            BasicColor[,] layer = GetSelectedLayer();
+            if (layer == null) return;
 
-            if (currentFrameCount - 2 >= 0)
-            {
-                DrawLayersWithOpacity(currentFrameCount - 2, 0.2f);
-            }
+            Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
+            Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
 
-            if (currentFrameCount - 1 >= 0)
+            float xChange = mousePositionCur.X - mousePositionOld.X;
+            float yChange = mousePositionCur.Y - mousePositionOld.Y;
+
+            float distance = (float)Math.Ceiling((Math.Sqrt(Math.Pow(xChange, 2) + Math.Pow(yChange, 2))) / 2);
+
+            for (int i = 0; i < distance; i++)
             {
-                DrawLayersWithOpacity(currentFrameCount - 1, 0.3f);
+                float newX = (i * (xChange / distance)) + mousePositionOld.X - framePosition.X;
+                float newY = (i * (yChange / distance)) + mousePositionOld.Y - framePosition.Y;
+
+                if (newX >= Frame.width + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.height + framePosition.Y) continue;
+                Vector2 pointPosition = new Vector2(newX + framePosition.X, newY + framePosition.Y);
+
+                DrawingService.SetColors(layer, currentFrame.Value.colors[0], pointPosition, Shapes.CIRCLE, brushSize);
             }
         }
 
-        private void DrawLayersWithOpacity(int frame, float opacity)
+        private BasicColor[,] GetSelectedLayer()
         {
-            for (int i = 0; i < frameSize.X; i++)
+            return selectedLayer switch
             {
-                for (int j = 0; j < frameSize.Y; j++)
-                {
-                    if (currentFrame.Value._layer3[i, j] != null)
-                        currentFrame.Value._layer3[i, j].Draw(opacity);
-                    if (currentFrame.Value._layer2[i, j] != null)
-                        currentFrame.Value._layer2[i, j].Draw(opacity);
-                    if (currentFrame.Value._layer1[i, j] != null)
-                        currentFrame.Value._layer1[i, j].Draw(opacity);
-                }
-            }
+                "_layer1" => currentFrame?.Value._layer1,
+                "_layer2" => currentFrame?.Value._layer2,
+                "_layer3" => currentFrame?.Value._layer3,
+                _ => null
+            };
         }
 
-        // Combine multiple layers
-        private RenderTarget2D combineTextures(Frame givenFrame)
+        private RenderTarget2D CombineTextures(IEnumerable<BasicTexture> textures, int width, int height)
         {
-            RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth - 222, GlobalParameters.screenHeight);
+            var renderTarget = new RenderTarget2D(GlobalParameters.GlobalGraphics, width, height);
 
-            // Set render target
-            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
-            GlobalParameters.GlobalGraphics.Clear(Color.White);
+            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget);
+            GlobalParameters.GlobalGraphics.Clear(Color.Transparent);
 
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
 
-            for (int i = 0; i < frameSize.X; i++)
-            {
-                for (int j = 0; j < frameSize.Y; j++)
-                {
-                    if (currentFrame.Value._layer3[i, j] != null)
-                        givenFrame._layer3[i, j].Draw(1.0f);
-                    if (currentFrame.Value._layer2[i, j] != null)
-                        givenFrame._layer2[i, j].Draw(1.0f);
-                    if (currentFrame.Value._layer1[i, j] != null)
-                        givenFrame._layer1[i, j].Draw(1.0f);
-                }
-            }
-
-            GlobalParameters.GlobalSpriteBatch.End();
-
-            // Unset render target
-            GlobalParameters.GlobalGraphics.SetRenderTarget(null);
-
-            return renderTarget2D;
-        }
-
-        // combine new point for single layer
-        private RenderTarget2D combineTextures(List<BasicTexture> givenTextures)
-        {
-            RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, (int)givenTextures[0].dimensions.X, (int)givenTextures[0].dimensions.Y);
-
-            // Set render target
-            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
-            GlobalParameters.GlobalGraphics.Clear(new Color());
-
-            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
-
-            foreach (BasicTexture texture in givenTextures)
+            foreach (var texture in textures)
             {
                 texture.Draw(Vector2.Zero);
             }
-            
+
             GlobalParameters.GlobalSpriteBatch.End();
-            
-            // Unset render target
             GlobalParameters.GlobalGraphics.SetRenderTarget(null);
-            return renderTarget2D;
+
+            return renderTarget;
         }
 
-        public void setDrawTool()
+        private RenderTarget2D CombineFrameTextures(Frame frame)
         {
-            // drawToolTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, brushSize, brushSize, pixel => GlobalParameters.CurrentColor, Shapes.CIRCLE);
-        }
-
-        public void ExportAnimation()
-        {
-            for (int i = 0; i < frames.Count; i++)
+            var textures = new List<BasicTexture>();
+            foreach (var layer in new[] { frame._layer1, frame._layer2, frame._layer3 })
             {
-                /* TODO
-                RenderTarget2D texture = combineTextures(frames[i]);
-                System.IO.Directory.CreateDirectory("Projects/" + projectName);
-                SaveTextureAsPng("Projects/" + projectName + "/Frame_" + i + ".png", texture);
-                */
+                textures.AddRange((IEnumerable<BasicTexture>)layer.Cast<BasicColor>().Where(color => color != null));
             }
-
-            CreateGif("Projects/" + projectName + "/_" + projectName + ".gif");
-        }
-
-        private void SaveTextureAsPng(string filename, RenderTarget2D texture)
-        {
-            FileStream setStream = File.Open(filename, FileMode.Create);
-            StreamWriter writer = new StreamWriter(setStream);
-            texture.SaveAsPng(setStream, texture.Width, texture.Height);
-            setStream.Dispose();
-        }
-
-        private void CreateGif(string filename)
-        {
-            using (MagickImageCollection collection = new MagickImageCollection())
-            {
-                for (int i = 0; i < frames.Count; i++)
-                {
-                    collection.Add("Projects/" + projectName + "/Frame_" + i + ".png");
-                    collection[0].AnimationDelay = 8;
-                }
-
-                collection.Write(filename);
-            }
+            return CombineTextures(textures, Frame.width, Frame.height);
         }
     }
 }

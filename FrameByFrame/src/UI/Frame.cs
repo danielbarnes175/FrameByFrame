@@ -59,5 +59,18 @@ namespace FrameByFrame.src.UI
                     0.2f);
             }
         }
+
+        public virtual void DrawLayers(float opacity)
+        {
+            for (int i = 0; i < width; i++)
+            {
+                for (int j = 0; j < height; j++)
+                {
+                    _layer3[i, j]?.Draw(opacity);
+                    _layer2[i, j]?.Draw(opacity);
+                    _layer1[i, j]?.Draw(opacity);
+                }
+            }
+        }
     }
 }

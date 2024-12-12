@@ -61,12 +61,6 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
-            if (isExporting)
-            {
-                DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-                scene.ExportAnimation();
-                isExporting = false;
-            }
             if (GlobalParameters.GlobalKeyboard.GetPress("S"))
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
             if (GlobalParameters.GlobalMouse.LeftClickHold())
@@ -166,8 +160,6 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 GlobalParameters.CurrentColor = Color.White;
             }
-
-            ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).setDrawTool();
         }
 
         public void CheckLayer()
