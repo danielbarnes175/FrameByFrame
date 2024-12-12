@@ -1,5 +1,5 @@
-﻿using FrameByFrame.src.Engine.Scenes;
-using FrameByFrame.src.UI;
+﻿using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Scenes;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;

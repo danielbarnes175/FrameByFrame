@@ -17,9 +17,7 @@ namespace FrameByFrame.src.Engine.Export
         {
             SaveData saveData = new SaveData();
             saveData.frames = givenFrames;
-            string filename = "test.fbfa";
-
-            
+            //string filename = "test.fbfa";
         }
     }
 }

@@ -112,7 +112,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 && timePlaying % fps == 0
             ) {
                 previewFrame += 1;
-                if (previewFrame >= animations[currentPreview].Frames.Count)
+                if (previewFrame >= animations[currentPreview].frames.Count)
                     previewFrame = 0;
             }
 
@@ -123,7 +123,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (animations.Count > 0)
             {
-                animations[currentPreview].Frames[previewFrame].Draw(offset);
+                animations[currentPreview].GetFrameAtIndex(previewFrame).Draw(1.0f);
                 GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, string.Concat("Current Project Shown: ", projects[currentPreview].AsSpan(9)), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
             }
             else
@@ -170,7 +170,7 @@ namespace FrameByFrame.src.Engine.Scenes
             animations = new List<Animation.Animation>();
             for (int i = 0; i < projects.Count; i++)
             {
-                animations.Add(new Animation.Animation());
+                animations.Add(new Animation.Animation("temp"));
                 int frameCounter = 0;
                 while (true)
                 {
@@ -181,7 +181,8 @@ namespace FrameByFrame.src.Engine.Scenes
                     BasicTexture preview = new BasicTexture(pngTexture,
                         new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
                         new Vector2(300, 300));
-                    animations[i].Frames.Add(preview);
+
+                    //animations[i].frames.AddFrame(preview);
                     frameCounter++;
                 }
             }

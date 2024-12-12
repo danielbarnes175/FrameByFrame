@@ -74,17 +74,17 @@ namespace FrameByFrame.src.Engine.Scenes
                 if (clickPosition.X > 195 && clickPosition.X < 215 && clickPosition.Y > 90 && clickPosition.Y < 120)
                 {
                     DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-                    scene.isOnionSkinLoaded = !(scene.isOnionSkinLoaded);
+                    scene.animation.isOnionSkinLoaded = !(scene.animation.isOnionSkinLoaded);
                 }
                 else if (clickPosition.X > 734 && clickPosition.X < 794 && clickPosition.Y > 830 && clickPosition.Y < 855)
                 {
-                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize -= 1;
-                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize <= 0) ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize = 1;
+                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize -= 1;
+                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize <= 0) ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize = 1;
                 }
                 else if (clickPosition.X > 794 && clickPosition.X < 853 && clickPosition.Y > 830 && clickPosition.Y < 855)
                 {
-                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize += 1;
-                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize >= 30) ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize = 30;
+                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize += 1;
+                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize >= 30) ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize = 30;
                 }
             }
             base.Update(gameTime);
@@ -112,12 +112,12 @@ namespace FrameByFrame.src.Engine.Scenes
            }
 
            DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-           string onionSkinEnabled = (scene.isOnionSkinLoaded) ? "enabled" : "disabled";
+           string onionSkinEnabled = (scene.animation.isOnionSkinLoaded) ? "enabled" : "disabled";
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor.ToString(), new Vector2(230, 90), Color.Black);
            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
-           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + DrawingScene.selectedLayer, new Vector2(1100, 150), Color.Black);
+           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + scene.animation.selectedLayer, new Vector2(1100, 150), Color.Black);
            
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
             if (isExporting)
             {
                 GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Exporting Animation...", new Vector2(GlobalParameters.screenWidth - 200, GlobalParameters.screenHeight - 90), Color.Black);
@@ -166,17 +166,18 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
+            DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
             if (clickPosition.X > 1070 && clickPosition.X < 1220 && clickPosition.Y > 50 && clickPosition.Y < 100)
             {
-                DrawingScene.selectedLayer = "_layer1";
+                scene.animation.selectedLayer = "_layer1";
             }
             if (clickPosition.X > 1240 && clickPosition.X < 1390 && clickPosition.Y > 50 && clickPosition.Y < 100)
             {
-                DrawingScene.selectedLayer = "_layer2";
+                scene.animation.selectedLayer = "_layer2";
             }
             if (clickPosition.X > 1410 && clickPosition.X < 1560 && clickPosition.Y > 50 && clickPosition.Y < 100)
             {
-                DrawingScene.selectedLayer = "_layer3";
+                scene.animation.selectedLayer = "_layer3";
             }
         }
 

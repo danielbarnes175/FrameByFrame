@@ -28,8 +28,8 @@ namespace FrameByFrame.src.UI.Components.Buttons
         public override void Update()
         {
             // If button is clicked, show overlay.
-            int currentFrame = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).currentFrameCount;
-            int frameCount = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).totalFrames;
+            int currentFrame = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.CurrentFrameIndex;
+            int frameCount = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.TotalFrames;
 
             text = (currentFrame+1) + " / " + frameCount;
 
