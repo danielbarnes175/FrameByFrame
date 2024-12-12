@@ -107,8 +107,10 @@ namespace FrameByFrame.src.Engine.Scenes
             }
 
             timePlaying += 1;
-            if (timePlaying % fps == 0)
-            {
+            if (
+                animations.Count > 0
+                && timePlaying % fps == 0
+            ) {
                 previewFrame += 1;
                 if (previewFrame >= animations[currentPreview].Frames.Count)
                     previewFrame = 0;
@@ -118,13 +120,22 @@ namespace FrameByFrame.src.Engine.Scenes
         }
 
         public override void Draw(Vector2 offset)
-        { 
-           animations[currentPreview].Frames[previewFrame].Draw(offset);
-           foreach (BasicTexture texture in _textures)
-           {
-               texture.Draw(offset);
-           }
-           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Current Project Shown: " + projects[currentPreview].Substring(9), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+        {
+            if (animations.Count > 0)
+            {
+                animations[currentPreview].Frames[previewFrame].Draw(offset);
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, string.Concat("Current Project Shown: ", projects[currentPreview].AsSpan(9)), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+            }
+            else
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "No projects found", new Vector2(GlobalParameters.screenWidth / 2 - 50, GlobalParameters.screenHeight / 2), Color.Black);
+            }
+
+            foreach (BasicTexture texture in _textures)
+            {
+                texture.Draw(offset);
+            }
+            
             base.Draw(offset);
         }
 
