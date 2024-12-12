@@ -7,7 +7,7 @@ using System.Text;
 
 namespace FrameByFrame.src.UI
 {
-    
+
     /**
      * Class that takes a list of radio buttons to then connect them to each other. Checks all the buttons, and is one is selected, it unselects the others.
      */

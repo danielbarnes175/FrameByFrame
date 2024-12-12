@@ -36,8 +36,11 @@ namespace FrameByFrame.src.UI.Components.Buttons
             if (isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 target.isVisible = true;
-            } else if (!isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold()) {
-                target.isVisible = false;            }
+            }
+            else if (!isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
+            {
+                target.isVisible = false;
+            }
 
             base.Update();
         }

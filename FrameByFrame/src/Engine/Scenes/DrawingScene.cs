@@ -26,6 +26,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             InitializeDefaults();
         }
+
         private void InitializeDefaults()
         {
             string projectName = $"Project_{DateTime.Now:yyyyMMdd_HHmmss}";
@@ -52,8 +53,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
-            handleKeyboardShortcuts();
-            handleMouseShortcuts();
+            HandleKeyboardShortcuts();
+            HandleMouseShortcuts();
             animation.Animate(gameTime);
 
             foreach (UIElement element in components)
@@ -79,7 +80,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
 
 
-        private void handleMouseShortcuts()
+        private void HandleMouseShortcuts()
         {
             // So we don't start drawing until we load the scene
             if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene)
@@ -101,7 +102,7 @@ namespace FrameByFrame.src.Engine.Scenes
             LoadContent();
         }
 
-        public void handleKeyboardShortcuts()
+        private void HandleKeyboardShortcuts()
         {
             // Exit drawing
             if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
@@ -157,6 +158,6 @@ namespace FrameByFrame.src.Engine.Scenes
                 animation.InsertFrame();
             }
         }
-        
+
     }
 }

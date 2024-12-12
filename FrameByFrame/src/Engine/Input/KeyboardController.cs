@@ -32,7 +32,7 @@ namespace FrameByFrame.src.Engine.Input
 
         public void UpdateOld()
         {
-            
+
         }
 
         public bool GetPress(string KEY)
@@ -64,7 +64,7 @@ namespace FrameByFrame.src.Engine.Input
 
         public virtual void GetPressedKeys()
         {
-            
+
         }
 
         public virtual Microsoft.Xna.Framework.Input.Keys GetKeyFromString(string KEY)

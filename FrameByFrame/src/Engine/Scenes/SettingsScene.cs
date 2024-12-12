@@ -34,7 +34,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _textures.Add(_paintBrush);
 
             _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-1", new Vector2(1150, 100), new Vector2(150, 50)));
-            _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-2", new Vector2( 1320, 100), new Vector2(150, 50)));
+            _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-2", new Vector2(1320, 100), new Vector2(150, 50)));
             _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-3", new Vector2(1490, 100), new Vector2(150, 50)));
 
             _exportButton = new BasicTexture("Static\\SettingsScene/button_export", new Vector2(GlobalParameters.screenWidth - 100, GlobalParameters.screenHeight - 40), new Vector2(167, 50));
@@ -55,8 +55,8 @@ namespace FrameByFrame.src.Engine.Scenes
             _colors.Add(new BasicTexture("Static\\SettingsScene/Eraser", new Vector2(210, 90), pointDimensions));
 
             _onion = new BasicTexture("Static\\SettingsScene/Onion", new Vector2(210, 130), pointDimensions);
-            _backArrow  = new BasicTexture("Static\\SettingsScene/Arrow_point-left", new Vector2(100, GlobalParameters.screenHeight - 75), new Vector2(96, 96));
-            _toggleSizeButton = new BasicTexture("Static\\SettingsScene/button_change-size", new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight - 30), new Vector2(120, 24)); 
+            _backArrow = new BasicTexture("Static\\SettingsScene/Arrow_point-left", new Vector2(100, GlobalParameters.screenHeight - 75), new Vector2(96, 96));
+            _toggleSizeButton = new BasicTexture("Static\\SettingsScene/button_change-size", new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight - 30), new Vector2(120, 24));
         }
 
         public override void Update(GameTime gameTime)
@@ -96,27 +96,27 @@ namespace FrameByFrame.src.Engine.Scenes
             _onion.Draw(offset);
             _backArrow.Draw(offset);
             _toggleSizeButton.Draw(offset);
-           foreach (BasicTexture texture in _textures)
-           {
-               texture.Draw(offset);
-           }
+            foreach (BasicTexture texture in _textures)
+            {
+                texture.Draw(offset);
+            }
 
-           foreach (BasicTexture color in _colors)
-           {
-               color.Draw(offset);
-           }
+            foreach (BasicTexture color in _colors)
+            {
+                color.Draw(offset);
+            }
 
-           foreach (BasicTexture buttons in _layerButtons)
-           {
-               buttons.Draw(offset);
-           }
+            foreach (BasicTexture buttons in _layerButtons)
+            {
+                buttons.Draw(offset);
+            }
 
-           DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-           string onionSkinEnabled = (scene.animation.isOnionSkinLoaded) ? "enabled" : "disabled";
-           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor.ToString(), new Vector2(230, 90), Color.Black);
-           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
-           GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + scene.animation.selectedLayer, new Vector2(1100, 150), Color.Black);
-           
+            DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
+            string onionSkinEnabled = (scene.animation.isOnionSkinLoaded) ? "enabled" : "disabled";
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor.ToString(), new Vector2(230, 90), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + scene.animation.selectedLayer, new Vector2(1100, 150), Color.Black);
+
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
             if (isExporting)
             {
@@ -183,7 +183,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void CheckOtherButtons()
         {
-            
+
             if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
@@ -224,7 +224,7 @@ namespace FrameByFrame.src.Engine.Scenes
             Color[] data = new Color[width * height];
             for (int pixel = 0; pixel < data.Count(); pixel++)
             {
-                
+
                 //the function applies the color according to the specified pixel
                 data[pixel] = paint(pixel);
             }

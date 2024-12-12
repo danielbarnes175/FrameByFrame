@@ -20,7 +20,7 @@ namespace FrameByFrame.src.UI.Components.Buttons
 
         public RadioButton(Texture2D selectedTexture, Texture2D unselectedTexture, bool isSelected, Vector2 position, Vector2 dimensions) : base(unselectedTexture, position, dimensions)
         {
-            
+
             this.selectedTexture = selectedTexture;
             this.unselectedTexture = unselectedTexture;
 

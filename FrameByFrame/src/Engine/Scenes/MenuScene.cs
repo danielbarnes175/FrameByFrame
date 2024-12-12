@@ -38,7 +38,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Update(GameTime gameTime)
         {
-            foreach(UIElement element in _uiElements) 
+            foreach (UIElement element in _uiElements)
             {
                 element.Update();
             }
@@ -61,14 +61,14 @@ namespace FrameByFrame.src.Engine.Scenes
 
             foreach (BasicTexture texture in _textures)
             {
-               texture.Draw(offset);
+                texture.Draw(offset);
             }
 
             if (cannotLoadProjects)
             {
                 GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "No projects found", new Vector2(GlobalParameters.screenWidth / 2 - 250, GlobalParameters.screenHeight / 2 + 40), Color.Black);
             }
-           base.Draw(offset);
+            base.Draw(offset);
         }
     }
 }

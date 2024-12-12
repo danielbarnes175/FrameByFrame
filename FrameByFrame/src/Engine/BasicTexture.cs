@@ -67,8 +67,8 @@ namespace FrameByFrame.src.Engine
             if (texture != null)
             {
                 GlobalParameters.GlobalSpriteBatch.Draw(texture,
-                    new Rectangle((int) (position.X + OFFSET.X), (int) (position.Y + OFFSET.Y), (int) dimensions.X,
-                        (int) dimensions.Y), null, Color.White, rotation,
+                    new Rectangle((int)(position.X + OFFSET.X), (int)(position.Y + OFFSET.Y), (int)dimensions.X,
+                        (int)dimensions.Y), null, Color.White, rotation,
                     new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
             }
         }
@@ -87,8 +87,8 @@ namespace FrameByFrame.src.Engine
         public virtual void Draw(Vector2 OFFSET, Vector2 ORIGIN)
         {
             GlobalParameters.GlobalSpriteBatch.Draw(texture,
-                new Rectangle((int) (position.X + OFFSET.X), (int) (position.Y + OFFSET.Y), (int) dimensions.X,
-                    (int) dimensions.Y), null, Color.White, rotation, new Vector2(ORIGIN.X, ORIGIN.Y),
+                new Rectangle((int)(position.X + OFFSET.X), (int)(position.Y + OFFSET.Y), (int)dimensions.X,
+                    (int)dimensions.Y), null, Color.White, rotation, new Vector2(ORIGIN.X, ORIGIN.Y),
                 new SpriteEffects(), 0.2f);
         }
     }

@@ -110,7 +110,8 @@ namespace FrameByFrame.src.Engine.Scenes
             if (
                 animations.Count > 0
                 && timePlaying % fps == 0
-            ) {
+            )
+            {
                 previewFrame += 1;
                 if (previewFrame >= animations[currentPreview].frames.Count)
                     previewFrame = 0;
@@ -135,7 +136,7 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 texture.Draw(offset);
             }
-            
+
             base.Draw(offset);
         }
 

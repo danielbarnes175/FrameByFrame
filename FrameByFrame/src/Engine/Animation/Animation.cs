@@ -37,8 +37,6 @@ namespace FrameByFrame.src.Engine.Animation
         public int CurrentFrameIndex { get; private set; }
         public Frame CurrentFrame => currentFrame?.Value;
 
-        
-
         public Animation(string projectName)
         {
             this.projectName = projectName;
@@ -187,7 +185,6 @@ namespace FrameByFrame.src.Engine.Animation
                 _ => null
             };
         }
-
 
         public void DrawCurrentFrame()
         {
