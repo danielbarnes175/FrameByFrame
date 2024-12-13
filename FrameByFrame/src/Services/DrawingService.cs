@@ -54,20 +54,20 @@ namespace FrameByFrame.src.Engine.Services
             switch (shape)
             {
                 case Shapes.CIRCLE:
-                        for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
+                    for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
+                    {
+                        for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
                         {
-                            for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
+                            float positionX = i;
+                            float positionY = j;
+                            if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
                             {
-                                float positionX = i;
-                                float positionY = j;
-                                if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
-                                {
-                                    BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                                    if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.staticWidth + (int)Frame.position.X || positionY >= Frame.staticHeight + (int)Frame.position.Y) continue;
-                                    layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
-                                }
+                                BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
+                                if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.staticWidth + (int)Frame.position.X || positionY >= Frame.staticHeight + (int)Frame.position.Y) continue;
+                                layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
                             }
                         }
+                    }
                     break;
                 case Shapes.RECTANGLE:
                     for (int i = -1 * (brushSize / 2); i < brushSize / 2; i++)

@@ -37,7 +37,7 @@ namespace FrameByFrame.src.UI.Components.Buttons
             {
                 target.isVisible = true;
             }
-            else if (CollisionService.CheckMouseCollision(target) && GlobalParameters.GlobalMouse.LeftClickHold ())
+            else if (CollisionService.CheckMouseCollision(target) && GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 target.Update();
             }

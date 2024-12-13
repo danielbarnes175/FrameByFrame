@@ -11,7 +11,7 @@ namespace FrameByFrame.src.Engine
         public Action<Color> OnColorSelected;
         public Color SelectedColor { get; private set; }
 
-        public ColorWheelComponent(Vector2 position, Vector2 dimensions): base((Texture2D)null, position, dimensions)
+        public ColorWheelComponent(Vector2 position, Vector2 dimensions) : base((Texture2D)null, position, dimensions)
         {
             texture = GenerateColorWheel((int)dimensions.X);
             this.SetColorData();

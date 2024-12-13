@@ -118,7 +118,6 @@ namespace FrameByFrame.src.Engine.Scenes
             // Draw on current frame
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
-                Debug.WriteLine(drawingTool);
                 switch (drawingTool)
                 {
                     case DrawingTools.DRAW:
