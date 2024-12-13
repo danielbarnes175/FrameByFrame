@@ -125,7 +125,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (animations.Count > 0)
             {
-                animations[currentPreview].GetFrameAtIndex(previewFrame).DrawLayers(1.0f);
+                animations[currentPreview].GetFrameAtIndex(previewFrame).DrawCombinedTexture(1.0f);
                 GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, string.Concat("Current Project Shown: ", projects[currentPreview].AsSpan(9)), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
             }
             else
@@ -180,17 +180,18 @@ namespace FrameByFrame.src.Engine.Scenes
                     string filename = projects[i] + "/Frame_" + frameCounter + ".png";
                     if (!File.Exists(filename)) break;
 
+                    Vector2 position = new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2);
+                    Vector2 dimensions = new Vector2(300, 300);
                     Texture2D pngTexture = getTextureFromPng(filename);
 
-                    Frame frame = new Frame(
-                        new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
-                        new Vector2(300, 300));
+                    Frame frame = new Frame(position, dimensions);
+                    BasicTexture texture = new BasicTexture(pngTexture, position, dimensions);
+                    frame.CombinedTexture = texture;
 
-                    // Convert the texture to a BasicColor layer
-                    frame._layer1 = Frame.ConvertTextureToLayer(
+                    /*frame._layer1 = Frame.ConvertTextureToLayer(
                         pngTexture,
                         new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
-                        new Vector2(300, 300));
+                        new Vector2(300, 300));*/
 
                     animation.AddFrame(frame);
                     frameCounter++;

@@ -19,6 +19,8 @@ namespace FrameByFrame.src.Engine.Animation
         public BasicColor[,] _layer2;
         public BasicColor[,] _layer3;
 
+        public BasicTexture CombinedTexture;
+
         public Texture2D[] colors;
         public Texture2D background;
 
@@ -98,6 +100,11 @@ namespace FrameByFrame.src.Engine.Animation
             }
 
             return layer;
+        }
+
+        public void DrawCombinedTexture(float opacity)
+        {
+            CombinedTexture.Draw(Vector2.Zero, opacity);
         }
     }
 }
