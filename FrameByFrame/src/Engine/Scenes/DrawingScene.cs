@@ -49,12 +49,10 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             foreach (UIElement element in components)
             {
-                Debug.WriteLine("Outer For Loop 1 " + element.ToString());
                 if (element is DrawingNavbarComponent navbar)
                 {
                     foreach (UIElement navbarElement in navbar.uiElements)
                     {
-                        Debug.WriteLine("Inner For Loop 2 " + navbarElement.ToString());
                         if (navbarElement is PopupButton popupButton)
                         {
                             if (popupButton.target is ColorWheelComponent colorWheel)
@@ -120,9 +118,18 @@ namespace FrameByFrame.src.Engine.Scenes
             // Draw on current frame
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
-                Color selectedColor = GetSelectedColorFromColorWheel();
-                Debug.WriteLine(selectedColor.ToString());
-                animation.DrawOnCurrentLayer(selectedColor);
+                Debug.WriteLine(drawingTool);
+                switch (drawingTool)
+                {
+                    case DrawingTools.DRAW:
+                        Color selectedColor = GetSelectedColorFromColorWheel();
+                        animation.DrawOnCurrentLayer(selectedColor);
+                        break;
+                    case DrawingTools.ERASER:
+                        Color eraserColor = new Color(255, 255, 255, 255);
+                        animation.DrawOnCurrentLayer(Color.White);
+                        break;
+                }
             }
         }
 

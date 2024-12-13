@@ -54,8 +54,6 @@ namespace FrameByFrame.src.Engine.Services
             switch (shape)
             {
                 case Shapes.CIRCLE:
-                    if (((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).drawingTool != DrawingTools.ERASER)
-                    {
                         for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
                         {
                             for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
@@ -70,7 +68,6 @@ namespace FrameByFrame.src.Engine.Services
                                 }
                             }
                         }
-                    }
                     break;
                 case Shapes.RECTANGLE:
                     for (int i = -1 * (brushSize / 2); i < brushSize / 2; i++)
