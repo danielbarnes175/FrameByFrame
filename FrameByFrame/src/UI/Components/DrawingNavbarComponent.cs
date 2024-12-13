@@ -31,6 +31,10 @@ namespace FrameByFrame.src.UI.Components
             Texture2D colorButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(200, 0, 255), Shapes.CIRCLE);
             ColorWheelComponent colorOverlay = new ColorWheelComponent(new Vector2(1399, 50), new Vector2(200, 200));
             PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - colorButtonTexture.Width - 5, 10), new Vector2(32, 32));
+            colorOverlay.OnColorSelected += (Color selectedColor) =>
+            {
+                colorButton.texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => selectedColor, Shapes.CIRCLE);
+            };
             uiElements.Add(colorButton);
 
             Texture2D layerButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(0, 0, 255), Shapes.RECTANGLE);

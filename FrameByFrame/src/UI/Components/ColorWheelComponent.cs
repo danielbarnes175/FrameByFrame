@@ -8,6 +8,7 @@ namespace FrameByFrame.src.Engine
 {
     public class ColorWheelComponent : Overlay
     {
+        public Action<Color> OnColorSelected;
         public Color SelectedColor { get; private set; }
 
         public ColorWheelComponent(Vector2 position, Vector2 dimensions): base((Texture2D)null, position, dimensions)
@@ -96,6 +97,7 @@ namespace FrameByFrame.src.Engine
                         relativeY >= 0 && relativeY < texture.Height)
                     {
                         SelectedColor = colorData[relativeX, relativeY];
+                        OnColorSelected?.Invoke(SelectedColor);
                         Debug.WriteLine(SelectedColor.ToString());
 
                         // Ignore transparent areas (outside the wheel)
