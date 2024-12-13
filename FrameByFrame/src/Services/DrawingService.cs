@@ -49,68 +49,6 @@ namespace FrameByFrame.src.Engine.Services
             return texture;
         }
 
-        public static void DrawLine(BasicColor[,] layer, Vector2 start, Vector2 end, int brushSize, Texture2D texture)
-        {
-            if (layer == null || texture == null) return;
-
-            int x0 = (int)start.X;
-            int y0 = (int)start.Y;
-            int x1 = (int)end.X;
-            int y1 = (int)end.Y;
-
-            // Bresenham's Line Algorithm
-            int dx = Math.Abs(x1 - x0);
-            int dy = Math.Abs(y1 - y0);
-            int sx = x0 < x1 ? 1 : -1;
-            int sy = y0 < y1 ? 1 : -1;
-            int err = dx - dy;
-
-            while (true)
-            {
-                // Draw a circle at the current point to simulate the brush
-                SetBrush(layer, new Vector2(x0, y0), brushSize, texture);
-
-                if (x0 == x1 && y0 == y1) break;
-
-                int e2 = 2 * err;
-                if (e2 > -dy)
-                {
-                    err -= dy;
-                    x0 += sx;
-                }
-                if (e2 < dx)
-                {
-                    err += dx;
-                    y0 += sy;
-                }
-            }
-        }
-
-        private static void SetBrush(BasicColor[,] layer, Vector2 center, int brushSize, Texture2D texture)
-        {
-            int radius = brushSize / 2;
-            int cx = (int)center.X;
-            int cy = (int)center.Y;
-
-            for (int x = -radius; x <= radius; x++)
-            {
-                for (int y = -radius; y <= radius; y++)
-                {
-                    int px = cx + x;
-                    int py = cy + y;
-
-                    // Check bounds
-                    if (px < 0 || py < 0 || px >= layer.GetLength(0) || py >= layer.GetLength(1)) continue;
-
-                    // Check if the point is within the circular brush
-                    if (x * x + y * y <= radius * radius)
-                    {
-                        layer[px, py] = new BasicColor(texture, new Vector2(px, py), new Vector2(1, 1));
-                    }
-                }
-            }
-        }
-
         public static void SetColors(BasicColor[,] layer, Texture2D color, Vector2 pointPosition, Shapes shape, int brushSize)
         {
             switch (shape)
@@ -127,7 +65,7 @@ namespace FrameByFrame.src.Engine.Services
                                 if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
                                 {
                                     BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                                    if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.width + (int)Frame.position.X || positionY >= Frame.height + (int)Frame.position.Y) continue;
+                                    if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.staticWidth + (int)Frame.position.X || positionY >= Frame.staticHeight + (int)Frame.position.Y) continue;
                                     layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
                                 }
                             }
@@ -142,12 +80,43 @@ namespace FrameByFrame.src.Engine.Services
                             float positionX = pointPosition.X + i;
                             float positionY = pointPosition.Y + j;
                             BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                            if (positionX < 0 || positionY < 0 || positionX >= Frame.width || positionY >= Frame.height) return;
+                            if (positionX < 0 || positionY < 0 || positionX >= Frame.staticWidth || positionY >= Frame.staticHeight) return;
                             layer[(int)positionX, (int)positionY] = point;
                         }
                     }
                     break;
             }
+        }
+
+        public static RenderTarget2D CombineTextures(Frame givenFrame)
+        {
+            RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth - 222, GlobalParameters.screenHeight);
+
+            // Set render target
+            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
+            GlobalParameters.GlobalGraphics.Clear(Color.White);
+
+            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
+
+            for (int i = 0; i < givenFrame.width; i++)
+            {
+                for (int j = 0; j < givenFrame.height; j++)
+                {
+                    if (givenFrame._layer3[i, j] != null)
+                        givenFrame._layer3[i, j].Draw(1.0f);
+                    if (givenFrame._layer2[i, j] != null)
+                        givenFrame._layer2[i, j].Draw(1.0f);
+                    if (givenFrame._layer1[i, j] != null)
+                        givenFrame._layer1[i, j].Draw(1.0f);
+                }
+            }
+
+            GlobalParameters.GlobalSpriteBatch.End();
+
+            // Unset render target
+            GlobalParameters.GlobalGraphics.SetRenderTarget(null);
+
+            return renderTarget2D;
         }
     }
 }

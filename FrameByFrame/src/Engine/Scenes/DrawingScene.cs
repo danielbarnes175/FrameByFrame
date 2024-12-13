@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.UI.Components;
 using Microsoft.Xna.Framework;
@@ -156,6 +157,12 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("B"))
             {
                 animation.InsertFrame();
+            }
+
+            // Save animation
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("L"))
+            {
+                SaveService.SaveAnimation(animation);
             }
         }
 

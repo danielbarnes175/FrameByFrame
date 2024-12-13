@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FrameByFrame.src.Engine.Animation;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -124,7 +125,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (animations.Count > 0)
             {
-                animations[currentPreview].GetFrameAtIndex(previewFrame).Draw(1.0f);
+                animations[currentPreview].GetFrameAtIndex(previewFrame).DrawLayers(1.0f);
                 GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, string.Concat("Current Project Shown: ", projects[currentPreview].AsSpan(9)), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
             }
             else
@@ -148,18 +149,18 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint)
         {
-            //initialize a texture
+            // Initialize a texture
             Texture2D texture = new Texture2D(device, width, height);
 
-            //the array holds the color for each pixel in the texture
+            // The array holds the color for each pixel in the texture
             Color[] data = new Color[width * height];
             for (int pixel = 0; pixel < data.Count(); pixel++)
             {
-                //the function applies the color according to the specified pixel
+                // The function applies the color according to the specified pixel
                 data[pixel] = paint(pixel);
             }
 
-            //set the color
+            // Set the color
             texture.SetData(data);
 
             return texture;
@@ -171,21 +172,31 @@ namespace FrameByFrame.src.Engine.Scenes
             animations = new List<Animation.Animation>();
             for (int i = 0; i < projects.Count; i++)
             {
-                animations.Add(new Animation.Animation("temp"));
+                Animation.Animation animation = new Animation.Animation("temp");
+
                 int frameCounter = 0;
                 while (true)
                 {
                     string filename = projects[i] + "/Frame_" + frameCounter + ".png";
                     if (!File.Exists(filename)) break;
+
                     Texture2D pngTexture = getTextureFromPng(filename);
 
-                    BasicTexture preview = new BasicTexture(pngTexture,
+                    Frame frame = new Frame(
                         new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
                         new Vector2(300, 300));
 
-                    //animations[i].frames.AddFrame(preview);
+                    // Convert the texture to a BasicColor layer
+                    frame._layer1 = Frame.ConvertTextureToLayer(
+                        pngTexture,
+                        new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
+                        new Vector2(300, 300));
+
+                    animation.AddFrame(frame);
                     frameCounter++;
                 }
+                animations.Add(animation);
+                Debug.WriteLine(animations.ToArray().ToString());
             }
         }
     }

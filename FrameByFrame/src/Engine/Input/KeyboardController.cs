@@ -72,11 +72,29 @@ namespace FrameByFrame.src.Engine.Input
             switch (KEY)
             {
                 case "A":
-                    break;
+                    return Keys.A;
                 case "B":
                     return Keys.B;
                 case "C":
-                    break;
+                    return Keys.C;
+                case "D":
+                    return Keys.D;
+                case "E":
+                    return Keys.E;
+                case "F":
+                    return Keys.F;
+                case "G":
+                    return Keys.G;
+                case "H":
+                    return Keys.H;
+                case "I":
+                    return Keys.I;
+                case "J":
+                    return Keys.J;
+                case "K":
+                    return Keys.K;
+                case "L":
+                    return Keys.L;
                 case "M":
                     return Keys.M;
                 case "N":
@@ -85,12 +103,26 @@ namespace FrameByFrame.src.Engine.Input
                     return Keys.O;
                 case "P":
                     return Keys.P;
+                case "Q":
+                    return Keys.Q;
+                case "R":
+                    return Keys.R;
                 case "S":
                     return Keys.S;
                 case "T":
                     return Keys.T;
+                case "U":
+                    return Keys.U;
+                case "V":
+                    return Keys.V;
                 case "W":
                     return Keys.W;
+                case "X":
+                    return Keys.X;
+                case "Y":
+                    return Keys.Y;
+                case "Z":
+                    return Keys.Z;
                 case "ESC":
                     return Keys.Escape;
                 case "DELETE":

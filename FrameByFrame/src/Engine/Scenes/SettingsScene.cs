@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FrameByFrame.src.Engine.Export;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -18,11 +19,9 @@ namespace FrameByFrame.src.Engine.Scenes
         private BasicTexture _onion;
         private BasicTexture _backArrow;
         private BasicTexture _toggleSizeButton;
-        private bool isExporting;
 
         public SettingsScene()
         {
-            isExporting = false;
             _textures = new List<BasicTexture>();
             _colors = new List<BasicTexture>();
             _layerButtons = new List<BasicTexture>();
@@ -118,10 +117,6 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + scene.animation.selectedLayer, new Vector2(1100, 150), Color.Black);
 
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation.brushSize.ToString(), new Vector2(GlobalParameters.screenWidth / 2 - 7, GlobalParameters.screenHeight - 60), Color.Black);
-            if (isExporting)
-            {
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Exporting Animation...", new Vector2(GlobalParameters.screenWidth - 200, GlobalParameters.screenHeight - 90), Color.Black);
-            }
             base.Draw(offset);
         }
 
@@ -188,7 +183,8 @@ namespace FrameByFrame.src.Engine.Scenes
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
             {
-                isExporting = true;
+                DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
+                SaveService.ExportAnimation(scene.animation);
             }
             else if (clickPosition.X > 55 && clickPosition.X < 130 && clickPosition.Y > 760 && clickPosition.Y < 835)
             {

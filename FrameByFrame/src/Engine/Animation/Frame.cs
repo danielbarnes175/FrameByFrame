@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace FrameByFrame.src.Engine.Animation
@@ -22,11 +23,17 @@ namespace FrameByFrame.src.Engine.Animation
         public Texture2D background;
 
         public static Vector2 position;
-        public static int width { get; set; }
-        public static int height { get; set; }
+        public static int staticWidth { get; set; }
+        public static int staticHeight { get; set; }
+
+        public int width { get; set; }
+        public int height { get; set; }
 
         public Frame(Vector2 givenPosition, Vector2 dimensions)
         {
+            staticWidth = (int)dimensions.X;
+            staticHeight = (int)dimensions.Y;
+
             width = (int)dimensions.X;
             height = (int)dimensions.Y;
 
@@ -71,6 +78,26 @@ namespace FrameByFrame.src.Engine.Animation
                     _layer1[i, j]?.Draw(opacity);
                 }
             }
+        }
+
+        public static BasicColor[,] ConvertTextureToLayer(Texture2D texture, Vector2 position, Vector2 dimensions)
+        {
+            int width = (int)dimensions.X;
+            int height = (int)dimensions.Y;
+
+            // Create a BasicColor layer array matching the dimensions
+            BasicColor[,] layer = new BasicColor[width, height];
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    // Assign a BasicColor object for each pixel
+                    layer[x, y] = new BasicColor(texture, position, dimensions);
+                }
+            }
+
+            return layer;
         }
     }
 }

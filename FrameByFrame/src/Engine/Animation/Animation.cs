@@ -98,9 +98,9 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void EraseCurrentLayer()
         {
-            if (selectedLayer == "_layer1") currentFrame.Value._layer1 = new BasicColor[Frame.width, Frame.height];
-            if (selectedLayer == "_layer2") currentFrame.Value._layer2 = new BasicColor[Frame.width, Frame.height];
-            if (selectedLayer == "_layer3") currentFrame.Value._layer3 = new BasicColor[Frame.width, Frame.height];
+            if (selectedLayer == "_layer1") currentFrame.Value._layer1 = new BasicColor[Frame.staticWidth, Frame.staticHeight];
+            if (selectedLayer == "_layer2") currentFrame.Value._layer2 = new BasicColor[Frame.staticWidth, Frame.staticHeight];
+            if (selectedLayer == "_layer3") currentFrame.Value._layer3 = new BasicColor[Frame.staticWidth, Frame.staticHeight];
         }
 
         public void DeleteFrame()
@@ -168,7 +168,7 @@ namespace FrameByFrame.src.Engine.Animation
                 float newX = i * (xChange / distance) + mousePositionOld.X - framePosition.X;
                 float newY = i * (yChange / distance) + mousePositionOld.Y - framePosition.Y;
 
-                if (newX >= Frame.width + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.height + framePosition.Y) continue;
+                if (newX >= Frame.staticWidth + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.staticHeight + framePosition.Y) continue;
                 Vector2 pointPosition = new Vector2(newX + framePosition.X, newY + framePosition.Y);
 
                 DrawingService.SetColors(layer, currentFrame.Value.colors[0], pointPosition, Shapes.CIRCLE, brushSize);
