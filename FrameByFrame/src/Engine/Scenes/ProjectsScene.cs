@@ -188,11 +188,6 @@ namespace FrameByFrame.src.Engine.Scenes
                     BasicTexture texture = new BasicTexture(pngTexture, position, dimensions);
                     frame.CombinedTexture = texture;
 
-                    /*frame._layer1 = Frame.ConvertTextureToLayer(
-                        pngTexture,
-                        new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2),
-                        new Vector2(300, 300));*/
-
                     animation.AddFrame(frame);
                     frameCounter++;
                 }

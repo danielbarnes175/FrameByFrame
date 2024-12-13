@@ -46,8 +46,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private void SetupUI()
         {
             components = new List<UIElement>();
-            Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 32, pixel => new Color(35, 35, 35), Shapes.RECTANGLE);
-            DrawingNavbarComponent navbar = new DrawingNavbarComponent(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 32));
+            Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 50, pixel => Color.Orange, Shapes.RECTANGLE);
+            DrawingNavbarComponent navbar = new DrawingNavbarComponent(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 50));
 
             components.Add(navbar);
         }
