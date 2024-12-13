@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.UI.Components;
+using FrameByFrame.src.UI.Components.Buttons;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -43,9 +45,34 @@ namespace FrameByFrame.src.Engine.Scenes
             animation.InitializeFrames();
         }
 
+        public Color GetSelectedColorFromColorWheel()
+        {
+            foreach (UIElement element in components)
+            {
+                Debug.WriteLine("Outer For Loop 1 " + element.ToString());
+                if (element is DrawingNavbarComponent navbar)
+                {
+                    foreach (UIElement navbarElement in navbar.uiElements)
+                    {
+                        Debug.WriteLine("Inner For Loop 2 " + navbarElement.ToString());
+                        if (navbarElement is PopupButton popupButton)
+                        {
+                            if (popupButton.target is ColorWheelComponent colorWheel)
+                            {
+                                return colorWheel.SelectedColor;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Default color if no ColorWheel is found or no color is selected
+            return Color.Black;
+        }
+
         private void SetupUI()
         {
-            components = new List<UIElement>();
+            components = [];
             Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 50, pixel => Color.Orange, Shapes.RECTANGLE);
             DrawingNavbarComponent navbar = new DrawingNavbarComponent(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 50));
 
@@ -93,7 +120,9 @@ namespace FrameByFrame.src.Engine.Scenes
             // Draw on current frame
             if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
             {
-                animation.DrawOnCurrentLayer();
+                Color selectedColor = GetSelectedColorFromColorWheel();
+                Debug.WriteLine(selectedColor.ToString());
+                animation.DrawOnCurrentLayer(selectedColor);
             }
         }
 

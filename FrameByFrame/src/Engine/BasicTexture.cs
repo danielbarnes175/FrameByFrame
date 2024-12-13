@@ -41,9 +41,16 @@ namespace FrameByFrame.src.Engine
         {
             position = POS;
             this.dimensions = dimensions;
-
             this.texture = texture;
 
+            if (texture != null)
+            {
+                SetColorData();
+            }
+        }
+
+        public void SetColorData()
+        {
             data = new Color[this.texture.Width * this.texture.Height];
             this.texture.GetData<Color>(data);
             colorData = new Color[this.texture.Width, this.texture.Height];

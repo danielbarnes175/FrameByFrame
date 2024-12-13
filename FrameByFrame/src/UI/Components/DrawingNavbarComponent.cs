@@ -29,7 +29,7 @@ namespace FrameByFrame.src.UI.Components
             uiElements.Add(settingsButton);
 
             Texture2D colorButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(200, 0, 255), Shapes.CIRCLE);
-            Overlay colorOverlay = new Overlay(colorButtonTexture, new Vector2(1100, 500), new Vector2(32, 32));
+            ColorWheelComponent colorOverlay = new ColorWheelComponent(new Vector2(1399, 50), new Vector2(200, 200));
             PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - colorButtonTexture.Width - 5, 10), new Vector2(32, 32));
             uiElements.Add(colorButton);
 

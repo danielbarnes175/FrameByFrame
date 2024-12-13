@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace FrameByFrame.src.Engine.Animation
 {
@@ -150,7 +151,7 @@ namespace FrameByFrame.src.Engine.Animation
             IsPlaying = true;
         }
 
-        public void DrawOnCurrentLayer()
+        public void DrawOnCurrentLayer(Color selectedColor)
         {
             BasicColor[,] layer = GetSelectedLayer();
             if (layer == null) return;
@@ -163,6 +164,8 @@ namespace FrameByFrame.src.Engine.Animation
 
             float distance = (float)Math.Ceiling(Math.Sqrt(Math.Pow(xChange, 2) + Math.Pow(yChange, 2)) / 2);
 
+            Texture2D drawingColorTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => selectedColor, Shapes.RECTANGLE);
+
             for (int i = 0; i < distance; i++)
             {
                 float newX = i * (xChange / distance) + mousePositionOld.X - framePosition.X;
@@ -171,7 +174,7 @@ namespace FrameByFrame.src.Engine.Animation
                 if (newX >= Frame.staticWidth + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.staticHeight + framePosition.Y) continue;
                 Vector2 pointPosition = new Vector2(newX + framePosition.X, newY + framePosition.Y);
 
-                DrawingService.SetColors(layer, currentFrame.Value.colors[0], pointPosition, Shapes.CIRCLE, brushSize);
+                DrawingService.SetColors(layer, drawingColorTexture, pointPosition, Shapes.CIRCLE, brushSize);
             }
         }
 

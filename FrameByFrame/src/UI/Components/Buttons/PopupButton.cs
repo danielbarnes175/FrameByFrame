@@ -37,12 +37,25 @@ namespace FrameByFrame.src.UI.Components.Buttons
             {
                 target.isVisible = true;
             }
+            else if (CollisionService.CheckMouseCollision(target) && GlobalParameters.GlobalMouse.LeftClickHold ())
+            {
+                target.Update();
+            }
             else if (!isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 target.isVisible = false;
             }
-
-            base.Update();
+            else
+            {
+                if (CollisionService.CheckMouseCollision(this))
+                {
+                    isBeingMousedOver = true;
+                }
+                else
+                {
+                    isBeingMousedOver = false;
+                }
+            }
         }
 
         public override void Draw(Vector2 offset, Vector2 origin)
