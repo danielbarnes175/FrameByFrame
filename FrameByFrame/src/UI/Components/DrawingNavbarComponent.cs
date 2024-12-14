@@ -7,12 +7,13 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using FrameByFrame.src.Engine.Animation;
 
 namespace FrameByFrame.src.UI.Components
 {
     public class DrawingNavbarComponent : Container
     {
-        public DrawingNavbarComponent(Texture2D texture, Vector2 position, Vector2 dimensions) : base(texture, position, dimensions)
+        public DrawingNavbarComponent(Texture2D texture, Vector2 position, Vector2 dimensions, Animation animation) : base(texture, position, dimensions)
         {
             // Create Navbar child components
             Texture2D menuButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 100, 32, pixel => new Color(255, 140, 0), Shapes.RECTANGLE);
@@ -37,8 +38,12 @@ namespace FrameByFrame.src.UI.Components
             };
             uiElements.Add(colorButton);
 
-            Texture2D layerButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(0, 0, 255), Shapes.RECTANGLE);
-            Overlay layerOverlay = new Overlay(layerButtonTexture, new Vector2(732, 500), new Vector2(32, 32));
+            List<string> layers = new List<string> { "_layer1", "_layer2", "_layer3" };
+            LayerSelectorComponent layerOverlay = new LayerSelectorComponent(new Vector2(1400, 50), new Vector2(200, 150), layers, GlobalParameters.font);
+            layerOverlay.OnLayerSelected = (selectedLayer) =>
+            {
+                animation.selectedLayer = selectedLayer;
+            };
             PopupButton layerButton = new PopupButton(layerOverlay, "Static\\DrawingScene/layers", new Vector2(colorButton.position.X - colorButton.dimensions.X - 10, 10), new Vector2(32, 32));
             uiElements.Add(layerButton);
 
