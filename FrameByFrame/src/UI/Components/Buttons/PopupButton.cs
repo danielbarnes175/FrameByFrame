@@ -32,28 +32,21 @@ namespace FrameByFrame.src.UI.Components.Buttons
 
         public override void Update()
         {
-            // If button is clicked, show overlay.
-            if (isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
+            // Toggle visibility of overlay when button is clicked
+            isBeingMousedOver = CollisionService.CheckMouseCollision(this);
+            if (isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClick())
             {
-                target.isVisible = true;
+                target.isVisible = !target.isVisible;
             }
-            else if (CollisionService.CheckMouseCollision(target) && GlobalParameters.GlobalMouse.LeftClickHold())
+
+            // If overlay is visible, update it
+            if (target.isVisible)
             {
                 target.Update();
-            }
-            else if (!isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
-            {
-                target.isVisible = false;
-            }
-            else
-            {
-                if (CollisionService.CheckMouseCollision(this))
+
+                if (!isBeingMousedOver && !CollisionService.CheckMouseCollision(target) && GlobalParameters.GlobalMouse.LeftClickHold())
                 {
-                    isBeingMousedOver = true;
-                }
-                else
-                {
-                    isBeingMousedOver = false;
+                    target.isVisible = false;
                 }
             }
         }

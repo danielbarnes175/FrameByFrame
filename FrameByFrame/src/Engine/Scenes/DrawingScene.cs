@@ -174,7 +174,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             // Toggle Onion Skin
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
-                animation.isOnionSkinLoaded = !animation.isOnionSkinLoaded;
+                animation.isOnionSkinEnabled = !animation.isOnionSkinEnabled;
 
             // Load next frame
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("M"))

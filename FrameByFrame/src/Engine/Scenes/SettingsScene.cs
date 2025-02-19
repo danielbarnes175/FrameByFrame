@@ -73,7 +73,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 if (clickPosition.X > 195 && clickPosition.X < 215 && clickPosition.Y > 90 && clickPosition.Y < 120)
                 {
                     DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-                    scene.animation.isOnionSkinLoaded = !(scene.animation.isOnionSkinLoaded);
+                    scene.animation.isOnionSkinEnabled = !(scene.animation.isOnionSkinEnabled);
                 }
                 else if (clickPosition.X > 734 && clickPosition.X < 794 && clickPosition.Y > 830 && clickPosition.Y < 855)
                 {
@@ -111,7 +111,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }
 
             DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-            string onionSkinEnabled = (scene.animation.isOnionSkinLoaded) ? "enabled" : "disabled";
+            string onionSkinEnabled = (scene.animation.isOnionSkinEnabled) ? "enabled" : "disabled";
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Color: " + GlobalParameters.CurrentColor.ToString(), new Vector2(230, 90), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Onion Skin " + onionSkinEnabled, new Vector2(230, 130), Color.Black);
             GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "Selected Layer: " + scene.animation.selectedLayer, new Vector2(1100, 150), Color.Black);

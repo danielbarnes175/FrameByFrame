@@ -1,8 +1,10 @@
 ﻿using FrameByFrame.src.Engine;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace FrameByFrame.src.Services
@@ -35,13 +37,18 @@ namespace FrameByFrame.src.Services
             return false;
         }
 
-        public static bool CheckMouseCollision(BasicTexture texture1)
+        /**
+         * Helper method to determine if a texture collides with the mouse. Returns true if they collide, otherwise false.
+         */
+        public static bool CheckMouseCollision(BasicTexture texture1, bool ignoreOpacity = false)
         {
             Rectangle rect1 = new Rectangle((int)texture1.position.X, (int)texture1.position.Y, (int)texture1.dimensions.X, (int)texture1.dimensions.Y);
             Rectangle mouseRect = new Rectangle((int)GlobalParameters.GlobalMouse.newMousePos.X, (int)GlobalParameters.GlobalMouse.newMousePos.Y, 1, 1);
 
             if (rect1.Intersects(mouseRect))
             {
+                if (ignoreOpacity) return true;
+
                 Rectangle intersection = Rectangle.Intersect(rect1, mouseRect);
                 for (int x = intersection.X; x < intersection.X + intersection.Width; x++)
                 {

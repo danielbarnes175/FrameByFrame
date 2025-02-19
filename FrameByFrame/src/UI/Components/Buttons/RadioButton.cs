@@ -1,7 +1,10 @@
-﻿using Microsoft.Xna.Framework;
+﻿using FrameByFrame.src.Engine;
+using FrameByFrame.src.Services;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace FrameByFrame.src.UI.Components.Buttons
@@ -16,6 +19,8 @@ namespace FrameByFrame.src.UI.Components.Buttons
         {
             selectedTexture = GlobalParameters.GlobalContent.Load<Texture2D>(selectedTexturePath);
             unselectedTexture = GlobalParameters.GlobalContent.Load<Texture2D>(unselectedTexturePath);
+
+            this.isSelected = isSelected;
         }
 
         public RadioButton(Texture2D selectedTexture, Texture2D unselectedTexture, bool isSelected, Vector2 position, Vector2 dimensions) : base(unselectedTexture, position, dimensions)

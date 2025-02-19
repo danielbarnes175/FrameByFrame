@@ -24,14 +24,7 @@ namespace FrameByFrame.src.UI
         {
             foreach (RadioButton button in buttons)
             {
-                if (CollisionService.CheckMouseCollision(button))
-                {
-                    button.isBeingMousedOver = true;
-                }
-                else
-                {
-                    button.isBeingMousedOver = false;
-                }
+                button.isBeingMousedOver = CollisionService.CheckMouseCollision(button);
 
                 // If we select this button, set isSelected to true for this button, but false for all other buttons in this button group.
                 if (button.isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())

@@ -22,7 +22,7 @@ namespace FrameByFrame.src.Engine.Animation
         public Vector2 framePosition;
 
         // Tools
-        public bool isOnionSkinLoaded;
+        public bool isOnionSkinEnabled;
         public int brushSize;
         private int maxOnionFrames = 3;
         private float baseOpacity = 0.1f;
@@ -48,7 +48,7 @@ namespace FrameByFrame.src.Engine.Animation
             selectedLayer = "_layer1";
             CurrentFrameIndex = 0;
             brushSize = 15;
-            isOnionSkinLoaded = true;
+            isOnionSkinEnabled = true;
         }
 
         public void InitializeFrames()
@@ -193,7 +193,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             currentFrame?.Value.Draw(1.0f);
 
-            if (!IsPlaying && isOnionSkinLoaded)
+            if (!IsPlaying && isOnionSkinEnabled)
             {
                 DrawOnionSkin();
             }

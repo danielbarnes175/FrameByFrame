@@ -28,6 +28,7 @@ namespace FrameByFrame.src.UI
             if (!isVisible) return;
 
             base.Update();
+            container.Update();
         }
 
         public override void Draw(Vector2 offset)
@@ -35,6 +36,7 @@ namespace FrameByFrame.src.UI
             if (!isVisible) return;
 
             base.Draw(offset, Vector2.Zero);
+            container.Draw(offset, Vector2.Zero);
         }
     }
 }

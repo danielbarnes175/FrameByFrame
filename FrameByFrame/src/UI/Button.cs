@@ -23,14 +23,7 @@ public class Button : UIElement
 
     public override void Update()
     {
-        if (CollisionService.CheckMouseCollision(this))
-        {
-            isBeingMousedOver = true;
-        }
-        else
-        {
-            isBeingMousedOver = false;
-        }
+        isBeingMousedOver = CollisionService.CheckMouseCollision(this);
     }
 
     public override void Draw(Vector2 offset)
@@ -45,6 +38,15 @@ public class Button : UIElement
 
     public override void Draw(Vector2 offset, Vector2 origin)
     {
-        base.Draw(offset, origin);
+        Color color = isBeingMousedOver ? new Color(255, 255, 255, 0.8f) : Color.White;
+        Color textColorAdjusted = (Color)(isBeingMousedOver ? (Color.Black * 0.5f) : Color.Black);
+        if (texture != null)
+        {
+            GlobalParameters.GlobalSpriteBatch.Draw(texture,
+            new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
+                (int)dimensions.Y), null, color, rotation, new Vector2(origin.X, origin.Y),
+            new SpriteEffects(), 0.2f);
+        }
+        //base.Draw(offset, origin);
     }
 }
