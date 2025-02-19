@@ -9,21 +9,24 @@ using System;
 public class Button : UIElement
 {
     public bool isBeingMousedOver;
+    protected bool ignoreOpacityOnHover;
 
-    public Button(string path, Vector2 position, Vector2 dimensions) : base(path, position, dimensions)
+    public Button(string path, Vector2 position, Vector2 dimensions, bool ignoreOpacityOnHover = false) : base(path, position, dimensions)
     {
         isBeingMousedOver = false;
+        this.ignoreOpacityOnHover = ignoreOpacityOnHover;
     }
 
 
-    public Button(Texture2D texture, Vector2 position, Vector2 dimensions) : base(texture, position, dimensions)
+    public Button(Texture2D texture, Vector2 position, Vector2 dimensions, bool ignoreOpacityOnHover = false) : base(texture, position, dimensions)
     {
+        this.ignoreOpacityOnHover = ignoreOpacityOnHover;
         isBeingMousedOver = false;
     }
 
     public override void Update()
     {
-        isBeingMousedOver = CollisionService.CheckMouseCollision(this);
+        isBeingMousedOver = CollisionService.CheckMouseCollision(this, ignoreOpacityOnHover);
     }
 
     public override void Draw(Vector2 offset)

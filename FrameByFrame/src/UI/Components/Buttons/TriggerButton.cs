@@ -11,23 +11,23 @@ namespace FrameByFrame.src.UI.Components.Buttons
 {
     public class TriggerButton : Button
     {
-        private Action onClick; // Callback function
+        private Action onClick;
 
-        public TriggerButton(string texturePath, Vector2 position, Vector2 dimensions, Action onClick)
-            : base(texturePath, position, dimensions)
+        public TriggerButton(string texturePath, Vector2 position, Vector2 dimensions, Action onClick, bool ignoreOpacityOnHover = false)
+            : base(texturePath, position, dimensions, ignoreOpacityOnHover)
         {
             this.onClick = onClick;
         }
 
-        public TriggerButton(Texture2D texture, Vector2 position, Vector2 dimensions, Action onClick)
-            : base(texture, position, dimensions)
+        public TriggerButton(Texture2D texture, Vector2 position, Vector2 dimensions, Action onClick, bool ignoreOpacityOnHover = false)
+            : base(texture, position, dimensions, ignoreOpacityOnHover)
         {
             this.onClick = onClick;
         }
 
         public override void Update()
         {
-            isBeingMousedOver = CollisionService.CheckMouseCollision(this);
+            isBeingMousedOver = CollisionService.CheckMouseCollision(this, ignoreOpacityOnHover);
 
             if (isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClick())
             {

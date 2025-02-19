@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Scenes;
 
 namespace FrameByFrame.src.UI.Components
 {
@@ -60,11 +61,18 @@ namespace FrameByFrame.src.UI.Components
             buttons.Add(draw);
             buttons.Add(eraser);
 
-            ButtonGroup toolButtons = new ButtonGroup(buttons);
-            // TODO ADD Clickable Buttons
-            // +1 Frame, Last Frame, -1 Frame, First Frame, Play
+            Animation currentAnimation = ((DrawingScene)(GlobalParameters.Scenes["Drawing Scene"])).animation;
+            TriggerButton goToStartButton = new TriggerButton("Static\\DrawingScene/first_frame", new Vector2(frameCounter.position.X + frameCounter.dimensions.X, 10), new Vector2(32, 32), () => animation.FirstFrame(), true);
+            TriggerButton previousFrameButton = new TriggerButton("Static\\DrawingScene/previous_frame", new Vector2(goToStartButton.position.X + goToStartButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.PreviousFrame(), true);
+            TriggerButton playButton = new TriggerButton("Static\\DrawingScene/play", new Vector2(previousFrameButton.position.X + previousFrameButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.TogglePlaying(), true);
+            TriggerButton nextFrameButton = new TriggerButton("Static\\DrawingScene/next_frame", new Vector2(playButton.position.X + playButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.NextFrame(), true);
+            TriggerButton goToEndButton = new TriggerButton("Static\\DrawingScene/last_frame", new Vector2(nextFrameButton.position.X + nextFrameButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.LastFrame(), true);
 
-            buttonGroups.Add(toolButtons);
+            uiElements.Add(goToStartButton);
+            uiElements.Add(previousFrameButton);
+            uiElements.Add(playButton);
+            uiElements.Add(nextFrameButton);
+            uiElements.Add(goToEndButton);
         }
     }
 }

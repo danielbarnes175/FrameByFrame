@@ -77,6 +77,18 @@ namespace FrameByFrame.src.Engine.Animation
             CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
         }
 
+        public void FirstFrame()
+        {
+            currentFrame = frames.First;
+            CurrentFrameIndex = 0;
+        }
+
+        public void LastFrame()
+        {
+            currentFrame = frames.Last;
+            CurrentFrameIndex = TotalFrames - 1;
+        }
+
         public void NextFrame()
         {
             CurrentFrameIndex += 1;
