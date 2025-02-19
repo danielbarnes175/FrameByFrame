@@ -43,6 +43,7 @@ _ReSharper*/
 #Project files
 [Bb]uild/
 FrameByFrame/Properties
+**/Projects
 
 # Office Temp Files
 ~$*
