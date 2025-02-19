@@ -4,11 +4,11 @@
 
 Frame by Frame is a simple animation program for creating frame by frame animations. Frame by Frame was started as a hackathon project for SquirrelHacks in November 2019. The long term vision for Frame by Frame is to have it be a fully featured animation program that is simpler and easier to use compared to standard industry programs. 
 
-## Demo
+## Screenshots
+![image](https://github.com/user-attachments/assets/b4ac2cf6-e630-41d4-be59-7499cdfc28eb)
+![image](https://github.com/user-attachments/assets/78562a66-cb08-46a2-8b76-bf0e0dcb36ec)
 
-Here is a video showing off the project: https://youtu.be/1b9OknXMA1E
 
-This demo is based off of the initial project immediately after the hackathon in November 2019, so it may not reflect the project in its current state.
 
 ## Contributing
 
