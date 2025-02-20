@@ -107,20 +107,5 @@ namespace FrameByFrame.src.Engine
                 }
             }
         }
-
-        public override void Draw(Vector2 OFFSET)
-        {
-            base.Draw(OFFSET);
-
-            // Optional: Visualize the selected color
-            if (SelectedColor != Color.Transparent)
-            {
-                GlobalParameters.GlobalSpriteBatch.Draw(
-                    texture,
-                    new Rectangle((int)(position.X + OFFSET.X + dimensions.X + 10), (int)(position.Y + OFFSET.Y), 50, 50),
-                    SelectedColor
-                );
-            }
-        }
     }
 }

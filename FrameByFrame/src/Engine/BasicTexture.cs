@@ -63,35 +63,38 @@ namespace FrameByFrame.src.Engine
 
         public virtual void Draw(Vector2 offset)
         {
-            if (texture != null)
-            {
-                GlobalParameters.GlobalSpriteBatch.Draw(texture,
-                    new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
-                        (int)dimensions.Y), null, Color.White, rotation,
-                    new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
-            }
+            Draw(offset, 1.0f, 1.0f);
         }
 
         public virtual void Draw(Vector2 offset, float opacity)
         {
-            if (texture != null)
-            {
-                GlobalParameters.GlobalSpriteBatch.Draw(texture,
-                    new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
-                        (int)dimensions.Y), null, Color.White * opacity, rotation,
-                    new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
-            }
+            Draw(offset, opacity, 1.0f);
         }
 
         public virtual void Draw(Vector2 offset, Vector2 origin)
         {
+            Draw(offset, 1.0f, 1.0f, origin);
+        }
+
+        public virtual void Draw(Vector2 offset, float opacity, float scaleFactor, Vector2? origin = null)
+        {
             if (texture != null)
             {
-                GlobalParameters.GlobalSpriteBatch.Draw(texture,
-                    new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
-                    (int)dimensions.Y), null, Color.White, rotation, new Vector2(origin.X, origin.Y), new SpriteEffects(), 0.2f);
+                Vector2 scaledDimensions = new Vector2(dimensions.X * GlobalParameters.scaleX, dimensions.Y * GlobalParameters.scaleY);
+                Vector2 drawPosition = (position + offset) * scaleFactor;
+                Rectangle scaleRect = new Rectangle((int)drawPosition.X, (int)drawPosition.Y, (int)scaledDimensions.X, (int)scaledDimensions.Y);
+
+                GlobalParameters.GlobalSpriteBatch.Draw(
+                    texture,
+                    scaleRect,
+                    null,
+                    Color.White * opacity,
+                    rotation,
+                    origin ?? new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2),
+                    SpriteEffects.None,
+                    0.2f
+                );
             }
-            
         }
     }
 }

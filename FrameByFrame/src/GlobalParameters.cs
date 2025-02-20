@@ -16,6 +16,7 @@ namespace FrameByFrame.src
     public class GlobalParameters
     {
         public static int screenHeight, screenWidth;
+        public static float scaleX, scaleY;
 
         public static ContentManager GlobalContent;
         public static SpriteBatch GlobalSpriteBatch;

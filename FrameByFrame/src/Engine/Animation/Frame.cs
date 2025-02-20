@@ -58,9 +58,13 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (background != null)
             {
+                Vector2 scaledDimensions = new Vector2(width * GlobalParameters.scaleX, height * GlobalParameters.scaleY);
+                Vector2 drawPosition = (position + Vector2.Zero) * 1.0f;
+                Rectangle scaleRect = new Rectangle((int)drawPosition.X, (int)drawPosition.Y, (int)scaledDimensions.X, (int)scaledDimensions.Y);
+
                 GlobalParameters.GlobalSpriteBatch.Draw(background,
                     drawRectangle,
-                    null,
+                    scaleRect,
                     Color.White * opacity,
                     0.0f,
                     new Vector2(0, 0),

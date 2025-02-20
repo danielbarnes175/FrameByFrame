@@ -64,7 +64,7 @@ namespace FrameByFrame.src.UI.Components
             ButtonGroup toolButtons = new ButtonGroup(buttons);
             buttonGroups.Add(toolButtons);
 
-            Animation currentAnimation = ((DrawingScene)(GlobalParameters.Scenes["Drawing Scene"])).animation;
+            Animation currentAnimation = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation;
             TriggerButton goToStartButton = new TriggerButton("Static\\DrawingScene/first_frame", new Vector2(frameCounter.position.X + frameCounter.dimensions.X, 10), new Vector2(32, 32), () => animation.FirstFrame(), true);
             TriggerButton previousFrameButton = new TriggerButton("Static\\DrawingScene/previous_frame", new Vector2(goToStartButton.position.X + goToStartButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.PreviousFrame(), true);
             TriggerButton playButton = new TriggerButton("Static\\DrawingScene/play", new Vector2(previousFrameButton.position.X + previousFrameButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.TogglePlaying(), true);

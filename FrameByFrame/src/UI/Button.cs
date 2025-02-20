@@ -11,6 +11,9 @@ public class Button : UIElement
     public bool isBeingMousedOver;
     protected bool ignoreOpacityOnHover;
 
+    public string text;
+    public Color? textColor;
+
     public Button(string path, Vector2 position, Vector2 dimensions, bool ignoreOpacityOnHover = false) : base(path, position, dimensions)
     {
         isBeingMousedOver = false;
@@ -45,11 +48,26 @@ public class Button : UIElement
         Color textColorAdjusted = (Color)(isBeingMousedOver ? (Color.Black * 0.5f) : Color.Black);
         if (texture != null)
         {
-            GlobalParameters.GlobalSpriteBatch.Draw(texture,
-            new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y), (int)dimensions.X,
-                (int)dimensions.Y), null, color, rotation, new Vector2(origin.X, origin.Y),
-            new SpriteEffects(), 0.2f);
+            Vector2 scaledDimensions = new Vector2(dimensions.X * GlobalParameters.scaleX, dimensions.Y * GlobalParameters.scaleY);
+            Vector2 drawPosition = (position + offset) * 1.0f;
+            Rectangle scaleRect = new Rectangle((int)drawPosition.X, (int)drawPosition.Y, (int)scaledDimensions.X, (int)scaledDimensions.Y);
+
+            GlobalParameters.GlobalSpriteBatch.Draw(
+                texture,
+                scaleRect,
+                null,
+                color,
+                rotation,
+                new Vector2(origin.X, origin.Y),
+                SpriteEffects.None,
+                0.2f
+            );
         }
-        //base.Draw(offset, origin);
+
+        if (!string.IsNullOrEmpty(text))
+        {
+            Vector2 stringSize = GlobalParameters.font.MeasureString(text);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, text, new Vector2(position.X + ((dimensions.X - stringSize.X) / 2), position.Y + ((dimensions.Y - stringSize.Y) / 2)), textColorAdjusted);
+        }
     }
 }

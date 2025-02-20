@@ -40,16 +40,25 @@ namespace FrameByFrame
         {
             GlobalParameters.screenWidth = 1600;
             GlobalParameters.screenHeight = 900;
-            this.IsMouseVisible = true;
-
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
 
-            GlobalParameters.Scenes = new Dictionary<string, BaseScene>();
-            GlobalParameters.Scenes.Add("Menu Scene", (BaseScene)new MenuScene());
-            GlobalParameters.Scenes.Add("Projects Scene", new ProjectsScene());
-            GlobalParameters.Scenes.Add("Settings Scene", new SettingsScene());
-            GlobalParameters.Scenes.Add("Drawing Scene", new DrawingScene());
+            GlobalParameters.scaleX = GlobalParameters.screenWidth / 1600f;
+            GlobalParameters.scaleY = GlobalParameters.screenHeight / 900f;
+
+            this.IsMouseVisible = true;
+
+            // Basic resizing is implemented, but not for every element, and it's buggy, so it's disabled.
+            this.Window.AllowUserResizing = false;
+            this.Window.ClientSizeChanged += new EventHandler<EventArgs>(OnResize);
+
+            GlobalParameters.Scenes = new Dictionary<string, BaseScene>
+            {
+                { "Menu Scene", new MenuScene() },
+                { "Projects Scene", new ProjectsScene() },
+                { "Settings Scene", new SettingsScene() },
+                { "Drawing Scene", new DrawingScene() }
+            };
 
             GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
             graphics.ApplyChanges();
@@ -87,7 +96,6 @@ namespace FrameByFrame
         {
             GlobalParameters.GlobalMouse.Update();
             GlobalParameters.GlobalKeyboard.Update();
-
             GlobalParameters.GlobalKeyboard.UpdateOld();
 
             GlobalParameters.CurrentScene.Update(gameTime);
@@ -105,6 +113,19 @@ namespace FrameByFrame
 
             GlobalParameters.GlobalSpriteBatch.End();
             base.Draw(gameTime);
+        }
+
+        private void OnResize(object sender, EventArgs e)
+        {
+            GlobalParameters.screenWidth = GraphicsDevice.Viewport.Width;
+            GlobalParameters.screenHeight = GraphicsDevice.Viewport.Height;
+
+            GlobalParameters.scaleX = Math.Max(GlobalParameters.screenWidth / 1600f, 0.5f);
+            GlobalParameters.scaleY = Math.Max(GlobalParameters.screenHeight / 900f, 0.5f);
+
+            graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
+            graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
+            graphics.ApplyChanges();
         }
     }
 

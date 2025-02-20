@@ -64,12 +64,12 @@ namespace FrameByFrame.src.UI.Components
 
             for (int i = 0; i < layers.Count; i++)
             {
-                var layerName = layers[i];
-                var layerRect = new Rectangle(
-                    (int)(position.X + offset.X),
-                    (int)(position.Y + offset.Y + i * layerHeight),
-                    (int)dimensions.X,
-                    layerHeight
+                string layerName = layers[i];
+                Rectangle layerRect = new Rectangle(
+                    (int)((position.X + offset.X)),
+                    (int)((position.Y + offset.Y + i * layerHeight)),
+                    (int)(dimensions.X * GlobalParameters.scaleX),
+                    (int)(layerHeight * GlobalParameters.scaleY)
                 );
 
                 // Highlight the selected layer
@@ -81,10 +81,10 @@ namespace FrameByFrame.src.UI.Components
                 );
 
                 // Draw the layer name
-                Vector2 textSize = font.MeasureString(layerName);
+                Vector2 textSize = font.MeasureString(layerName) * GlobalParameters.scaleX;
                 Vector2 textPosition = new Vector2(
-                    layerRect.X + layerRect.Width / 2 - textSize.X / 2,
-                    layerRect.Y + layerRect.Height / 2 - textSize.Y / 2
+                    layerRect.X + (layerRect.Width - textSize.X) / 2,
+                    layerRect.Y + (layerRect.Height - textSize.Y) / 2
                 );
 
                 GlobalParameters.GlobalSpriteBatch.DrawString(

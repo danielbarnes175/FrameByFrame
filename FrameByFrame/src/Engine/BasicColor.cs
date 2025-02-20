@@ -26,9 +26,12 @@ namespace FrameByFrame.src.Engine
         {
             if (texture != null)
             {
+                Vector2 scaledDimensions = new Vector2(dimensions.X * GlobalParameters.scaleX, dimensions.Y * GlobalParameters.scaleY);
+            Vector2 drawPosition = (position + Vector2.Zero) * 1.0f;
+            Rectangle scaleRect = new Rectangle((int)drawPosition.X, (int)drawPosition.Y, (int)scaledDimensions.X, (int)scaledDimensions.Y);
+
                 GlobalParameters.GlobalSpriteBatch.Draw(texture,
-                    new Rectangle((int)(position.X), (int)(position.Y), (int)dimensions.X,
-                        (int)dimensions.Y), null, Color.White * opacity, 0.0f,
+                    scaleRect, null, Color.White * opacity, 0.0f,
                     new Vector2(texture.Bounds.Width / 2, texture.Bounds.Height / 2), new SpriteEffects(), 0.2f);
             }
         }
