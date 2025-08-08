@@ -1,12 +1,9 @@
-﻿using FrameByFrame.src.Engine.Animation;
-using FrameByFrame.src.Engine.Scenes;
+﻿using System;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine;
 
 namespace FrameByFrame.src.Engine.Services
 {
@@ -35,7 +32,7 @@ namespace FrameByFrame.src.Engine.Services
                     }
                     break;
                 case Shapes.RECTANGLE:
-                    for (int pixel = 0; pixel < data.Count(); pixel++)
+                    for (int pixel = 0; pixel < data.Length; pixel++)
                     {
                         //the function applies the color according to the specified pixel
                         data[pixel] = paint(pixel);
@@ -49,40 +46,36 @@ namespace FrameByFrame.src.Engine.Services
             return texture;
         }
 
-        public static void SetColors(BasicColor[,] layer, Texture2D color, Vector2 pointPosition, Shapes shape, int brushSize)
+        // Update SetColors to work with Color[] and width/height
+        public static void SetColors(Color[] layerPixels, Texture2D texture, Vector2 pointPosition, Shapes shape, int brushSize, int width, int height, Color color)
         {
-            switch (shape)
+            int px = (int)pointPosition.X;
+            int py = (int)pointPosition.Y;
+            for (int dx = -brushSize; dx <= brushSize; dx++)
             {
-                case Shapes.CIRCLE:
-                    for (int i = (int)pointPosition.X - (brushSize / 2); i <= pointPosition.X + (brushSize / 2); i++)
+                for (int dy = -brushSize; dy <= brushSize; dy++)
+                {
+                    int tx = px + dx;
+                    int ty = py + dy;
+                    if (tx >= 0 && tx < width && ty >= 0 && ty < height)
                     {
-                        for (int j = (int)pointPosition.Y - (brushSize / 2); j <= pointPosition.Y + (brushSize / 2); j++)
+                        if (shape == Shapes.CIRCLE)
                         {
-                            float positionX = i;
-                            float positionY = j;
-                            if (Math.Pow((positionX - pointPosition.X), 2) + Math.Pow((positionY - pointPosition.Y), 2) <= Math.Pow(brushSize / 2, 2))
+                            if (dx * dx + dy * dy <= brushSize * brushSize)
                             {
-                                BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                                if (positionX - (int)Frame.position.X < 0 || positionY - (int)Frame.position.Y < 0 || positionX >= Frame.staticWidth + (int)Frame.position.X || positionY >= Frame.staticHeight + (int)Frame.position.Y) continue;
-                                layer[(int)positionX - (int)Frame.position.X, (int)positionY - (int)Frame.position.Y] = point;
+                                int idx = ty * width + tx;
+                                layerPixels[idx] = color;
                             }
                         }
-                    }
-                    break;
-                case Shapes.RECTANGLE:
-                    for (int i = -1 * (brushSize / 2); i < brushSize / 2; i++)
-                    {
-                        for (int j = -1 * (brushSize / 2); j < brushSize / 2; j++)
+                        else if (shape == Shapes.RECTANGLE)
                         {
-                            float positionX = pointPosition.X + i;
-                            float positionY = pointPosition.Y + j;
-                            BasicColor point = new BasicColor(color, new Vector2(positionX, positionY), new Vector2(1, 1));
-                            if (positionX < 0 || positionY < 0 || positionX >= Frame.staticWidth || positionY >= Frame.staticHeight) return;
-                            layer[(int)positionX, (int)positionY] = point;
+                            int idx = ty * width + tx;
+                            layerPixels[idx] = color;
                         }
                     }
-                    break;
+                }
             }
+            texture.SetData(layerPixels);
         }
 
         public static RenderTarget2D CombineTextures(Frame givenFrame)
@@ -95,17 +88,15 @@ namespace FrameByFrame.src.Engine.Services
 
             GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
 
-            for (int i = 0; i < givenFrame.width; i++)
+            // Draw each layer texture
+            Rectangle drawRectangle = new Rectangle((int)Frame.position.X, (int)Frame.position.Y, givenFrame.width, givenFrame.height);
+            if (givenFrame != null)
             {
-                for (int j = 0; j < givenFrame.height; j++)
-                {
-                    if (givenFrame._layer3[i, j] != null)
-                        givenFrame._layer3[i, j].Draw(1.0f);
-                    if (givenFrame._layer2[i, j] != null)
-                        givenFrame._layer2[i, j].Draw(1.0f);
-                    if (givenFrame._layer1[i, j] != null)
-                        givenFrame._layer1[i, j].Draw(1.0f);
-                }
+                // Draw background
+                givenFrame.Draw(1.0f);
+                
+                // Draw layers - this will automatically call UpdateTextures() if needed
+                givenFrame.DrawLayers(1.0f);
             }
 
             GlobalParameters.GlobalSpriteBatch.End();

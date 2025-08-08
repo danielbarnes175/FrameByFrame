@@ -11,7 +11,7 @@ using System.Diagnostics;
 
 namespace FrameByFrame.src.Engine.Animation
 {
-    public class Animation
+    public class Animation : IDisposable
     {
         // Animation
         private double playbackTimer;
@@ -33,6 +33,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public LinkedList<Frame> frames;
         private LinkedListNode<Frame> currentFrame;
+        private bool _disposed = false;
 
         public int TotalFrames => frames.Count;
         public int CurrentFrameIndex { get; private set; }
@@ -73,6 +74,10 @@ namespace FrameByFrame.src.Engine.Animation
 
             var frameToRemove = currentFrame;
             currentFrame = currentFrame.Previous ?? currentFrame.Next;
+            
+            // Dispose the frame to free memory
+            frameToRemove.Value?.Dispose();
+            
             frames.Remove(frameToRemove);
             CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
         }
@@ -111,9 +116,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void EraseCurrentLayer()
         {
-            if (selectedLayer == "_layer1") currentFrame.Value._layer1 = new BasicColor[Frame.staticWidth, Frame.staticHeight];
-            if (selectedLayer == "_layer2") currentFrame.Value._layer2 = new BasicColor[Frame.staticWidth, Frame.staticHeight];
-            if (selectedLayer == "_layer3") currentFrame.Value._layer3 = new BasicColor[Frame.staticWidth, Frame.staticHeight];
+            currentFrame.Value.ClearLayer(selectedLayer);
         }
 
         public void DeleteFrame()
@@ -123,9 +126,14 @@ namespace FrameByFrame.src.Engine.Animation
 
             var toRemove = currentFrame;
             currentFrame = currentFrame.Previous ?? currentFrame.Next;
+            
+            // Dispose the frame to free memory
+            toRemove.Value?.Dispose();
+            
             frames.Remove(toRemove);
             CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
         }
+        
         public void InsertFrame()
         {
             var newFrame = new Frame(framePosition, frameSize);
@@ -165,8 +173,8 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawOnCurrentLayer(Color selectedColor)
         {
-            BasicColor[,] layer = GetSelectedLayer();
-            if (layer == null) return;
+            var layerPixels = currentFrame.Value.GetLayerPixels(selectedLayer);
+            if (layerPixels == null) return;
 
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
             Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
@@ -176,29 +184,40 @@ namespace FrameByFrame.src.Engine.Animation
 
             float distance = (float)Math.Ceiling(Math.Sqrt(Math.Pow(xChange, 2) + Math.Pow(yChange, 2)) / 2);
 
-            Texture2D drawingColorTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => selectedColor, Shapes.RECTANGLE);
-
             for (int i = 0; i < distance; i++)
             {
                 float newX = i * (xChange / distance) + mousePositionOld.X - framePosition.X;
                 float newY = i * (yChange / distance) + mousePositionOld.Y - framePosition.Y;
 
                 if (newX >= Frame.staticWidth + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.staticHeight + framePosition.Y) continue;
-                Vector2 pointPosition = new Vector2(newX + framePosition.X, newY + framePosition.Y);
-
-                DrawingService.SetColors(layer, drawingColorTexture, pointPosition, Shapes.CIRCLE, brushSize);
+                int px = (int)newX;
+                int py = (int)newY;
+                if (px >= 0 && px < Frame.staticWidth && py >= 0 && py < Frame.staticHeight)
+                {
+                    // Draw a circle of brushSize
+                    for (int dx = -brushSize; dx <= brushSize; dx++)
+                    {
+                        for (int dy = -brushSize; dy <= brushSize; dy++)
+                        {
+                            int tx = px + dx;
+                            int ty = py + dy;
+                            if (tx >= 0 && tx < Frame.staticWidth && ty >= 0 && ty < Frame.staticHeight)
+                            {
+                                if (dx * dx + dy * dy <= brushSize * brushSize)
+                                {
+                                    currentFrame.Value.SetPixel(selectedLayer, tx, ty, selectedColor);
+                                }
+                            }
+                        }
+                    }
+                }
             }
+            // Note: UpdateTextures is now called lazily in DrawLayers, so we don't need to call it here
         }
 
-        private BasicColor[,] GetSelectedLayer()
+        public Color[] GetLayerPixels(string layerName)
         {
-            return selectedLayer switch
-            {
-                "_layer1" => currentFrame?.Value._layer1,
-                "_layer2" => currentFrame?.Value._layer2,
-                "_layer3" => currentFrame?.Value._layer3,
-                _ => null
-            };
+            return currentFrame.Value.GetLayerPixels(layerName);
         }
 
         public void DrawCurrentFrame()
@@ -242,6 +261,46 @@ namespace FrameByFrame.src.Engine.Animation
             }
 
             return currentNode?.Value;
+        }
+
+        // Get total memory usage of all frames
+        public long GetTotalMemoryUsage()
+        {
+            long total = 0;
+            foreach (var frame in frames)
+            {
+                total += frame.GetMemoryUsage();
+            }
+            return total;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+
+            if (disposing)
+            {
+                // Dispose all frames
+                foreach (var frame in frames)
+                {
+                    frame?.Dispose();
+                }
+                frames.Clear();
+                currentFrame = null;
+            }
+
+            _disposed = true;
+        }
+
+        ~Animation()
+        {
+            Dispose(false);
         }
     }
 }

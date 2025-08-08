@@ -102,6 +102,10 @@ namespace FrameByFrame.src.Engine.Scenes
                 element.Draw(offset, new Vector2(0, 0));
             }
 
+            // Display memory usage for debugging
+            string memoryInfo = MemoryMonitor.GetAnimationMemoryInfo(animation);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, memoryInfo, new Vector2(10, GlobalParameters.screenHeight - 30), Color.White);
+
             base.Draw(offset);
         }
 
@@ -134,6 +138,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void ResetScene()
         {
+            // Dispose old animation to free memory
+            animation?.Dispose();
+            
             InitializeDefaults();
             LoadContent();
         }

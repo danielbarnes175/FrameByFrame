@@ -37,9 +37,9 @@ namespace FrameByFrame.src.Engine.Export
     {
         public Vector2 FrameSize { get; set; }
         public Vector2 FramePosition { get; set; }
-        public BasicColor[,] Layer1 { get; set; }
-        public BasicColor[,] Layer2 { get; set; }
-        public BasicColor[,] Layer3 { get; set; }
+        public Color[] Layer1 { get; set; }
+        public Color[] Layer2 { get; set; }
+        public Color[] Layer3 { get; set; }
 
         public FrameData() { }
 
@@ -47,9 +47,9 @@ namespace FrameByFrame.src.Engine.Export
         {
             FrameSize = new Vector2(frame.width, frame.height);
             FramePosition = Frame.position;
-            Layer1 = frame._layer1;
-            Layer2 = frame._layer2;
-            Layer3 = frame._layer3;
+            Layer1 = frame.GetLayerPixels("_layer1");
+            Layer2 = frame.GetLayerPixels("_layer2");
+            Layer3 = frame.GetLayerPixels("_layer3");
         }
     }
 }
