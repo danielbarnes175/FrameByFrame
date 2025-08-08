@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Services;
+using FrameByFrame.src.Engine.UI;
 using FrameByFrame.src.UI.Components;
 using FrameByFrame.src.UI.Components.Buttons;
 using Microsoft.Xna.Framework;
@@ -80,13 +81,18 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Update(GameTime gameTime)
         {
             HandleKeyboardShortcuts();
-            HandleMouseShortcuts();
-            animation.Animate(gameTime);
-
+            
+            // Update UI elements first
             foreach (UIElement element in components)
             {
                 element.Update();
             }
+            
+            // Update UI interaction manager
+            UIInteractionManager.Update();
+            
+            HandleMouseShortcuts();
+            animation.Animate(gameTime);
 
             base.Update(gameTime);
         }
@@ -116,6 +122,19 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 loadedScene = true;
                 return;
+            }
+
+            // Check if UI is blocking drawing input
+            if (UIInteractionManager.IsUIBlocking())
+            {
+                return; // Don't draw if UI is being interacted with
+            }
+            
+            // Additional check for navbar area
+            Rectangle navbarArea = new Rectangle(0, 0, GlobalParameters.screenWidth, 50);
+            if (UIInteractionManager.IsMouseOverNavbar(navbarArea))
+            {
+                return; // Don't draw if mouse is over navbar
             }
 
             // Draw on current frame
@@ -204,6 +223,23 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("L"))
             {
                 SaveService.SaveAnimation(animation);
+            }
+
+            // Brush size controls
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("["))
+            {
+                if (animation.brushSize > UIConstants.MIN_BRUSH_SIZE)
+                {
+                    animation.brushSize--;
+                }
+            }
+
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("]"))
+            {
+                if (animation.brushSize < UIConstants.MAX_BRUSH_SIZE)
+                {
+                    animation.brushSize++;
+                }
             }
         }
 

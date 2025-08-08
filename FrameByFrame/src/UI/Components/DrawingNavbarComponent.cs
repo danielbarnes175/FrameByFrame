@@ -1,5 +1,6 @@
 ﻿using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.Engine;
+using FrameByFrame.src.Engine.UI;
 using FrameByFrame.src.UI.Components.Buttons.Components;
 using FrameByFrame.src.UI.Components.Buttons;
 using Microsoft.Xna.Framework;
@@ -25,10 +26,16 @@ namespace FrameByFrame.src.UI.Components
             Overlay helpOverlay = new Overlay("Static\\SettingsScene/button_export", new Vector2(500, 500), new Vector2(32, 32));
             PopupButton helpButton = new PopupButton(helpOverlay, "Static\\DrawingScene/help", new Vector2(menuButton.position.X + menuButton.dimensions.X + 5 * uiElements.Count, 10), new Vector2(32, 32));
             uiElements.Add(helpButton);
+            
+            // Register popup button with UI interaction manager
+            UIInteractionManager.RegisterUIElement(() => helpButton.target.isVisible);
 
             SettingsComponent settingsOverlay = new SettingsComponent(new Vector2(150, 55), new Vector2(450, 600));
             PopupButton settingsButton = new PopupButton(settingsOverlay, "Static\\DrawingScene/gear", new Vector2(helpButton.position.X + helpButton.dimensions.X + 5 * uiElements.Count, 10), new Vector2(32, 32));
             uiElements.Add(settingsButton);
+            
+            // Register settings popup
+            UIInteractionManager.RegisterUIElement(() => settingsButton.target.isVisible);
 
             Texture2D colorButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(200, 0, 255), Shapes.CIRCLE);
             ColorWheelComponent colorOverlay = new ColorWheelComponent(new Vector2(1399, 50), new Vector2(200, 200));
@@ -38,6 +45,9 @@ namespace FrameByFrame.src.UI.Components
                 colorButton.texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => selectedColor, Shapes.CIRCLE);
             };
             uiElements.Add(colorButton);
+            
+            // Register color picker popup
+            UIInteractionManager.RegisterUIElement(() => colorButton.target.isVisible);
 
             List<string> layers = new List<string> { "_layer1", "_layer2", "_layer3" };
             LayerSelectorComponent layerOverlay = new LayerSelectorComponent(new Vector2(1400, 50), new Vector2(200, 150), layers, GlobalParameters.font);
@@ -47,6 +57,9 @@ namespace FrameByFrame.src.UI.Components
             };
             PopupButton layerButton = new PopupButton(layerOverlay, "Static\\DrawingScene/layers", new Vector2(colorButton.position.X - colorButton.dimensions.X - 10, 10), new Vector2(32, 32));
             uiElements.Add(layerButton);
+            
+            // Register layer selector popup
+            UIInteractionManager.RegisterUIElement(() => layerButton.target.isVisible);
 
             Texture2D frameCounterTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 132, 32, pixel => Color.Orange, Shapes.RECTANGLE);
             UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X + settingsButton.dimensions.X, 10), new Vector2(frameCounterTexture.Width, frameCounterTexture.Height));
@@ -76,6 +89,17 @@ namespace FrameByFrame.src.UI.Components
             uiElements.Add(playButton);
             uiElements.Add(nextFrameButton);
             uiElements.Add(goToEndButton);
+
+            // Add brush size slider
+            BrushSizeSlider brushSizeSlider = new BrushSizeSlider(
+                new Vector2(goToEndButton.position.X + goToEndButton.dimensions.X + 15, 10),
+                new Vector2(120, 32), // Increased width for slider
+                animation
+            );
+            uiElements.Add(brushSizeSlider);
+            
+            // Register the brush size slider with the UI interaction manager
+            UIInteractionManager.RegisterUIElement(() => brushSizeSlider.IsMouseOver);
         }
     }
 }
