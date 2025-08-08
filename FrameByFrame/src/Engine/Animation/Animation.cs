@@ -63,9 +63,34 @@ namespace FrameByFrame.src.Engine.Animation
             currentFrame = frames.First;
         }
 
+        // Cache for faster frame access
+        private List<Frame> _framesList = new List<Frame>();
+        private bool _framesCacheValid = true;
+
+        public Frame GetFrameAtIndex(int index)
+        {
+            if (index < 0 || index >= frames.Count) return null;
+
+            // Use cached list for O(1) access
+            if (!_framesCacheValid || _framesList.Count != frames.Count)
+            {
+                _framesList.Clear();
+                _framesList.AddRange(frames);
+                _framesCacheValid = true;
+            }
+
+            return _framesList[index];
+        }
+
         public void AddFrame(Frame frame)
         {
             frames.AddLast(frame);
+            _framesCacheValid = false;
+        }
+
+        private void InvalidateFrameCache()
+        {
+            _framesCacheValid = false;
         }
 
         public void DeleteCurrentFrame()
@@ -80,6 +105,7 @@ namespace FrameByFrame.src.Engine.Animation
             
             frames.Remove(frameToRemove);
             CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
+            InvalidateFrameCache();
         }
 
         public void FirstFrame()
@@ -132,6 +158,7 @@ namespace FrameByFrame.src.Engine.Animation
             
             frames.Remove(toRemove);
             CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
+            InvalidateFrameCache();
         }
         
         public void InsertFrame()
@@ -139,6 +166,7 @@ namespace FrameByFrame.src.Engine.Animation
             var newFrame = new Frame(framePosition, frameSize);
             frames.AddBefore(currentFrame, newFrame);
             currentFrame = currentFrame.Previous;
+            InvalidateFrameCache();
         }
 
         public void TogglePlaying()
@@ -173,46 +201,57 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawOnCurrentLayer(Color selectedColor)
         {
-            var layerPixels = currentFrame.Value.GetLayerPixels(selectedLayer);
-            if (layerPixels == null) return;
-
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
             Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
 
             float xChange = mousePositionCur.X - mousePositionOld.X;
             float yChange = mousePositionCur.Y - mousePositionOld.Y;
+            float distance = (float)Math.Sqrt(xChange * xChange + yChange * yChange);
 
-            float distance = (float)Math.Ceiling(Math.Sqrt(Math.Pow(xChange, 2) + Math.Pow(yChange, 2)) / 2);
-
-            for (int i = 0; i < distance; i++)
+            // Only draw if there's movement or it's the first draw
+            if (distance < 1f && GlobalParameters.GlobalMouse.LeftClickHold()) 
             {
-                float newX = i * (xChange / distance) + mousePositionOld.X - framePosition.X;
-                float newY = i * (yChange / distance) + mousePositionOld.Y - framePosition.Y;
+                // Still draw a single point for initial click
+                DrawBrushAt(mousePositionCur - framePosition, selectedColor);
+                return;
+            }
 
-                if (newX >= Frame.staticWidth + framePosition.X || newX <= 0 || newY <= 0 || newY >= Frame.staticHeight + framePosition.Y) continue;
-                int px = (int)newX;
-                int py = (int)newY;
-                if (px >= 0 && px < Frame.staticWidth && py >= 0 && py < Frame.staticHeight)
+            // Use more efficient line drawing
+            int steps = Math.Max(1, (int)(distance / 2));
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = steps > 0 ? i / (float)steps : 0;
+                Vector2 interpolatedPos = Vector2.Lerp(mousePositionOld, mousePositionCur, t) - framePosition;
+                DrawBrushAt(interpolatedPos, selectedColor);
+            }
+        }
+
+        private void DrawBrushAt(Vector2 localPos, Color color)
+        {
+            int centerX = (int)localPos.X;
+            int centerY = (int)localPos.Y;
+            
+            // Pre-calculate brush bounds to avoid repeated boundary checks
+            int minX = Math.Max(0, centerX - brushSize);
+            int maxX = Math.Min(Frame.staticWidth - 1, centerX + brushSize);
+            int minY = Math.Max(0, centerY - brushSize);
+            int maxY = Math.Min(Frame.staticHeight - 1, centerY + brushSize);
+            
+            int brushSizeSquared = brushSize * brushSize;
+            
+            for (int x = minX; x <= maxX; x++)
+            {
+                for (int y = minY; y <= maxY; y++)
                 {
-                    // Draw a circle of brushSize
-                    for (int dx = -brushSize; dx <= brushSize; dx++)
+                    int dx = x - centerX;
+                    int dy = y - centerY;
+                    
+                    if (dx * dx + dy * dy <= brushSizeSquared)
                     {
-                        for (int dy = -brushSize; dy <= brushSize; dy++)
-                        {
-                            int tx = px + dx;
-                            int ty = py + dy;
-                            if (tx >= 0 && tx < Frame.staticWidth && ty >= 0 && ty < Frame.staticHeight)
-                            {
-                                if (dx * dx + dy * dy <= brushSize * brushSize)
-                                {
-                                    currentFrame.Value.SetPixel(selectedLayer, tx, ty, selectedColor);
-                                }
-                            }
-                        }
+                        currentFrame.Value.SetPixel(selectedLayer, x, y, color);
                     }
                 }
             }
-            // Note: UpdateTextures is now called lazily in DrawLayers, so we don't need to call it here
         }
 
         public Color[] GetLayerPixels(string layerName)
@@ -248,19 +287,6 @@ namespace FrameByFrame.src.Engine.Animation
         private void DrawFrameWithOpacity(Frame frame, float opacity)
         {
             frame?.DrawLayers(opacity);
-        }
-
-        public Frame GetFrameAtIndex(int index)
-        {
-            if (index < 0 || index >= frames.Count) return null;
-
-            var currentNode = frames.First;
-            for (int i = 0; i < index; i++)
-            {
-                currentNode = currentNode.Next;
-            }
-
-            return currentNode?.Value;
         }
 
         // Get total memory usage of all frames
