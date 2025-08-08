@@ -102,9 +102,8 @@ namespace FrameByFrame.src.Engine.Scenes
                 element.Draw(offset, new Vector2(0, 0));
             }
 
-            // Display memory usage for debugging
-            string memoryInfo = MemoryMonitor.GetAnimationMemoryInfo(animation);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, memoryInfo, new Vector2(10, GlobalParameters.screenHeight - 30), Color.White);
+            // Display memory usage only in debug mode
+            MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
 
             base.Draw(offset);
         }

@@ -24,6 +24,9 @@ namespace FrameByFrame.src.Engine
         // Color palette
         public static readonly Color BACKGROUND_DARK = new Color(45, 45, 45);
         public static readonly Color UI_ORANGE = Color.Orange;
+        public static readonly Color DEBUG_TEXT = Color.White;
+        public static readonly Color DEBUG_PERFORMANCE = Color.Red;
+        public static readonly Color DEBUG_MEMORY = Color.Cyan;
         
         // Layer names (to replace magic strings)
         public const string LAYER_1 = "_layer1";

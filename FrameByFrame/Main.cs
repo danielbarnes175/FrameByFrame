@@ -62,6 +62,10 @@ namespace FrameByFrame
             };
 
             GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
+            
+            // Initialize debug manager
+            DebugManager.Initialize();
+            
             graphics.ApplyChanges();
             base.Initialize();
         }
@@ -106,6 +110,9 @@ namespace FrameByFrame
 
         protected override void Update(GameTime gameTime)
         {
+            // Update debug manager first to handle key presses
+            DebugManager.Update();
+            
             PerformanceMonitor.StartFrame();
             
             GlobalParameters.GlobalMouse.Update();
@@ -125,8 +132,12 @@ namespace FrameByFrame
             GlobalParameters.CurrentScene.Draw(Vector2.Zero);
             cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X - 5, GlobalParameters.GlobalMouse.newMousePos.Y - 25), new Vector2(0, 0));
 
-            // Draw performance overlay
-            PerformanceMonitor.DrawPerformanceOverlay(new Vector2(10, 10), Color.Red);
+            // Draw debug overlays only in debug mode
+            if (DebugManager.IsDebugMode)
+            {
+                PerformanceMonitor.DrawPerformanceOverlay(new Vector2(10, 10), UIConstants.DEBUG_PERFORMANCE);
+                DebugManager.DrawDebugHelp(new Vector2(10, GlobalParameters.screenHeight - 100));
+            }
 
             GlobalParameters.GlobalSpriteBatch.End();
             

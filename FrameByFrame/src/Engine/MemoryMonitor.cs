@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Xna.Framework;
 using FrameByFrame.src.Engine.Animation;
 
 namespace FrameByFrame.src.Engine
@@ -15,6 +16,7 @@ namespace FrameByFrame.src.Engine
 
         public static string GetAnimationMemoryInfo(Animation.Animation animation)
         {
+            if (!DebugManager.ShowMemoryMonitor) return string.Empty;
             if (animation == null) return "No animation loaded";
             
             long totalMemory = animation.GetTotalMemoryUsage();
@@ -23,6 +25,17 @@ namespace FrameByFrame.src.Engine
             return $"Frames: {animation.TotalFrames} | " +
                    $"Animation Memory: {FormatBytes(totalMemory)} | " +
                    $"System Memory: {FormatBytes(systemMemory)}";
+        }
+        
+        public static void DrawMemoryOverlay(Vector2 position, Color color, Animation.Animation animation)
+        {
+            if (!DebugManager.ShowMemoryMonitor) return;
+            
+            string memoryInfo = GetAnimationMemoryInfo(animation);
+            if (!string.IsNullOrEmpty(memoryInfo))
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, memoryInfo, position, color);
+            }
         }
     }
 }

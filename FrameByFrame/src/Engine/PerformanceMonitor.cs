@@ -14,11 +14,14 @@ namespace FrameByFrame.src.Engine
         
         public static void StartFrame()
         {
+            if (!DebugManager.ShowPerformanceMonitor) return;
             _stopwatch.Restart();
         }
         
         public static void EndFrame()
         {
+            if (!DebugManager.ShowPerformanceMonitor) return;
+            
             _stopwatch.Stop();
             double frameTime = _stopwatch.Elapsed.TotalMilliseconds;
             
@@ -39,6 +42,7 @@ namespace FrameByFrame.src.Engine
         
         public static string GetPerformanceInfo()
         {
+            if (!DebugManager.ShowPerformanceMonitor) return string.Empty;
             if (_frameCount == 0) return "Performance: Measuring...";
             
             double avgFrameTime = _totalFrameTime / _frameCount;
@@ -49,8 +53,13 @@ namespace FrameByFrame.src.Engine
         
         public static void DrawPerformanceOverlay(Vector2 position, Color color)
         {
+            if (!DebugManager.ShowPerformanceMonitor) return;
+            
             string perfInfo = GetPerformanceInfo();
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, perfInfo, position, color);
+            if (!string.IsNullOrEmpty(perfInfo))
+            {
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, perfInfo, position, color);
+            }
         }
     }
 }
