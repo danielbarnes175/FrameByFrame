@@ -1,12 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Xml;
-using System.Xml.Serialization;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Services;
 using ImageMagick;
@@ -16,19 +10,17 @@ namespace FrameByFrame.src.Engine.Export
 {
     public class SaveService
     {
+        private const string ProjectsDirectory = "Projects";
 
         public static void SaveAnimation(Animation.Animation animation)
         {
+            ArgumentNullException.ThrowIfNull(animation);
+
             SaveData saveData = new SaveData();
             saveData.Save(animation);
 
-            string directory = "Projects";
-            if (!Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            string filename = $"{directory}/{animation.projectName}_saveData.json";
+            Directory.CreateDirectory(ProjectsDirectory);
+            string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}_saveData.json");
 
             // Serialize to JSON
             var options = new JsonSerializerOptions { WriteIndented = true };
@@ -40,37 +32,46 @@ namespace FrameByFrame.src.Engine.Export
 
         public static void ExportAnimation(Animation.Animation animation)
         {
+            ArgumentNullException.ThrowIfNull(animation);
+
+            if (animation.fps <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(animation), "Animation FPS must be greater than zero.");
+            }
+
+            string projectDirectory = Path.Combine(ProjectsDirectory, animation.projectName);
+            Directory.CreateDirectory(projectDirectory);
+
             for (int i = 0; i < animation.frames.Count; i++)
             {
-                RenderTarget2D texture = DrawingService.CombineTextures(animation.GetFrameAtIndex(i));
-                System.IO.Directory.CreateDirectory("Projects/" + animation.projectName);
-                SaveTextureAsPng("Projects/" + animation.projectName + "/Frame_" + i + ".png", texture);
+                using RenderTarget2D texture = DrawingService.CombineTextures(animation.GetFrameAtIndex(i));
+                string frameFilename = Path.Combine(projectDirectory, $"Frame_{i}.png");
+                SaveTextureAsPng(frameFilename, texture);
             }
-            CreateGif(animation);
+
+            CreateGif(animation, projectDirectory);
         }
 
         private static void SaveTextureAsPng(string filename, RenderTarget2D texture)
         {
-            FileStream setStream = File.Open(filename, FileMode.Create);
-            StreamWriter writer = new StreamWriter(setStream);
+            using FileStream setStream = File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.None);
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
-            setStream.Dispose();
         }
 
-        private static void CreateGif(Animation.Animation animation)
+        private static void CreateGif(Animation.Animation animation, string projectDirectory)
         {
-            string filename = "Projects/" + animation.projectName + ".gif";
-            float frameDelay = 60 / animation.fps;
+            string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}.gif");
+            uint frameDelay = (uint)Math.Max(1, Math.Round(100d / animation.fps));
 
-            using (MagickImageCollection collection = new MagickImageCollection())
+            using MagickImageCollection collection = new MagickImageCollection();
+            for (int i = 0; i < animation.frames.Count; i++)
             {
-                for (int i = 0; i < animation.frames.Count; i++)
-                {
-                    collection.Add("Projects/" + animation.projectName + "/Frame_" + i + ".png");
-                    collection[0].AnimationDelay = (uint)(frameDelay * 100);
-                }
-                collection.Write(filename);
+                string frameFilename = Path.Combine(projectDirectory, $"Frame_{i}.png");
+                collection.Add(frameFilename);
+                collection[i].AnimationDelay = frameDelay;
             }
+
+            collection.Write(filename);
         }
     }
 }
