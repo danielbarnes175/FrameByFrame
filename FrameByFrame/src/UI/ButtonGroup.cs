@@ -24,7 +24,9 @@ namespace FrameByFrame.src.UI
         {
             foreach (RadioButton button in buttons)
             {
-                button.isBeingMousedOver = CollisionService.CheckMouseCollision(button);
+                // Tool buttons use their full rectangular bounds so transparent
+                // icon pixels remain clickable and hoverable.
+                button.isBeingMousedOver = CollisionService.CheckMouseCollision(button, true);
 
                 // If we select this button, set isSelected to true for this button, but false for all other buttons in this button group.
                 if (button.isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
