@@ -133,6 +133,8 @@ namespace FrameByFrame.src.Engine.Input
                     return Keys.OemOpenBrackets;
                 case "]":
                     return Keys.OemCloseBrackets;
+                case "ENTER":
+                    return Keys.Enter;
             }
 
             return Keys.Sleep;

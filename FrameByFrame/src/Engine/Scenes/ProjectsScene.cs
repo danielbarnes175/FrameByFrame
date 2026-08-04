@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Export;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -15,6 +16,7 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         private List<BasicTexture> _textures;
         private Texture2D _borderTexture;
+        private Texture2D _actionButtonTexture;
 
         private List<string> projects;
         private List<Animation.Animation> animations;
@@ -41,6 +43,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void LoadContent()
         {
             _borderTexture = CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 300, pixel => Color.Orange);
+            _actionButtonTexture = CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => Color.White);
             _textures.Add(new BasicTexture(_borderTexture, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth * 2, 300)));
             _textures.Add(new BasicTexture(_borderTexture, new Vector2(0, GlobalParameters.screenHeight), new Vector2(GlobalParameters.screenWidth * 2, 300)));
             BasicTexture arrowRight = new BasicTexture("Static\\ProjectsScene/button_arrow", new Vector2(GlobalParameters.screenWidth / 2 + 200, GlobalParameters.screenHeight / 2), new Vector2(45, 45));
@@ -53,13 +56,6 @@ namespace FrameByFrame.src.Engine.Scenes
             LoadAnimations();
         }
 
-        [DebuggerNonUserCode]
-        private Texture2D getTextureFromPng(string filename)
-        {
-            using FileStream setStream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-            return Texture2D.FromStream(GlobalParameters.GlobalGraphics, setStream);
-        }
-
         public override void Update(GameTime gameTime)
         {
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
@@ -69,10 +65,24 @@ namespace FrameByFrame.src.Engine.Scenes
                 timePlaying = 0;
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
             }
+
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER"))
+            {
+                OpenSelectedProject();
+            }
+
             if (GlobalParameters.GlobalMouse.LeftClick())
             {
                 Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
-                if (pointPosition.X > 570 && pointPosition.X < 615 && pointPosition.Y > 400 && pointPosition.Y < 445)
+                if (animations.Count > 0 && GetEditButtonBounds().Contains(pointPosition))
+                {
+                    OpenSelectedProject();
+                }
+                else if (animations.Count > 0 && GetExportButtonBounds().Contains(pointPosition))
+                {
+                    ExportSelectedProject();
+                }
+                else if (pointPosition.X > 570 && pointPosition.X < 615 && pointPosition.Y > 400 && pointPosition.Y < 445)
                 {
                     currentPreview -= 1;
                     if (currentPreview < 0) currentPreview = animations.Count - 1;
@@ -98,9 +108,17 @@ namespace FrameByFrame.src.Engine.Scenes
                             Verb = "open"
                         });
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         //Console.WriteLine(e.Message);
+                    }
+                }
+                else
+                {
+                    Rectangle previewBounds = GetPreviewBounds();
+                    if (previewBounds.Contains(pointPosition))
+                    {
+                        OpenSelectedProject();
                     }
                 }
             }
@@ -124,8 +142,9 @@ namespace FrameByFrame.src.Engine.Scenes
             if (animations.Count > 0)
             {
                 Frame frame = animations[currentPreview].GetFrameAtIndex(previewFrame);
-                frame?.DrawCombinedTexture(1.0f);
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, $"Current Project Shown: {Path.GetFileName(projects[currentPreview])}", new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+                frame?.DrawPreview(GetPreviewBounds(), 1.0f);
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, $"Current Project Shown: {animations[currentPreview].projectName}", new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+
             }
             else
             {
@@ -137,13 +156,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 texture.Draw(offset);
             }
 
-            base.Draw(offset);
-        }
+            if (animations.Count > 0)
+            {
+                DrawActionButton(GetEditButtonBounds(), "EDIT");
+                DrawActionButton(GetExportButtonBounds(), "EXPORT");
+            }
 
-        public void LoadProjects()
-        {
-            var directories = Directory.GetDirectories("Projects/");
-            projects = directories.ToList();
+            base.Draw(offset);
         }
 
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint)
@@ -168,55 +187,91 @@ namespace FrameByFrame.src.Engine.Scenes
         public void LoadAnimations()
         {
             DisposePreviewAnimations();
-            LoadProjects();
-            List<string> discoveredProjects = projects;
             projects = new List<string>();
             animations = new List<Animation.Animation>();
             currentPreview = 0;
             previewFrame = 0;
             timePlaying = 0;
 
-            foreach (string projectDirectory in discoveredProjects)
+            foreach (string saveFilename in Directory.GetFiles("Projects", "*.fbf"))
             {
-                Animation.Animation animation = new Animation.Animation("temp");
-
-                int frameCounter = 0;
                 try
                 {
-                    while (true)
-                    {
-                        string filename = Path.Combine(projectDirectory, $"Frame_{frameCounter}.png");
-                        if (!File.Exists(filename)) break;
-
-                        Vector2 position = new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2);
-                        Vector2 dimensions = new Vector2(300, 300);
-                        Texture2D pngTexture = getTextureFromPng(filename);
-
-                        Frame frame = new Frame(position, dimensions);
-                        BasicTexture texture = new BasicTexture(pngTexture, position, dimensions);
-                        frame.CombinedTexture = texture;
-
-                        animation.AddFrame(frame);
-                        frameCounter++;
-                    }
+                    Animation.Animation savedAnimation = SaveService.LoadAnimation(saveFilename);
+                    projects.Add(saveFilename);
+                    animations.Add(savedAnimation);
                 }
                 catch (Exception exception)
                 {
-                    animation.Dispose();
-                    Debug.WriteLine($"Skipping invalid project '{projectDirectory}': {exception.Message}");
-                    continue;
+                    Debug.WriteLine($"Skipping invalid save '{saveFilename}': {exception.Message}");
                 }
+            }
+        }
 
-                // Ignore empty directories so the preview never attempts to draw
-                // a nonexistent first frame.
-                if (animation.TotalFrames == 0)
-                {
-                    animation.Dispose();
-                    continue;
-                }
+        private Rectangle GetPreviewBounds()
+        {
+            return new Rectangle(
+                GlobalParameters.screenWidth / 2 - 150,
+                GlobalParameters.screenHeight / 2 - 150,
+                300,
+                300);
+        }
 
-                projects.Add(projectDirectory);
-                animations.Add(animation);
+        private Rectangle GetEditButtonBounds()
+        {
+            return new Rectangle(GlobalParameters.screenWidth / 2 - 155, GlobalParameters.screenHeight / 2 + 175, 145, 48);
+        }
+
+        private Rectangle GetExportButtonBounds()
+        {
+            return new Rectangle(GlobalParameters.screenWidth / 2 + 10, GlobalParameters.screenHeight / 2 + 175, 145, 48);
+        }
+
+        private void DrawActionButton(Rectangle bounds, string label)
+        {
+            bool isHovered = bounds.Contains(GlobalParameters.GlobalMouse.newMousePos);
+            Color buttonColor = isHovered ? new Color(255, 180, 90) : new Color(220, 110, 0);
+            GlobalParameters.GlobalSpriteBatch.Draw(_actionButtonTexture, bounds, buttonColor);
+
+            Vector2 labelSize = GlobalParameters.font.MeasureString(label);
+            Vector2 labelPosition = new Vector2(
+                bounds.X + (bounds.Width - labelSize.X) / 2,
+                bounds.Y + (bounds.Height - labelSize.Y) / 2);
+            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, label, labelPosition, Color.White);
+        }
+
+        private void OpenSelectedProject()
+        {
+            if (animations == null || animations.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                Animation.Animation loadedAnimation = SaveService.LoadAnimation(projects[currentPreview]);
+                DrawingScene drawingScene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
+                drawingScene.LoadAnimation(loadedAnimation);
+                GlobalParameters.CurrentScene = drawingScene;
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine($"Unable to open project '{projects[currentPreview]}': {exception.Message}");
+            }
+        }
+
+        private void ExportSelectedProject()
+        {
+            if (animations == null || animations.Count == 0)
+                return;
+
+            try
+            {
+                SaveService.ExportAnimation(animations[currentPreview]);
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine($"Unable to export project '{projects[currentPreview]}': {exception.Message}");
             }
         }
 
@@ -237,6 +292,8 @@ namespace FrameByFrame.src.Engine.Scenes
             DisposePreviewAnimations();
             _borderTexture?.Dispose();
             _borderTexture = null;
+            _actionButtonTexture?.Dispose();
+            _actionButtonTexture = null;
             projects?.Clear();
             _textures?.Clear();
         }

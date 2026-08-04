@@ -165,6 +165,18 @@ namespace FrameByFrame.src.Engine.Scenes
             LoadContent();
         }
 
+        public void LoadAnimation(Animation.Animation loadedAnimation)
+        {
+            ArgumentNullException.ThrowIfNull(loadedAnimation);
+
+            UIInteractionManager.Clear();
+            animation?.Dispose();
+            animation = loadedAnimation;
+            drawingTool = DrawingTools.DRAW;
+            loadedScene = false;
+            SetupUI();
+        }
+
         public override void Dispose()
         {
             UIInteractionManager.Clear();

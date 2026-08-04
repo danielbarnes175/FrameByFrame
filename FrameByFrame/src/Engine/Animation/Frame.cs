@@ -99,6 +99,43 @@ namespace FrameByFrame.src.Engine.Animation
             return pixels;
         }
 
+        public IEnumerable<KeyValuePair<int, Color>> GetSparseLayerPixels(string layerName)
+        {
+            var layerDict = GetLayerDict(layerName);
+            if (layerDict == null)
+                throw new ArgumentException($"Unknown layer '{layerName}'.", nameof(layerName));
+
+            foreach (var pixel in layerDict)
+                yield return pixel;
+        }
+
+        public void SetLayerPixels(string layerName, Color[] pixels)
+        {
+            ArgumentNullException.ThrowIfNull(pixels);
+
+            if (pixels.Length != width * height)
+            {
+                throw new ArgumentException("Layer pixel count does not match the frame dimensions.", nameof(pixels));
+            }
+
+            var targetLayer = GetLayerDict(layerName);
+            if (targetLayer == null)
+            {
+                throw new ArgumentException($"Unknown layer '{layerName}'.", nameof(layerName));
+            }
+
+            targetLayer.Clear();
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                if (pixels[i] != Color.Transparent)
+                {
+                    targetLayer[i] = pixels[i];
+                }
+            }
+
+            _texturesNeedUpdate = true;
+        }
+
         private Dictionary<int, Color> GetLayerDict(string layerName)
         {
             return layerName switch
@@ -196,6 +233,26 @@ namespace FrameByFrame.src.Engine.Animation
         public void DrawCombinedTexture(float opacity)
         {
             CombinedTexture?.Draw(Vector2.Zero, opacity);
+        }
+
+        public void DrawPreview(Rectangle destination, float opacity)
+        {
+            if (CombinedTexture != null)
+            {
+                GlobalParameters.GlobalSpriteBatch.Draw(CombinedTexture.texture, destination, Color.White * opacity);
+                return;
+            }
+
+            if (_texturesNeedUpdate)
+                UpdateTextures();
+
+            GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
+            if (_layer3Pixels.Count > 0)
+                GlobalParameters.GlobalSpriteBatch.Draw(_layer3Texture, destination, Color.White * opacity);
+            if (_layer2Pixels.Count > 0)
+                GlobalParameters.GlobalSpriteBatch.Draw(_layer2Texture, destination, Color.White * opacity);
+            if (_layer1Pixels.Count > 0)
+                GlobalParameters.GlobalSpriteBatch.Draw(_layer1Texture, destination, Color.White * opacity);
         }
 
         // Get memory usage info for debugging

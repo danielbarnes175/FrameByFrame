@@ -63,6 +63,36 @@ namespace FrameByFrame.src.Engine.Animation
             currentFrame = frames.First;
         }
 
+        public void LoadFrames(IEnumerable<Frame> loadedFrames, Vector2 loadedFramePosition, Vector2 loadedFrameSize)
+        {
+            ArgumentNullException.ThrowIfNull(loadedFrames);
+
+            foreach (Frame frame in frames)
+            {
+                frame?.Dispose();
+            }
+
+            frames.Clear();
+            foreach (Frame frame in loadedFrames)
+            {
+                if (frame != null)
+                    frames.AddLast(frame);
+            }
+
+            if (frames.Count == 0)
+            {
+                throw new ArgumentException("A saved animation must contain at least one frame.", nameof(loadedFrames));
+            }
+
+            framePosition = loadedFramePosition;
+            frameSize = loadedFrameSize;
+            currentFrame = frames.First;
+            CurrentFrameIndex = 0;
+            playbackTimer = 0;
+            IsPlaying = false;
+            InvalidateFrameCache();
+        }
+
         // Cache for faster frame access
         private List<Frame> _framesList = new List<Frame>();
         private bool _framesCacheValid = true;

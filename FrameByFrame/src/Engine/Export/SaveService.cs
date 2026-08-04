@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Text.Json;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Services;
 using ImageMagick;
@@ -11,23 +10,18 @@ namespace FrameByFrame.src.Engine.Export
     public class SaveService
     {
         private const string ProjectsDirectory = "Projects";
-
         public static void SaveAnimation(Animation.Animation animation)
         {
             ArgumentNullException.ThrowIfNull(animation);
 
-            SaveData saveData = new SaveData();
-            saveData.Save(animation);
-
             Directory.CreateDirectory(ProjectsDirectory);
-            string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}_saveData.json");
+            string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}.fbf");
+            FbfProjectFile.Save(filename, animation);
+        }
 
-            // Serialize to JSON
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string jsonData = JsonSerializer.Serialize(saveData, options);
-
-            // Write to file
-            File.WriteAllText(filename, jsonData);
+        public static Animation.Animation LoadAnimation(string filename)
+        {
+            return FbfProjectFile.Load(filename);
         }
 
         public static void ExportAnimation(Animation.Animation animation)
@@ -38,6 +32,10 @@ namespace FrameByFrame.src.Engine.Export
             {
                 throw new ArgumentOutOfRangeException(nameof(animation), "Animation FPS must be greater than zero.");
             }
+
+            // The editable save is the source of truth. Always update it before
+            // producing flattened PNG/GIF output.
+            SaveAnimation(animation);
 
             string projectDirectory = Path.Combine(ProjectsDirectory, animation.projectName);
             Directory.CreateDirectory(projectDirectory);

@@ -45,7 +45,8 @@ public class Button : UIElement
     public override void Draw(Vector2 offset, Vector2 origin)
     {
         Color color = isBeingMousedOver ? new Color(255, 255, 255, 0.8f) : Color.White;
-        Color textColorAdjusted = (Color)(isBeingMousedOver ? (Color.Black * 0.5f) : Color.Black);
+        Color baseTextColor = textColor ?? Color.Black;
+        Color textColorAdjusted = isBeingMousedOver ? baseTextColor * 0.75f : baseTextColor;
         if (texture != null)
         {
             Vector2 scaledDimensions = new Vector2(dimensions.X * GlobalParameters.scaleX, dimensions.Y * GlobalParameters.scaleY);

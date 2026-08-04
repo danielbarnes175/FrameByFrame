@@ -16,7 +16,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private List<BasicTexture> _layerButtons;
         private List<Texture2D> _ownedTextures;
         private BasicTexture _paintBrush;
-        private BasicTexture _exportButton;
+        private BasicTexture _saveButton;
         private BasicTexture _onion;
         private BasicTexture _backArrow;
         private BasicTexture _toggleSizeButton;
@@ -38,7 +38,9 @@ namespace FrameByFrame.src.Engine.Scenes
             _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-2", new Vector2(1320, 100), new Vector2(150, 50)));
             _layerButtons.Add(new BasicTexture("Static\\SettingsScene/button_layer-3", new Vector2(1490, 100), new Vector2(150, 50)));
 
-            _exportButton = new BasicTexture("Static\\SettingsScene/button_export", new Vector2(GlobalParameters.screenWidth - 100, GlobalParameters.screenHeight - 40), new Vector2(167, 50));
+            Texture2D saveButtonTexture = CreateTexture(GlobalParameters.GlobalGraphics, 167, 50, pixel => new Color(220, 110, 0));
+            _ownedTextures.Add(saveButtonTexture);
+            _saveButton = new BasicTexture(saveButtonTexture, new Vector2(1410, 810), new Vector2(167, 50));
 
             Texture2D textureBlack = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Black);
             Texture2D textureRed = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Red);
@@ -94,7 +96,14 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
-            _exportButton.Draw(offset);
+            _saveButton.Draw(offset, Vector2.Zero);
+            const string saveLabel = "SAVE PROJECT";
+            Vector2 saveLabelSize = GlobalParameters.font.MeasureString(saveLabel);
+            GlobalParameters.GlobalSpriteBatch.DrawString(
+                GlobalParameters.font,
+                saveLabel,
+                new Vector2(1410 + (167 - saveLabelSize.X) / 2, 810 + (50 - saveLabelSize.Y) / 2),
+                Color.White);
             _onion.Draw(offset);
             _backArrow.Draw(offset);
             _toggleSizeButton.Draw(offset);
@@ -188,7 +197,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
             {
                 DrawingScene scene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-                SaveService.ExportAnimation(scene.animation);
+                SaveService.SaveAnimation(scene.animation);
             }
             else if (clickPosition.X > 55 && clickPosition.X < 130 && clickPosition.Y > 760 && clickPosition.Y < 835)
             {
