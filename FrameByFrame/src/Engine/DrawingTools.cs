@@ -3,6 +3,8 @@
     public enum DrawingTools
     {
         DRAW,
-        ERASER
+        ERASER,
+        FILL,
+        COLOR_PICKER
     }
 }

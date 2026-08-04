@@ -94,6 +94,35 @@ namespace FrameByFrame.src.Engine
             OnColorSelected?.Invoke(SelectedColor);
         }
 
+        public void SetSelectedColor(Color color)
+        {
+            SelectedColor = color;
+            RGBToHSV(color, out _selectedHue, out _selectedSaturation, out _selectedValue);
+            OnColorSelected?.Invoke(SelectedColor);
+        }
+
+        private static void RGBToHSV(Color color, out float hue, out float saturation, out float value)
+        {
+            float r = color.R / 255f;
+            float g = color.G / 255f;
+            float b = color.B / 255f;
+            float max = Math.Max(r, Math.Max(g, b));
+            float min = Math.Min(r, Math.Min(g, b));
+            float delta = max - min;
+
+            hue = 0f;
+            if (delta > 0f)
+            {
+                if (max == r) hue = 60f * (((g - b) / delta) % 6f);
+                else if (max == g) hue = 60f * (((b - r) / delta) + 2f);
+                else hue = 60f * (((r - g) / delta) + 4f);
+                if (hue < 0f) hue += 360f;
+            }
+
+            saturation = max <= 0f ? 0f : delta / max;
+            value = max;
+        }
+
         private static Color HSVToRGB(float h, float s, float v)
         {
             float c = v * s;

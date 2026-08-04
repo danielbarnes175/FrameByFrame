@@ -1,4 +1,5 @@
 using FrameByFrame.src.UI;
+using FrameByFrame.src.Engine.Animation;
 using Microsoft.Xna.Framework;
 
 static void Assert(bool condition, string message)
@@ -25,5 +26,22 @@ Assert(vertical[1] == new Rectangle(5, 127, 80, 100), "Vertical stack should pos
 
 UIBox box = new(new Rectangle(10, 20, 100, 80), 8);
 Assert(box.Content == new Rectangle(18, 28, 84, 64), "UIBox padding should produce stable content bounds.");
+
+Color X = Color.Black;
+Color O = Color.Transparent;
+Color F = Color.Orange;
+Color[] fillPixels =
+{
+    O, O, X, O,
+    O, X, X, O,
+    O, O, X, O,
+};
+Frame.FloodFillPixels(fillPixels, 4, 3, 0, 0, F);
+Assert(fillPixels[0] == F && fillPixels[4] == F && fillPixels[8] == F,
+    "Flood fill should replace the connected target region.");
+Assert(fillPixels[3] == O && fillPixels[7] == O && fillPixels[11] == O,
+    "Flood fill should not cross a separating boundary.");
+Assert(fillPixels[2] == X && fillPixels[5] == X,
+    "Flood fill should preserve boundary colors.");
 
 Console.WriteLine("FrameByFrame UI contract tests passed.");

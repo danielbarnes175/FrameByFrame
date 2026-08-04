@@ -99,6 +99,69 @@ namespace FrameByFrame.src.Engine.Animation
             return pixels;
         }
 
+        public Color GetVisiblePixel(int x, int y)
+        {
+            if (x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
+            int index = y * width + x;
+
+            // Layers are drawn 3, 2, 1, making layer 1 the topmost visible layer.
+            if (_layer1Pixels.TryGetValue(index, out Color color)) return color;
+            if (_layer2Pixels.TryGetValue(index, out color)) return color;
+            if (_layer3Pixels.TryGetValue(index, out color)) return color;
+            return Color.White;
+        }
+
+        public void FloodFill(string layerName, int startX, int startY, Color replacement)
+        {
+            if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+            Color[] pixels = GetLayerPixels(layerName);
+            if (pixels == null) return;
+
+            int startIndex = startY * width + startX;
+            Color target = pixels[startIndex];
+            if (target == replacement) return;
+
+            FloodFillPixels(pixels, width, height, startX, startY, replacement);
+            SetLayerPixels(layerName, pixels);
+        }
+
+        public static void FloodFillPixels(Color[] pixels, int width, int height,
+            int startX, int startY, Color replacement)
+        {
+            ArgumentNullException.ThrowIfNull(pixels);
+            if (pixels.Length != width * height)
+                throw new ArgumentException("Pixel count does not match the supplied dimensions.", nameof(pixels));
+            if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+
+            int startIndex = startY * width + startX;
+            Color target = pixels[startIndex];
+            if (target == replacement) return;
+
+            Queue<int> pending = new();
+            pending.Enqueue(startIndex);
+            pixels[startIndex] = replacement;
+
+            while (pending.Count > 0)
+            {
+                int index = pending.Dequeue();
+                int x = index % width;
+                int y = index / width;
+                TryQueue(x - 1, y);
+                TryQueue(x + 1, y);
+                TryQueue(x, y - 1);
+                TryQueue(x, y + 1);
+            }
+
+            void TryQueue(int x, int y)
+            {
+                if (x < 0 || x >= width || y < 0 || y >= height) return;
+                int index = y * width + x;
+                if (pixels[index] != target) return;
+                pixels[index] = replacement;
+                pending.Enqueue(index);
+            }
+        }
+
         public IEnumerable<KeyValuePair<int, Color>> GetSparseLayerPixels(string layerName)
         {
             var layerDict = GetLayerDict(layerName);

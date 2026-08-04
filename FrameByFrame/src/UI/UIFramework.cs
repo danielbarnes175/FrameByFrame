@@ -19,6 +19,8 @@ namespace FrameByFrame.src.UI
         public static readonly Color PrimaryHover = new(255, 137, 52);
         public static readonly Color Secondary = new(255, 184, 107);
         public static readonly Color Accent = new(238, 112, 24);
+        public static readonly Color ToolSelected = new(48, 132, 232);
+        public static readonly Color ToolSelectedSurface = new(222, 238, 255);
         public static readonly Color Text = new(43, 38, 34);
         public static readonly Color TextMuted = new(108, 97, 88);
         public static readonly Color Border = new(222, 211, 200);

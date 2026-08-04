@@ -253,6 +253,18 @@ namespace FrameByFrame.src.Engine.Animation
                 (screenPosition.Y - DisplayBounds.Y) * frameSize.Y / DisplayBounds.Height);
         }
 
+        public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
+        {
+            Vector2 local = ToFramePosition(screenPosition);
+            currentFrame?.Value.FloodFill(selectedLayer, (int)local.X, (int)local.Y, color);
+        }
+
+        public Color SampleVisibleColorAt(Vector2 screenPosition)
+        {
+            Vector2 local = ToFramePosition(screenPosition);
+            return currentFrame?.Value.GetVisiblePixel((int)local.X, (int)local.Y) ?? Color.Transparent;
+        }
+
         public void SelectFrame(int index)
         {
             if (index < 0 || index >= TotalFrames) return;

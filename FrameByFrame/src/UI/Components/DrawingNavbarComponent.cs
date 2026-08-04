@@ -45,22 +45,26 @@ namespace FrameByFrame.src.UI.Components
             ColorWheelComponent colorOverlay = new ColorWheelComponent(new Vector2(GlobalParameters.screenWidth - 248, 72), new Vector2(236, 200));
             PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - 48, 16), new Vector2(32, 32));
             Color[] swatchPixels = new Color[32 * 32];
-            colorOverlay.OnColorSelected += (Color selectedColor) =>
+            void UpdateColorSwatch(Color selectedColor)
             {
-                const int radius = 16;
+                const int outerRadiusSquared = 15 * 15;
+                const int innerRadiusSquared = 13 * 13;
                 for (int y = 0; y < 32; y++)
                 {
                     for (int x = 0; x < 32; x++)
                     {
-                        int dx = x - radius;
-                        int dy = y - radius;
-                        swatchPixels[x + y * 32] = dx * dx + dy * dy <= radius * radius
-                            ? selectedColor
-                            : Color.Transparent;
+                        int dx = x - 16;
+                        int dy = y - 16;
+                        int distanceSquared = dx * dx + dy * dy;
+                        swatchPixels[x + y * 32] = distanceSquared > outerRadiusSquared
+                            ? Color.Transparent
+                            : distanceSquared >= innerRadiusSquared ? Color.Black : selectedColor;
                     }
                 }
                 colorButtonTexture.SetData(swatchPixels);
-            };
+            }
+            colorOverlay.OnColorSelected += UpdateColorSwatch;
+            UpdateColorSwatch(new Color(200, 0, 255));
             uiElements.Add(colorButton);
             
             // Register color picker popup
@@ -85,16 +89,28 @@ namespace FrameByFrame.src.UI.Components
             // Create and add tool buttons
             List<RadioButton> buttons = new List<RadioButton>();
 
-            EraserButton eraser = new EraserButton("Static\\DrawingScene/eraser_selected", "Static\\DrawingScene/eraser", false, new Vector2(layerButton.position.X - layerButton.dimensions.X - 16, 16), new Vector2(32, 32));
-            DrawButton draw = new DrawButton("Static\\DrawingScene/brush_selected", "Static\\DrawingScene/brush", true, new Vector2(eraser.position.X - eraser.dimensions.X - 8, 16), new Vector2(32, 32));
+            Texture2D brushIcon = GlobalParameters.GlobalContent.Load<Texture2D>("Static\\DrawingScene/brush");
+            Texture2D eraserIcon = GlobalParameters.GlobalContent.Load<Texture2D>("Static\\DrawingScene/eraser");
+            Texture2D bucketIcon = GlobalParameters.GlobalContent.Load<Texture2D>("bucket_tool");
+            Texture2D eyedropperIcon = GlobalParameters.GlobalContent.Load<Texture2D>("eyedropper_tool");
+            DrawingToolButton picker = new DrawingToolButton(DrawingTools.COLOR_PICKER, eyedropperIcon,
+                new Vector2(layerButton.position.X - layerButton.dimensions.X - 16, 16), new Vector2(32, 32));
+            DrawingToolButton fill = new DrawingToolButton(DrawingTools.FILL, bucketIcon,
+                new Vector2(picker.position.X - picker.dimensions.X - 8, 16), new Vector2(32, 32));
+            DrawingToolButton eraser = new DrawingToolButton(DrawingTools.ERASER, eraserIcon,
+                new Vector2(fill.position.X - fill.dimensions.X - 8, 16), new Vector2(32, 32));
+            DrawingToolButton draw = new DrawingToolButton(DrawingTools.DRAW, brushIcon,
+                new Vector2(eraser.position.X - eraser.dimensions.X - 8, 16), new Vector2(32, 32));
+            draw.isSelected = true;
 
             buttons.Add(draw);
             buttons.Add(eraser);
+            buttons.Add(fill);
+            buttons.Add(picker);
 
             ButtonGroup toolButtons = new ButtonGroup(buttons);
             buttonGroups.Add(toolButtons);
 
-            Animation currentAnimation = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation;
             TriggerButton goToStartButton = new TriggerButton("Static\\DrawingScene/first_frame", new Vector2(frameCounter.position.X + frameCounter.dimensions.X + 12, 16), new Vector2(32, 32), () => animation.FirstFrame(), true);
             TriggerButton previousFrameButton = new TriggerButton("Static\\DrawingScene/previous_frame", new Vector2(goToStartButton.position.X + goToStartButton.dimensions.X + 8, 16), new Vector2(32, 32), () => animation.PreviousFrame(), true);
             TriggerButton playButton = new TriggerButton("Static\\DrawingScene/play", new Vector2(previousFrameButton.position.X + previousFrameButton.dimensions.X + 8, 16), new Vector2(32, 32), () => animation.TogglePlaying(), true);

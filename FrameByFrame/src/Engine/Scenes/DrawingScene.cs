@@ -46,6 +46,22 @@ namespace FrameByFrame.src.Engine.Scenes
             return Color.Black;
         }
 
+        private void SetSelectedColor(Color color)
+        {
+            foreach (UIElement element in components)
+            {
+                if (element is not DrawingNavbarComponent navbar) continue;
+                foreach (UIElement navbarElement in navbar.uiElements)
+                {
+                    if (navbarElement is PopupButton { target: ColorWheelComponent colorWheel })
+                    {
+                        colorWheel.SetSelectedColor(color);
+                        return;
+                    }
+                }
+            }
+        }
+
         private void SetupUI()
         {
             UIInteractionManager.Clear();
@@ -83,7 +99,24 @@ namespace FrameByFrame.src.Engine.Scenes
             Rectangle navbar = new(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT);
             if (UIInteractionManager.IsUIBlocking() || UIInteractionManager.IsMouseOverNavbar(navbar)) return;
             if (!GlobalParameters.GlobalMouse.LeftClickHold() || !loadedScene) return;
-            animation.DrawOnCurrentLayer(drawingTool == DrawingTools.ERASER ? Color.Transparent : GetSelectedColorFromColorWheel());
+
+            Color selectedColor = GetSelectedColorFromColorWheel();
+            switch (drawingTool)
+            {
+                case DrawingTools.DRAW:
+                    animation.DrawOnCurrentLayer(selectedColor);
+                    break;
+                case DrawingTools.ERASER:
+                    animation.DrawOnCurrentLayer(Color.Transparent);
+                    break;
+                case DrawingTools.FILL when GlobalParameters.GlobalMouse.LeftClick():
+                    animation.FillCurrentLayerAt(GlobalParameters.GlobalMouse.newMousePos, selectedColor);
+                    break;
+                case DrawingTools.COLOR_PICKER:
+                    Color sampled = animation.SampleVisibleColorAt(GlobalParameters.GlobalMouse.newMousePos);
+                    if (sampled.A > 0) SetSelectedColor(sampled);
+                    break;
+            }
         }
 
         public void BeginNewAnimation()
