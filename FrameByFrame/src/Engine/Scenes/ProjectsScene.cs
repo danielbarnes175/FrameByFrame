@@ -18,6 +18,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _edit;
         private UIActionButton _export;
         private UIActionButton _folder;
+        private UIActionButton _create;
         private int _selected;
         private int _previewFrame;
         private double _previewTimer;
@@ -31,6 +32,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _edit = new UIActionButton("Edit animation", OpenSelectedProject);
             _export = new UIActionButton("Export GIF", ExportSelectedProject);
             _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
+            _create = new UIActionButton("Create animation", CreateAnimation);
             LoadAnimations();
         }
 
@@ -45,6 +47,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _next.Bounds = new Rectangle(cx + S(216), cy - S(25), S(54), S(54));
             _edit.Bounds = new Rectangle(cx - S(250), cy + S(225), S(240), S(60));
             _export.Bounds = new Rectangle(cx + S(10), cy + S(225), S(240), S(60));
+            _create.Bounds = new Rectangle(cx - S(120), cy + S(30), S(240), S(48));
             bool hasProjects = _animations.Count > 0;
             _previous.IsEnabled = _next.IsEnabled = _edit.IsEnabled = _export.IsEnabled = hasProjects;
         }
@@ -52,7 +55,9 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Update(GameTime gameTime)
         {
             Layout(); UIPointerRouter.BeginFrame();
-            _back.Update(); _folder.Update(); _previous.Update(); _next.Update(); _edit.Update(); _export.Update();
+            _back.Update(); _folder.Update();
+            if (_animations.Count == 0) _create.Update();
+            else { _previous.Update(); _next.Update(); _edit.Update(); _export.Update(); }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
             if (_animations.Count > 0)
@@ -93,10 +98,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 .Draw("Your first animation starts here", UITheme.Primary, 1.05f);
             new UITextContainer { Bounds = new Rectangle(card.X + S(32), card.Y + S(110), card.Width - S(64), S(72)), MaxLines = 2 }
                 .Draw("Create a canvas, draw a frame, and save it to see it here.", UITheme.TextMuted, .9f);
-            Rectangle create = new(card.Center.X - S(120), card.Y + S(190), S(240), S(48));
-            bool hover = create.Contains(GlobalParameters.GlobalMouse.newMousePos);
-            UIRenderer.Fill(create, hover ? UITheme.PrimaryHover : UITheme.Primary);
-            new UITextContainer { Bounds = create, Padding = 10, MaxLines = 2 }.Draw("Create animation", UITheme.Text, .9f);
+            _create.Draw(true);
         }
 
         private void DrawSelectedProject()
@@ -144,6 +146,12 @@ namespace FrameByFrame.src.Engine.Scenes
                 drawing.LoadAnimation(loaded); GlobalParameters.CurrentScene = drawing;
             }
             catch (Exception ex) { Debug.WriteLine($"Unable to open project: {ex.Message}"); }
+        }
+        private void CreateAnimation()
+        {
+            DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
+            drawing.BeginNewAnimation();
+            GlobalParameters.CurrentScene = drawing;
         }
 
         private void ExportSelectedProject() { if (_animations.Count > 0) SaveService.ExportAnimation(_animations[_selected]); }

@@ -42,6 +42,20 @@ namespace FrameByFrame.src.UI
     public enum UIAxis { Horizontal, Vertical }
     public enum UIAlign { Start, Center, End, Stretch }
 
+    public abstract class UIElement
+    {
+        public Rectangle Bounds { get; set; }
+        public bool IsVisible { get; set; } = true;
+        public bool IsEnabled { get; set; } = true;
+
+        public virtual Point Measure(Point available) => new(
+            Math.Min(Bounds.Width, available.X), Math.Min(Bounds.Height, available.Y));
+
+        public virtual void Arrange(Rectangle bounds) => Bounds = bounds;
+        public virtual void Update() { }
+        public virtual void Draw() { }
+    }
+
     public readonly record struct UIBox(Rectangle Bounds, int Padding = 0)
     {
         public Rectangle Content => new(
@@ -221,12 +235,14 @@ namespace FrameByFrame.src.UI
     public static class UIPointerRouter
     {
         private static readonly List<Rectangle> BlockingRegions = new();
-        public static bool IsCaptured { get; private set; }
+        private static readonly object ClickCapture = new();
+        private static object _captureOwner;
+        public static bool IsCaptured => _captureOwner != null;
 
         public static void BeginFrame()
         {
             BlockingRegions.Clear();
-            if (!GlobalParameters.GlobalMouse.LeftClickHold()) IsCaptured = false;
+            if (!GlobalParameters.GlobalMouse.LeftClickHold()) _captureOwner = null;
         }
 
         public static void Block(Rectangle bounds) => BlockingRegions.Add(bounds);
@@ -235,8 +251,15 @@ namespace FrameByFrame.src.UI
         {
             Block(bounds);
             if (!ContainsPointer(bounds) || !GlobalParameters.GlobalMouse.LeftClick()) return false;
-            IsCaptured = true;
+            _captureOwner ??= ClickCapture;
             return true;
+        }
+
+        public static bool Held(object owner, Rectangle bounds)
+        {
+            Block(bounds);
+            if (ContainsPointer(bounds) && GlobalParameters.GlobalMouse.LeftClick()) _captureOwner = owner;
+            return ReferenceEquals(_captureOwner, owner) && GlobalParameters.GlobalMouse.LeftClickHold();
         }
 
         public static bool IsPointerBlocked()
@@ -248,19 +271,17 @@ namespace FrameByFrame.src.UI
         }
     }
 
-    public sealed class UIActionButton
+    public sealed class UIActionButton : UIElement
     {
-        public Rectangle Bounds { get; set; }
         public string Text { get; set; }
         public string Tooltip { get; set; }
         public Action OnClick { get; set; }
-        public bool IsEnabled { get; set; } = true;
         public bool IsSelected { get; set; }
         public bool IsHovered => IsEnabled && UIPointerRouter.ContainsPointer(Bounds);
 
         public UIActionButton(string text, Action onClick = null) { Text = text; OnClick = onClick; }
 
-        public void Update()
+        public override void Update()
         {
             UIPointerRouter.Block(Bounds);
             if (IsEnabled && UIPointerRouter.Clicked(Bounds)) OnClick?.Invoke();
@@ -284,6 +305,146 @@ namespace FrameByFrame.src.UI
                 UIRenderer.Border(tip, UITheme.Border);
                 UIRenderer.Text(Tooltip, new Vector2(tip.X + 8, tip.Y + 5), UITheme.Text, .9f);
             }
+        }
+
+        public override void Draw() => Draw(false);
+    }
+
+    public sealed class UIIconButton : UIElement
+    {
+        public Texture2D Icon { get; }
+        public Action OnClick { get; set; }
+        public string Tooltip { get; set; }
+        public bool IsSelected { get; set; }
+        public bool UseToolSelectionStyle { get; set; }
+
+        public UIIconButton(Texture2D icon, Action onClick = null)
+        {
+            Icon = icon;
+            OnClick = onClick;
+        }
+
+        public override void Update()
+        {
+            UIPointerRouter.Block(Bounds);
+            if (IsEnabled && UIPointerRouter.Clicked(Bounds)) OnClick?.Invoke();
+        }
+
+        public override void Draw()
+        {
+            Rectangle visual = Bounds;
+            bool hovered = IsEnabled && UIPointerRouter.ContainsPointer(Bounds);
+            if (UseToolSelectionStyle && IsSelected)
+            {
+                visual.Y -= 2;
+                UIRenderer.Fill(new Rectangle(Bounds.X + 1, Bounds.Y + 1, Bounds.Width, Bounds.Height), new Color(0, 0, 0, 28));
+                UIRenderer.Fill(visual, UITheme.ToolSelectedSurface);
+                UIRenderer.Border(visual, UITheme.ToolSelected, 2);
+            }
+            GlobalParameters.GlobalSpriteBatch.Draw(Icon, visual, hovered && !IsSelected ? Color.White * .72f : Color.White);
+            if (hovered && !string.IsNullOrWhiteSpace(Tooltip)) DrawTooltip(Tooltip, Bounds);
+        }
+
+        private static void DrawTooltip(string text, Rectangle anchor)
+        {
+            Vector2 size = (GlobalParameters.uiFont ?? GlobalParameters.font).MeasureString(text) * .72f;
+            Rectangle tip = new(anchor.X, anchor.Bottom + 8, (int)size.X + 16, 30);
+            if (tip.Right > GlobalParameters.screenWidth) tip.X = GlobalParameters.screenWidth - tip.Width - 8;
+            UIRenderer.Fill(tip, UITheme.Surface);
+            UIRenderer.Border(tip, UITheme.Primary, 2);
+            UIRenderer.Text(text, new Vector2(tip.X + 8, tip.Y + 4), UITheme.Text, .72f);
+        }
+    }
+
+    public sealed class UIToggle : UIElement
+    {
+        public bool Value { get; set; }
+        public Action<bool> OnChanged { get; set; }
+
+        public UIToggle(bool initialValue, Action<bool> onChanged = null)
+        {
+            Value = initialValue;
+            OnChanged = onChanged;
+        }
+
+        public override void Update()
+        {
+            UIPointerRouter.Block(Bounds);
+            if (!IsEnabled || !UIPointerRouter.Clicked(Bounds)) return;
+            Value = !Value;
+            OnChanged?.Invoke(Value);
+        }
+
+        public override void Draw()
+        {
+            UIRenderer.Fill(Bounds, Value ? UITheme.Primary : UITheme.SurfaceRaised);
+            UIRenderer.Border(Bounds, Value ? UITheme.Primary : UITheme.Border, 2);
+            int knob = Math.Max(8, Bounds.Height - 8);
+            int x = Value ? Bounds.Right - knob - 4 : Bounds.X + 4;
+            UIRenderer.Fill(new Rectangle(x, Bounds.Y + 4, knob, knob), Color.White);
+        }
+    }
+
+    public sealed class UISlider : UIElement
+    {
+        public int Minimum { get; }
+        public int Maximum { get; }
+        public int Value { get; private set; }
+        public Action<int> OnChanged { get; set; }
+
+        public UISlider(int minimum, int maximum, int value, Action<int> onChanged = null)
+        {
+            Minimum = minimum;
+            Maximum = Math.Max(minimum + 1, maximum);
+            Value = Math.Clamp(value, Minimum, Maximum);
+            OnChanged = onChanged;
+        }
+
+        public void SetValue(int value) => Value = Math.Clamp(value, Minimum, Maximum);
+
+        public override void Update()
+        {
+            UIPointerRouter.Block(Bounds);
+            if (!IsEnabled || !UIPointerRouter.Held(this, Bounds)) return;
+            float ratio = Math.Clamp((GlobalParameters.GlobalMouse.newMousePos.X - Bounds.X - 8) /
+                Math.Max(1f, Bounds.Width - 16f), 0f, 1f);
+            int next = Minimum + (int)Math.Round(ratio * (Maximum - Minimum));
+            if (next == Value) return;
+            Value = next;
+            OnChanged?.Invoke(Value);
+        }
+
+        public override void Draw()
+        {
+            UIRenderer.Fill(Bounds, UITheme.SurfaceRaised);
+            UIRenderer.Border(Bounds, UITheme.Border);
+            Rectangle track = new(Bounds.X + 8, Bounds.Bottom - 13, Math.Max(1, Bounds.Width - 16), 4);
+            UIRenderer.Fill(track, UITheme.Border);
+            float ratio = (Value - Minimum) / (float)(Maximum - Minimum);
+            int x = track.X + (int)Math.Round(track.Width * ratio);
+            UIRenderer.Fill(new Rectangle(track.X, track.Y, Math.Max(1, x - track.X), track.Height), UITheme.Primary);
+            UIRenderer.Fill(new Rectangle(x - 6, track.Y - 5, 12, 14), Color.White);
+            UIRenderer.Border(new Rectangle(x - 6, track.Y - 5, 12, 14), UITheme.Primary);
+            new UITextContainer { Bounds = new Rectangle(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height - 12), MaxLines = 1 }
+                .Draw(Value.ToString(), UITheme.Text, .6f);
+        }
+    }
+
+    public class UIPopover : UIElement
+    {
+        public bool IsOpen { get; set; }
+        public bool ShowOutline { get; set; } = true;
+
+        public override void Update()
+        {
+            if (IsOpen) UIPointerRouter.Block(Bounds);
+        }
+
+        public override void Draw()
+        {
+            if (!IsOpen) return;
+            UIRenderer.Fill(Bounds, UITheme.Surface);
+            if (ShowOutline) UIRenderer.Border(Bounds, UITheme.Primary, 3);
         }
     }
 }

@@ -27,6 +27,17 @@ Assert(vertical[1] == new Rectangle(5, 127, 80, 100), "Vertical stack should pos
 UIBox box = new(new Rectangle(10, 20, 100, 80), 8);
 Assert(box.Content == new Rectangle(18, 28, 84, 64), "UIBox padding should produce stable content bounds.");
 
+TestElement element = new();
+element.Arrange(new Rectangle(12, 18, 140, 44));
+Assert(element.Bounds == new Rectangle(12, 18, 140, 44), "UI elements should retain arranged bounds.");
+Assert(element.Measure(new Point(100, 30)) == new Point(100, 30), "UI measurement should respect available space.");
+
+UISlider slider = new(1, 50, 5);
+slider.SetValue(-20);
+Assert(slider.Value == 1, "Sliders should clamp values to their minimum.");
+slider.SetValue(200);
+Assert(slider.Value == 50, "Sliders should clamp values to their maximum.");
+
 Color X = Color.Black;
 Color O = Color.Transparent;
 Color F = Color.Orange;
@@ -45,3 +56,5 @@ Assert(fillPixels[2] == X && fillPixels[5] == X,
     "Flood fill should preserve boundary colors.");
 
 Console.WriteLine("FrameByFrame UI contract tests passed.");
+
+sealed class TestElement : UIElement { }

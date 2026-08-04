@@ -2,6 +2,7 @@ using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using FrameByFrame.src.Engine.Services;
+using FrameByFrame.src.UI;
 
 namespace FrameByFrame.src.Engine
 {
@@ -85,22 +86,14 @@ namespace FrameByFrame.src.Engine
                 helpLines.Length * lineHeight + 10
             );
             
-            // Create a small texture for background (reuse existing texture creation)
-            var backgroundTexture = Services.TextureManager.GetOrCreateColorTexture(
-                GlobalParameters.GlobalGraphics, 
-                Color.Black, 
-                1, 
-                Shapes.RECTANGLE
-            );
-            
-            GlobalParameters.GlobalSpriteBatch.Draw(backgroundTexture, backgroundRect, Color.Black * 0.8f);
+            UIRenderer.Fill(backgroundRect, Color.Black * 0.8f);
             
             // Draw each line with appropriate colors
             for (int i = 0; i < helpLines.Length; i++)
             {
                 var linePos = position + new Vector2(0, i * lineHeight);
                 Color textColor = i == 0 ? UIConstants.DEBUG_PERFORMANCE : UIConstants.DEBUG_TEXT;
-                GlobalParameters.GlobalSpriteBatch.DrawString(debugFont, helpLines[i], linePos, textColor);
+                UIRenderer.Text(helpLines[i], linePos, textColor, .55f);
             }
         }
         

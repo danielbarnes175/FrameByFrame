@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Xna.Framework;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.UI;
 
 namespace FrameByFrame.src.Engine
 {
@@ -34,7 +35,7 @@ namespace FrameByFrame.src.Engine
             string memoryInfo = GetAnimationMemoryInfo(animation);
             if (!string.IsNullOrEmpty(memoryInfo))
             {
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, memoryInfo, position, color);
+                UIRenderer.Text(memoryInfo, position, color, .55f);
             }
         }
     }

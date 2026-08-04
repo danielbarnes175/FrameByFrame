@@ -1,12 +1,8 @@
 using System;
-using System.Collections.Generic;
 using FrameByFrame.src.Engine.Export;
-using FrameByFrame.src.Engine.Services;
-using FrameByFrame.src.Engine.UI;
+using FrameByFrame.src.UI;
 using FrameByFrame.src.UI.Components;
-using FrameByFrame.src.UI.Components.Buttons;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
@@ -14,9 +10,7 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         public Animation.Animation animation;
         public DrawingTools drawingTool;
-        private List<UIElement> components;
-        private int _layoutWidth;
-        private int _layoutHeight;
+        private DrawingNavbarComponent _navbar;
         public bool loadedScene;
 
         public DrawingScene() => InitializeDefaults();
@@ -34,53 +28,26 @@ namespace FrameByFrame.src.Engine.Scenes
             if (animation.TotalFrames == 0) animation.InitializeFrames();
         }
 
-        public Color GetSelectedColorFromColorWheel()
-        {
-            foreach (UIElement element in components)
-            {
-                if (element is not DrawingNavbarComponent navbar) continue;
-                foreach (UIElement navbarElement in navbar.uiElements)
-                    if (navbarElement is PopupButton { target: ColorWheelComponent colorWheel })
-                        return colorWheel.SelectedColor;
-            }
-            return Color.Black;
-        }
+        public Color GetSelectedColorFromColorWheel() => _navbar?.SelectedColor ?? Color.Black;
 
         private void SetSelectedColor(Color color)
         {
-            foreach (UIElement element in components)
-            {
-                if (element is not DrawingNavbarComponent navbar) continue;
-                foreach (UIElement navbarElement in navbar.uiElements)
-                {
-                    if (navbarElement is PopupButton { target: ColorWheelComponent colorWheel })
-                    {
-                        colorWheel.SetSelectedColor(color);
-                        return;
-                    }
-                }
-            }
+            _navbar?.SetSelectedColor(color);
         }
 
         private void SetupUI()
         {
-            UIInteractionManager.Clear();
-            components = [];
-            Texture2D background = TextureManager.GetOrCreateColorTexture(
-                GlobalParameters.GlobalGraphics, Color.White, GlobalParameters.screenWidth);
-            components.Add(new DrawingNavbarComponent(background, Vector2.Zero,
-                new Vector2(GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT), animation));
-            _layoutWidth = GlobalParameters.screenWidth;
-            _layoutHeight = GlobalParameters.screenHeight;
+            _navbar?.Dispose();
+            _navbar = new DrawingNavbarComponent(animation);
+            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT));
         }
 
         public override void Update(GameTime gameTime)
         {
-            if (_layoutWidth != GlobalParameters.screenWidth || _layoutHeight != GlobalParameters.screenHeight)
-                SetupUI();
+            UIPointerRouter.BeginFrame();
+            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT));
             HandleKeyboardShortcuts();
-            foreach (UIElement element in components) element.Update();
-            UIInteractionManager.Update();
+            _navbar.Update();
             HandleMouseShortcuts();
             animation.Animate(gameTime);
         }
@@ -89,15 +56,14 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             GlobalParameters.GlobalGraphics.Clear(UIConstants.BACKGROUND_DARK);
             animation.DrawCurrentFrame();
-            foreach (UIElement element in components) element.Draw(offset, Vector2.Zero);
+            _navbar.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
         }
 
         private void HandleMouseShortcuts()
         {
             if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene) { loadedScene = true; return; }
-            Rectangle navbar = new(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT);
-            if (UIInteractionManager.IsUIBlocking() || UIInteractionManager.IsMouseOverNavbar(navbar)) return;
+            if (UIPointerRouter.IsPointerBlocked()) return;
             if (!GlobalParameters.GlobalMouse.LeftClickHold() || !loadedScene) return;
 
             Color selectedColor = GetSelectedColorFromColorWheel();
@@ -121,7 +87,6 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void BeginNewAnimation()
         {
-            UIInteractionManager.Clear();
             animation?.Dispose();
             InitializeDefaults();
             animation.InitializeFrames();
@@ -131,7 +96,6 @@ namespace FrameByFrame.src.Engine.Scenes
         public void LoadAnimation(Animation.Animation loadedAnimation)
         {
             ArgumentNullException.ThrowIfNull(loadedAnimation);
-            UIInteractionManager.Clear();
             animation?.Dispose();
             animation = loadedAnimation;
             drawingTool = DrawingTools.DRAW;
@@ -141,8 +105,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Dispose()
         {
-            UIInteractionManager.Clear();
-            components?.Clear();
+            _navbar?.Dispose();
+            _navbar = null;
             animation?.Dispose();
             animation = null;
         }

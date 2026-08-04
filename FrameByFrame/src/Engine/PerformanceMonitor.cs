@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Microsoft.Xna.Framework;
+using FrameByFrame.src.UI;
 
 namespace FrameByFrame.src.Engine
 {
@@ -58,7 +59,7 @@ namespace FrameByFrame.src.Engine
             string perfInfo = GetPerformanceInfo();
             if (!string.IsNullOrEmpty(perfInfo))
             {
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.uiFont ?? GlobalParameters.font, perfInfo, position, color);
+                UIRenderer.Text(perfInfo, position, color, .55f);
             }
         }
     }
