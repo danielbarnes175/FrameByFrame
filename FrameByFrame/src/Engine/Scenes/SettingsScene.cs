@@ -14,6 +14,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private List<BasicTexture> _textures;
         private List<BasicTexture> _colors;
         private List<BasicTexture> _layerButtons;
+        private List<Texture2D> _ownedTextures;
         private BasicTexture _paintBrush;
         private BasicTexture _exportButton;
         private BasicTexture _onion;
@@ -25,6 +26,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _textures = new List<BasicTexture>();
             _colors = new List<BasicTexture>();
             _layerButtons = new List<BasicTexture>();
+            _ownedTextures = new List<Texture2D>();
         }
 
         public override void LoadContent()
@@ -43,6 +45,7 @@ namespace FrameByFrame.src.Engine.Scenes
             Texture2D textureBlue = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Blue);
             Texture2D textureGreen = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Green);
             Texture2D textureYellow = CreateTexture(GlobalParameters.GlobalGraphics, 30, 30, pixel => Color.Yellow);
+            _ownedTextures.AddRange([textureBlack, textureRed, textureBlue, textureGreen, textureYellow]);
 
             Vector2 pointDimensions = new Vector2(30, 30);
 
@@ -230,6 +233,19 @@ namespace FrameByFrame.src.Engine.Scenes
             texture.SetData(data);
 
             return texture;
+        }
+
+        public override void Dispose()
+        {
+            foreach (Texture2D texture in _ownedTextures)
+            {
+                texture?.Dispose();
+            }
+
+            _ownedTextures.Clear();
+            _textures.Clear();
+            _colors.Clear();
+            _layerButtons.Clear();
         }
     }
 }

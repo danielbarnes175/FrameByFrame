@@ -235,7 +235,11 @@ namespace FrameByFrame.src.Engine.Animation
                 _layer1Pixels?.Clear();
                 _layer2Pixels?.Clear();
                 _layer3Pixels?.Clear();
-                
+
+                // Combined textures are created from project preview PNGs and are
+                // owned by this frame.
+                CombinedTexture?.texture?.Dispose();
+
                 // Don't dispose shared background texture - it's shared!
                 CombinedTexture = null;
             }

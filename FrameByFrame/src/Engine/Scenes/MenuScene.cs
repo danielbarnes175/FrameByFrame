@@ -45,6 +45,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             if (GlobalParameters.GlobalKeyboard.GetPress("O"))
             {
+                ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).loadedScene = false;
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
             }
             base.Update(gameTime);
@@ -69,6 +70,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "No projects found", new Vector2(GlobalParameters.screenWidth / 2 - 250, GlobalParameters.screenHeight / 2 + 40), Color.Black);
             }
             base.Draw(offset);
+        }
+
+        public override void Dispose()
+        {
+            _textures.Clear();
+            _uiElements.Clear();
+            _logo = null;
         }
     }
 }

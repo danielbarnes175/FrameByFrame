@@ -14,6 +14,7 @@ namespace FrameByFrame.src.Engine.Scenes
     public class ProjectsScene : BaseScene
     {
         private List<BasicTexture> _textures;
+        private Texture2D _borderTexture;
 
         private List<string> projects;
         private List<Animation.Animation> animations;
@@ -39,9 +40,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void LoadContent()
         {
-            Texture2D borderTexture = CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 300, pixel => Color.Orange);
-            _textures.Add(new BasicTexture(borderTexture, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth * 2, 300)));
-            _textures.Add(new BasicTexture(borderTexture, new Vector2(0, GlobalParameters.screenHeight), new Vector2(GlobalParameters.screenWidth * 2, 300)));
+            _borderTexture = CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 300, pixel => Color.Orange);
+            _textures.Add(new BasicTexture(_borderTexture, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth * 2, 300)));
+            _textures.Add(new BasicTexture(_borderTexture, new Vector2(0, GlobalParameters.screenHeight), new Vector2(GlobalParameters.screenWidth * 2, 300)));
             BasicTexture arrowRight = new BasicTexture("Static\\ProjectsScene/button_arrow", new Vector2(GlobalParameters.screenWidth / 2 + 200, GlobalParameters.screenHeight / 2), new Vector2(45, 45));
             arrowRight.rotation = 1.571f;
             BasicTexture arrowLeft = new BasicTexture("Static\\ProjectsScene/button_arrow", new Vector2(GlobalParameters.screenWidth / 2 - 200, GlobalParameters.screenHeight / 2), new Vector2(45, 45));
@@ -166,6 +167,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void LoadAnimations()
         {
+            DisposePreviewAnimations();
             LoadProjects();
             List<string> discoveredProjects = projects;
             projects = new List<string>();
@@ -200,10 +202,6 @@ namespace FrameByFrame.src.Engine.Scenes
                 }
                 catch (Exception exception)
                 {
-                    foreach (Frame frame in animation.frames)
-                    {
-                        frame.CombinedTexture?.texture?.Dispose();
-                    }
                     animation.Dispose();
                     Debug.WriteLine($"Skipping invalid project '{projectDirectory}': {exception.Message}");
                     continue;
@@ -220,6 +218,27 @@ namespace FrameByFrame.src.Engine.Scenes
                 projects.Add(projectDirectory);
                 animations.Add(animation);
             }
+        }
+
+        private void DisposePreviewAnimations()
+        {
+            if (animations == null) return;
+
+            foreach (Animation.Animation animation in animations)
+            {
+                animation?.Dispose();
+            }
+
+            animations.Clear();
+        }
+
+        public override void Dispose()
+        {
+            DisposePreviewAnimations();
+            _borderTexture?.Dispose();
+            _borderTexture = null;
+            projects?.Clear();
+            _textures?.Clear();
         }
     }
 }

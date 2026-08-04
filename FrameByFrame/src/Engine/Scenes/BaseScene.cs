@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
-    public class BaseScene
+    public class BaseScene : IDisposable
     {
         public BaseScene() { }
 
@@ -16,5 +16,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public virtual void Update(GameTime gameTime) { }
 
         public virtual void Draw(Vector2 offset) { }
+
+        public virtual void Dispose() { }
     }
 }

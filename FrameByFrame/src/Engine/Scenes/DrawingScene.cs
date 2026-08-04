@@ -71,6 +71,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void SetupUI()
         {
+            UIInteractionManager.Clear();
             components = [];
             Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 50, pixel => Color.Orange, Shapes.RECTANGLE);
             DrawingNavbarComponent navbar = new DrawingNavbarComponent(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 50), animation);
@@ -155,11 +156,21 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void ResetScene()
         {
+            UIInteractionManager.Clear();
+
             // Dispose old animation to free memory
             animation?.Dispose();
             
             InitializeDefaults();
             LoadContent();
+        }
+
+        public override void Dispose()
+        {
+            UIInteractionManager.Clear();
+            components?.Clear();
+            animation?.Dispose();
+            animation = null;
         }
 
         private void HandleKeyboardShortcuts()

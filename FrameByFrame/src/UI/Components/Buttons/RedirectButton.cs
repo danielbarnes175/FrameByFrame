@@ -30,17 +30,25 @@ namespace FrameByFrame.src.UI.Components.Buttons
 
         public override void Update()
         {
-            // If button is clicked, call on click.
-            if (isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClickHold())
+            // Refresh hover state before handling the click so navigation uses
+            // the current mouse position rather than the previous frame's state.
+            base.Update();
+
+            if (isBeingMousedOver && GlobalParameters.GlobalMouse.LeftClick())
             {
                 if (target == "Projects Scene")
                 {
                     ((ProjectsScene)GlobalParameters.Scenes["Projects Scene"]).LoadAnimations();
                 }
+                else if (target == "Drawing Scene")
+                {
+                    // Require the menu click to be released before the drawing
+                    // scene accepts canvas input.
+                    ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).loadedScene = false;
+                }
+
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes[target];
             }
-
-            base.Update();
         }
     }
 }
