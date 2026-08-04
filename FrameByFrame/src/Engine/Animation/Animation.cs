@@ -176,16 +176,25 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void Animate(GameTime gameTime)
         {
-            if (!IsPlaying) return;
+            if (!IsPlaying || fps <= 0 || TotalFrames == 0) return;
 
             double frameDuration = 1.0 / fps; // Seconds per frame
             playbackTimer += gameTime.ElapsedGameTime.TotalSeconds;
 
             if (playbackTimer >= frameDuration)
             {
-                playbackTimer -= frameDuration;
-                CurrentFrameIndex = (CurrentFrameIndex + 1) % TotalFrames;
-                currentFrame = currentFrame.Next ?? frames.First;
+                long elapsedFrames = (long)(playbackTimer / frameDuration);
+                playbackTimer -= elapsedFrames * frameDuration;
+
+                // Full animation cycles end on the same frame, so only traverse
+                // the remaining steps through the linked list.
+                int framesToAdvance = (int)(elapsedFrames % TotalFrames);
+                CurrentFrameIndex = (CurrentFrameIndex + framesToAdvance) % TotalFrames;
+
+                for (int i = 0; i < framesToAdvance; i++)
+                {
+                    currentFrame = currentFrame.Next ?? frames.First;
+                }
             }
         }
 

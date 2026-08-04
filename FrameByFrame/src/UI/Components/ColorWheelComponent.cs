@@ -96,13 +96,16 @@ namespace FrameByFrame.src.Engine
                     if (relativeX >= 0 && relativeX < texture.Width &&
                         relativeY >= 0 && relativeY < texture.Height)
                     {
-                        SelectedColor = colorData[relativeX, relativeY];
+                        Color clickedColor = colorData[relativeX, relativeY];
+
+                        // Pixels outside the circular wheel are transparent and
+                        // should not replace the current drawing color.
+                        if (clickedColor.A == 0)
+                            return;
+
+                        SelectedColor = clickedColor;
                         OnColorSelected?.Invoke(SelectedColor);
                         Debug.WriteLine(SelectedColor.ToString());
-
-                        // Ignore transparent areas (outside the wheel)
-                        if (SelectedColor.A == 0)
-                            SelectedColor = Color.Transparent;
                     }
                 }
             }
