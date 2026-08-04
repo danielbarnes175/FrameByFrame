@@ -147,8 +147,7 @@ namespace FrameByFrame.src.Engine.Scenes
                         animation.DrawOnCurrentLayer(selectedColor);
                         break;
                     case DrawingTools.ERASER:
-                        Color eraserColor = new Color(255, 255, 255, 255);
-                        animation.DrawOnCurrentLayer(Color.White);
+                        animation.DrawOnCurrentLayer(Color.Transparent);
                         break;
                 }
             }
