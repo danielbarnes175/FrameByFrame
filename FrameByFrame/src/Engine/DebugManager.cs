@@ -68,12 +68,13 @@ namespace FrameByFrame.src.Engine
             
             // Draw semi-transparent background
             var helpLines = debugInfo.Split('\n');
-            var lineHeight = GlobalParameters.font.LineSpacing;
+            var debugFont = GlobalParameters.uiFont ?? GlobalParameters.font;
+            var lineHeight = debugFont.LineSpacing;
             var maxWidth = 0f;
             
             foreach (var line in helpLines)
             {
-                var lineWidth = GlobalParameters.font.MeasureString(line).X;
+                var lineWidth = debugFont.MeasureString(line).X;
                 if (lineWidth > maxWidth) maxWidth = lineWidth;
             }
             
@@ -99,7 +100,7 @@ namespace FrameByFrame.src.Engine
             {
                 var linePos = position + new Vector2(0, i * lineHeight);
                 Color textColor = i == 0 ? UIConstants.DEBUG_PERFORMANCE : UIConstants.DEBUG_TEXT;
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, helpLines[i], linePos, textColor);
+                GlobalParameters.GlobalSpriteBatch.DrawString(debugFont, helpLines[i], linePos, textColor);
             }
         }
         
@@ -116,9 +117,11 @@ namespace FrameByFrame.src.Engine
         // Initialize debug mode based on compile-time flag
         public static void Initialize()
         {
-            _isDebugMode = IsCompileTimeDebug();
-            _showPerformanceMonitor = _isDebugMode;
-            _showMemoryMonitor = _isDebugMode;
+            // Debug builds should still launch with an unobstructed application UI.
+            // F1 remains available to opt into the diagnostics overlay.
+            _isDebugMode = false;
+            _showPerformanceMonitor = false;
+            _showMemoryMonitor = false;
         }
     }
 }

@@ -344,3 +344,9 @@
 /processorParam:TextureFormat=Compressed
 /build:Roboto.spritefont
 
+#begin UIFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:UIFont.spritefont

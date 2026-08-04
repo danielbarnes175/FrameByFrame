@@ -1,0 +1,29 @@
+using FrameByFrame.src.UI;
+using Microsoft.Xna.Framework;
+
+static void Assert(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+
+Rectangle wide = UILayoutEngine.FitAspect(new Rectangle(0, 0, 800, 800), 1.5f);
+Assert(wide.Width == 800 && wide.Height == 533, "Aspect fitting should constrain height.");
+Assert(wide.X == 0 && wide.Y == 134, "Aspect fitting should center the result.");
+
+Rectangle tall = UILayoutEngine.FitAspect(new Rectangle(10, 20, 900, 300), 1.5f);
+Assert(tall.Width == 450 && tall.Height == 300, "Aspect fitting should constrain width.");
+Assert(tall.X == 235 && tall.Y == 20, "Aspect fitting should preserve the container origin while centering.");
+
+var horizontal = UILayoutEngine.Stack(new Rectangle(0, 0, 320, 40), UIAxis.Horizontal, 3, 10);
+Assert(horizontal.Count == 3, "Stack should create the requested item count.");
+Assert(horizontal[0].Width == 100 && horizontal[1].X == 110 && horizontal[2].X == 220,
+    "Horizontal stack should distribute width and spacing consistently.");
+
+var vertical = UILayoutEngine.Stack(new Rectangle(5, 7, 80, 220), UIAxis.Vertical, 2, 20);
+Assert(vertical[0] == new Rectangle(5, 7, 80, 100), "Vertical stack should position its first item.");
+Assert(vertical[1] == new Rectangle(5, 127, 80, 100), "Vertical stack should position its second item.");
+
+UIBox box = new(new Rectangle(10, 20, 100, 80), 8);
+Assert(box.Content == new Rectangle(18, 28, 84, 64), "UIBox padding should produce stable content bounds.");
+
+Console.WriteLine("FrameByFrame UI contract tests passed.");

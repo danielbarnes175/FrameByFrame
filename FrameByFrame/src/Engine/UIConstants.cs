@@ -16,14 +16,14 @@ namespace FrameByFrame.src.Engine
         public const int MIN_BRUSH_SIZE = 1;
         
         // UI Layout
-        public const int NAVBAR_HEIGHT = 50;
+        public const int NAVBAR_HEIGHT = 64;
         public const int BUTTON_SPACING = 5;
         public const int MARGIN_SMALL = 10;
         public const int MARGIN_MEDIUM = 20;
         
         // Color palette
-        public static readonly Color BACKGROUND_DARK = new Color(45, 45, 45);
-        public static readonly Color UI_ORANGE = Color.Orange;
+        public static readonly Color BACKGROUND_DARK = new Color(239, 235, 228);
+        public static readonly Color UI_ORANGE = new Color(238, 112, 24);
         public static readonly Color DEBUG_TEXT = Color.White;
         public static readonly Color DEBUG_PERFORMANCE = Color.Red;
         public static readonly Color DEBUG_MEMORY = Color.Cyan;

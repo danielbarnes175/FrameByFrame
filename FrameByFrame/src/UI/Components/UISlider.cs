@@ -56,7 +56,7 @@ namespace FrameByFrame.src.UI.Components
             // Create textures using app's color scheme - orange theme
             _trackTexture = TextureManager.GetOrCreateColorTexture(
                 GlobalParameters.GlobalGraphics, 
-                new Color(140, 70, 20), // Dark orange-brown track
+                UITheme.Border,
                 Math.Max(_trackBounds.Width, _trackBounds.Height), 
                 Shapes.RECTANGLE
             );
@@ -70,7 +70,7 @@ namespace FrameByFrame.src.UI.Components
             
             _fillTexture = TextureManager.GetOrCreateColorTexture(
                 GlobalParameters.GlobalGraphics, 
-                new Color(255, 200, 100), // Light orange fill
+                UITheme.Primary,
                 Math.Max(_trackBounds.Width, _trackBounds.Height), 
                 Shapes.RECTANGLE
             );
@@ -187,8 +187,8 @@ namespace FrameByFrame.src.UI.Components
             );
             
             // Handle color based on state - using orange theme
-            Color handleColor = _isDragging ? new Color(255, 220, 150) : // Light orange when dragging
-                               _isHovering ? new Color(255, 240, 200) :  // Very light orange when hovering
+            Color handleColor = _isDragging ? UITheme.PrimaryHover :
+                               _isHovering ? UITheme.SurfaceRaised :
                                Color.White;                              // White normally
             
             // Draw handle shadow for depth
@@ -198,7 +198,7 @@ namespace FrameByFrame.src.UI.Components
                 handleDrawBounds.Width,
                 handleDrawBounds.Height
             );
-            GlobalParameters.GlobalSpriteBatch.Draw(_handleTexture, shadowBounds, new Color(80, 40, 10) * 0.5f); // Dark orange shadow
+            GlobalParameters.GlobalSpriteBatch.Draw(_handleTexture, shadowBounds, UITheme.TextMuted * 0.35f);
             GlobalParameters.GlobalSpriteBatch.Draw(_handleTexture, handleDrawBounds, handleColor);
             
             // Draw value text above the slider
@@ -213,7 +213,7 @@ namespace FrameByFrame.src.UI.Components
                 GlobalParameters.font, 
                 valueText, 
                 textPosition, 
-                Color.White
+                UITheme.Text
             );
         }
     }

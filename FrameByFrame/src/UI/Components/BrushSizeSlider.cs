@@ -22,7 +22,7 @@ namespace FrameByFrame.src.UI.Components
             // Create background texture matching the navbar orange
             _backgroundTexture = TextureManager.GetOrCreateColorTexture(
                 GlobalParameters.GlobalGraphics, 
-                UIConstants.UI_ORANGE, // Use the same orange as the navbar
+                UITheme.SurfaceRaised,
                 Math.Max((int)dimensions.X, (int)dimensions.Y), 
                 Shapes.RECTANGLE
             );
@@ -87,7 +87,7 @@ namespace FrameByFrame.src.UI.Components
             // Draw subtle border using darker orange
             var borderTexture = TextureManager.GetOrCreateColorTexture(
                 GlobalParameters.GlobalGraphics, 
-                new Color(180, 90, 0), // Darker orange border
+                UITheme.Border,
                 Math.Max((int)dimensions.X, (int)dimensions.Y), 
                 Shapes.RECTANGLE
             );

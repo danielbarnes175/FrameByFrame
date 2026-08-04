@@ -1,114 +1,114 @@
-﻿using FrameByFrame.src.UI;
+using System;
+using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Diagnostics;
 
 namespace FrameByFrame.src.Engine
 {
     public class ColorWheelComponent : Overlay
     {
+        private const int ValueStripGap = 8;
+        private const int ValueStripWidth = 28;
+
+        private readonly int _wheelDiameter;
+        private readonly int _valueStripX;
+        private float _selectedHue;
+        private float _selectedSaturation;
+        private float _selectedValue = 1f;
+
         public Action<Color> OnColorSelected;
-        public Color SelectedColor { get; private set; }
+        public Color SelectedColor { get; private set; } = Color.Black;
 
         public ColorWheelComponent(Vector2 position, Vector2 dimensions) : base((Texture2D)null, position, dimensions)
         {
-            texture = GenerateColorWheel((int)dimensions.X);
-            this.SetColorData();
-            container = new Container(texture, position, dimensions);
-            SelectedColor = Color.Black;
+            _wheelDiameter = Math.Min((int)dimensions.Y, (int)dimensions.X - ValueStripGap - ValueStripWidth);
+            _valueStripX = _wheelDiameter + ValueStripGap;
+            texture = GeneratePickerTexture((int)dimensions.X, (int)dimensions.Y);
+            SetColorData();
+            ShowOutline = false;
         }
 
-        private Texture2D GenerateColorWheel(int diameter)
+        private Texture2D GeneratePickerTexture(int width, int height)
         {
-            int radius = diameter / 2;
-            Texture2D colorWheel = new Texture2D(GlobalParameters.GlobalGraphics, diameter, diameter);
+            Texture2D picker = new(GlobalParameters.GlobalGraphics, width, height);
+            Color[] colors = new Color[width * height];
+            float radius = (_wheelDiameter - 1) / 2f;
+            Vector2 center = new(radius, radius);
 
-            Color[] colors = new Color[diameter * diameter];
-            Vector2 center = new Vector2(radius, radius);
-
-            for (int y = 0; y < diameter; y++)
+            for (int y = 0; y < height; y++)
             {
-                for (int x = 0; x < diameter; x++)
+                for (int x = 0; x < width; x++)
                 {
-                    Vector2 position = new Vector2(x, y);
-                    Vector2 offset = position - center;
-
-                    float distance = offset.Length(); // Distance from center
-                    if (distance > radius)
+                    int index = x + y * width;
+                    if (x < _wheelDiameter && y < _wheelDiameter)
                     {
-                        // Outside the circle, set transparent
-                        colors[x + y * diameter] = Color.Transparent;
-                        continue;
+                        Vector2 offset = new Vector2(x, y) - center;
+                        float distance = offset.Length();
+                        if (distance <= radius)
+                        {
+                            float hue = MathHelper.ToDegrees((float)Math.Atan2(offset.Y, offset.X) + MathHelper.TwoPi) % 360;
+                            float saturation = Math.Clamp(distance / radius, 0f, 1f);
+                            colors[index] = HSVToRGB(hue, saturation, 1f);
+                        }
                     }
 
-                    // Angle (hue) and normalized distance (saturation)
-                    float angle = (float)Math.Atan2(offset.Y, offset.X);
-                    float hue = MathHelper.ToDegrees(angle + MathHelper.TwoPi) % 360; // Hue (0-360)
-                    float saturation = distance / radius; // Saturation (0-1)
-                    float value = 1.0f; // Max brightness
-
-                    // Convert HSV to RGB
-                    colors[x + y * diameter] = HSVToRGB(hue, saturation, value);
+                    if (x >= _valueStripX && x < _valueStripX + ValueStripWidth)
+                    {
+                        float value = 1f - y / (float)Math.Max(1, height - 1);
+                        colors[index] = new Color(value, value, value);
+                    }
                 }
             }
 
-            colorWheel.SetData(colors);
-            return colorWheel;
-        }
-
-        private Color HSVToRGB(float h, float s, float v)
-        {
-            float c = v * s; // Chroma
-            float x = c * (1 - Math.Abs((h / 60f) % 2 - 1)); // Secondary component
-            float m = v - c;
-
-            float r = 0, g = 0, b = 0;
-
-            if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
-            else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
-            else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
-            else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
-            else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
-            else if (h >= 300 && h < 360) { r = c; g = 0; b = x; }
-
-            return new Color(r + m, g + m, b + m);
+            picker.SetData(colors);
+            return picker;
         }
 
         public override void Update()
         {
             base.Update();
+            if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
 
-            // Handle mouse click to select a color
-            if (GlobalParameters.GlobalMouse.LeftClick())
+            Vector2 local = GlobalParameters.GlobalMouse.newMousePos - position;
+            if (local.X < 0 || local.Y < 0 || local.X >= dimensions.X || local.Y >= dimensions.Y) return;
+
+            float radius = (_wheelDiameter - 1) / 2f;
+            Vector2 offset = local - new Vector2(radius, radius);
+            if (local.X < _wheelDiameter && local.Y < _wheelDiameter && offset.Length() <= radius)
             {
-                Vector2 mousePosition = GlobalParameters.GlobalMouse.newMousePos;
-
-                // Check if the click is within the bounds of the color wheel
-                if (mousePosition.X >= position.X && mousePosition.X <= position.X + dimensions.X &&
-                    mousePosition.Y >= position.Y && mousePosition.Y <= position.Y + dimensions.Y)
-                {
-                    // Map mouse position to texture coordinates
-                    int relativeX = (int)((mousePosition.X - position.X) / dimensions.X * texture.Width);
-                    int relativeY = (int)((mousePosition.Y - position.Y) / dimensions.Y * texture.Height);
-
-                    // Get the color at the clicked position
-                    if (relativeX >= 0 && relativeX < texture.Width &&
-                        relativeY >= 0 && relativeY < texture.Height)
-                    {
-                        Color clickedColor = colorData[relativeX, relativeY];
-
-                        // Pixels outside the circular wheel are transparent and
-                        // should not replace the current drawing color.
-                        if (clickedColor.A == 0)
-                            return;
-
-                        SelectedColor = clickedColor;
-                        OnColorSelected?.Invoke(SelectedColor);
-                        Debug.WriteLine(SelectedColor.ToString());
-                    }
-                }
+                _selectedHue = MathHelper.ToDegrees((float)Math.Atan2(offset.Y, offset.X) + MathHelper.TwoPi) % 360;
+                _selectedSaturation = Math.Clamp(offset.Length() / radius, 0f, 1f);
+                _selectedValue = 1f;
+                CommitSelection();
             }
+            else if (local.X >= _valueStripX && local.X < _valueStripX + ValueStripWidth)
+            {
+                _selectedValue = Math.Clamp(1f - local.Y / Math.Max(1f, dimensions.Y - 1f), 0f, 1f);
+                CommitSelection();
+            }
+        }
+
+        private void CommitSelection()
+        {
+            SelectedColor = HSVToRGB(_selectedHue, _selectedSaturation, _selectedValue);
+            OnColorSelected?.Invoke(SelectedColor);
+        }
+
+        private static Color HSVToRGB(float h, float s, float v)
+        {
+            float c = v * s;
+            float x = c * (1 - Math.Abs((h / 60f) % 2 - 1));
+            float m = v - c;
+            float r = 0, g = 0, b = 0;
+
+            if (h < 60) { r = c; g = x; }
+            else if (h < 120) { r = x; g = c; }
+            else if (h < 180) { g = c; b = x; }
+            else if (h < 240) { g = x; b = c; }
+            else if (h < 300) { r = x; b = c; }
+            else { r = c; b = x; }
+
+            return new Color(r + m, g + m, b + m);
         }
     }
 }

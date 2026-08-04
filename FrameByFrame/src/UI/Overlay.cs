@@ -10,6 +10,7 @@ namespace FrameByFrame.src.UI
     {
         public Container container;
         public bool isVisible;
+        public bool ShowOutline { get; set; } = true;
 
         public Overlay(string path, Vector2 position, Vector2 dimensions) : base(path, position, dimensions)
         {
@@ -35,8 +36,19 @@ namespace FrameByFrame.src.UI
         {
             if (!isVisible) return;
 
-            base.Draw(offset, Vector2.Zero);
+            if (texture != null)
+            {
+                GlobalParameters.GlobalSpriteBatch.Draw(texture,
+                    new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y),
+                        (int)dimensions.X, (int)dimensions.Y), Color.White);
+            }
             container.Draw(offset, Vector2.Zero);
+            if (ShowOutline)
+            {
+                UIRenderer.Border(new Rectangle(
+                    (int)(position.X + offset.X), (int)(position.Y + offset.Y),
+                    (int)dimensions.X, (int)dimensions.Y), UITheme.Primary, 3);
+            }
         }
     }
 }

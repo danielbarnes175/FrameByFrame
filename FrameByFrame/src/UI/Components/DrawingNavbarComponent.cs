@@ -15,34 +15,51 @@ namespace FrameByFrame.src.UI.Components
 {
     public class DrawingNavbarComponent : Container
     {
+        private readonly Animation _animation;
+
         public DrawingNavbarComponent(Texture2D texture, Vector2 position, Vector2 dimensions, Animation animation) : base(texture, position, dimensions)
         {
+            _animation = animation;
             // Create Navbar child components
-            Texture2D menuButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 100, 32, pixel => new Color(255, 140, 0), Shapes.RECTANGLE);
-            RedirectButton menuButton = new RedirectButton("Menu Scene", menuButtonTexture, new Vector2(5 * uiElements.Count, 10), new Vector2(100, 32), "MENU", Color.White);
+            const int controlY = 12;
+            Texture2D menuButtonTexture = TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, UITheme.Primary, 112);
+            RedirectButton menuButton = new RedirectButton("Menu Scene", menuButtonTexture, new Vector2(12, controlY), new Vector2(112, 40), "HOME", Color.White);
             uiElements.Add(menuButton);
 
-            Texture2D helpButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(100, 100, 200), Shapes.RECTANGLE);
-            Overlay helpOverlay = new Overlay("Static\\SettingsScene/button_export", new Vector2(500, 500), new Vector2(32, 32));
-            PopupButton helpButton = new PopupButton(helpOverlay, "Static\\DrawingScene/help", new Vector2(menuButton.position.X + menuButton.dimensions.X + 5 * uiElements.Count, 10), new Vector2(32, 32));
+            Texture2D helpButtonTexture = TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, UITheme.SurfaceRaised, 40);
+            HelpComponent helpOverlay = new HelpComponent(new Vector2(132, 72), new Vector2(520, 410));
+            PopupButton helpButton = new PopupButton(helpOverlay, "Static\\DrawingScene/help", new Vector2(menuButton.position.X + menuButton.dimensions.X + 10, 16), new Vector2(32, 32));
             uiElements.Add(helpButton);
             
             // Register popup button with UI interaction manager
             UIInteractionManager.RegisterUIElement(() => helpButton.target.isVisible);
 
-            SettingsComponent settingsOverlay = new SettingsComponent(new Vector2(150, 55), new Vector2(450, 600));
-            PopupButton settingsButton = new PopupButton(settingsOverlay, "Static\\DrawingScene/gear", new Vector2(helpButton.position.X + helpButton.dimensions.X + 5 * uiElements.Count, 10), new Vector2(32, 32));
+            SettingsComponent settingsOverlay = new SettingsComponent(new Vector2(174, 72), new Vector2(450, 330));
+            PopupButton settingsButton = new PopupButton(settingsOverlay, "Static\\DrawingScene/gear", new Vector2(helpButton.position.X + helpButton.dimensions.X + 10, 16), new Vector2(32, 32));
             uiElements.Add(settingsButton);
             
             // Register settings popup
             UIInteractionManager.RegisterUIElement(() => settingsButton.target.isVisible);
 
             Texture2D colorButtonTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => new Color(200, 0, 255), Shapes.CIRCLE);
-            ColorWheelComponent colorOverlay = new ColorWheelComponent(new Vector2(1399, 50), new Vector2(200, 200));
-            PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - colorButtonTexture.Width - 5, 10), new Vector2(32, 32));
+            ColorWheelComponent colorOverlay = new ColorWheelComponent(new Vector2(GlobalParameters.screenWidth - 248, 72), new Vector2(236, 200));
+            PopupButton colorButton = new PopupButton(colorOverlay, colorButtonTexture, new Vector2(GlobalParameters.screenWidth - 48, 16), new Vector2(32, 32));
+            Color[] swatchPixels = new Color[32 * 32];
             colorOverlay.OnColorSelected += (Color selectedColor) =>
             {
-                colorButton.texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 32, 32, pixel => selectedColor, Shapes.CIRCLE);
+                const int radius = 16;
+                for (int y = 0; y < 32; y++)
+                {
+                    for (int x = 0; x < 32; x++)
+                    {
+                        int dx = x - radius;
+                        int dy = y - radius;
+                        swatchPixels[x + y * 32] = dx * dx + dy * dy <= radius * radius
+                            ? selectedColor
+                            : Color.Transparent;
+                    }
+                }
+                colorButtonTexture.SetData(swatchPixels);
             };
             uiElements.Add(colorButton);
             
@@ -50,26 +67,26 @@ namespace FrameByFrame.src.UI.Components
             UIInteractionManager.RegisterUIElement(() => colorButton.target.isVisible);
 
             List<string> layers = new List<string> { "_layer1", "_layer2", "_layer3" };
-            LayerSelectorComponent layerOverlay = new LayerSelectorComponent(new Vector2(1400, 50), new Vector2(200, 150), layers, GlobalParameters.font);
+            LayerSelectorComponent layerOverlay = new LayerSelectorComponent(new Vector2(GlobalParameters.screenWidth - 212, 72), new Vector2(200, 150), layers, GlobalParameters.font);
             layerOverlay.OnLayerSelected = (selectedLayer) =>
             {
                 animation.selectedLayer = selectedLayer;
             };
-            PopupButton layerButton = new PopupButton(layerOverlay, "Static\\DrawingScene/layers", new Vector2(colorButton.position.X - colorButton.dimensions.X - 10, 10), new Vector2(32, 32));
+            PopupButton layerButton = new PopupButton(layerOverlay, "Static\\DrawingScene/layers", new Vector2(colorButton.position.X - colorButton.dimensions.X - 12, 16), new Vector2(32, 32));
             uiElements.Add(layerButton);
             
             // Register layer selector popup
             UIInteractionManager.RegisterUIElement(() => layerButton.target.isVisible);
 
-            Texture2D frameCounterTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 132, 32, pixel => Color.Orange, Shapes.RECTANGLE);
-            UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X + settingsButton.dimensions.X, 10), new Vector2(frameCounterTexture.Width, frameCounterTexture.Height));
+            Texture2D frameCounterTexture = TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, UITheme.Primary, 140);
+            UIElement frameCounter = new FrameCounterComponent(frameCounterTexture, new Vector2(settingsButton.position.X + settingsButton.dimensions.X + 14, controlY), new Vector2(140, 40));
             uiElements.Add(frameCounter);
 
             // Create and add tool buttons
             List<RadioButton> buttons = new List<RadioButton>();
 
-            EraserButton eraser = new EraserButton("Static\\DrawingScene/eraser_selected", "Static\\DrawingScene/eraser", false, new Vector2(layerButton.position.X - layerButton.dimensions.X - 15, 10), new Vector2(32, 32));
-            DrawButton draw = new DrawButton("Static\\DrawingScene/brush_selected", "Static\\DrawingScene/brush", true, new Vector2(eraser.position.X - eraser.dimensions.X - 5, 10), new Vector2(32, 32));
+            EraserButton eraser = new EraserButton("Static\\DrawingScene/eraser_selected", "Static\\DrawingScene/eraser", false, new Vector2(layerButton.position.X - layerButton.dimensions.X - 16, 16), new Vector2(32, 32));
+            DrawButton draw = new DrawButton("Static\\DrawingScene/brush_selected", "Static\\DrawingScene/brush", true, new Vector2(eraser.position.X - eraser.dimensions.X - 8, 16), new Vector2(32, 32));
 
             buttons.Add(draw);
             buttons.Add(eraser);
@@ -78,11 +95,11 @@ namespace FrameByFrame.src.UI.Components
             buttonGroups.Add(toolButtons);
 
             Animation currentAnimation = ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).animation;
-            TriggerButton goToStartButton = new TriggerButton("Static\\DrawingScene/first_frame", new Vector2(frameCounter.position.X + frameCounter.dimensions.X, 10), new Vector2(32, 32), () => animation.FirstFrame(), true);
-            TriggerButton previousFrameButton = new TriggerButton("Static\\DrawingScene/previous_frame", new Vector2(goToStartButton.position.X + goToStartButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.PreviousFrame(), true);
-            TriggerButton playButton = new TriggerButton("Static\\DrawingScene/play", new Vector2(previousFrameButton.position.X + previousFrameButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.TogglePlaying(), true);
-            TriggerButton nextFrameButton = new TriggerButton("Static\\DrawingScene/next_frame", new Vector2(playButton.position.X + playButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.NextFrame(), true);
-            TriggerButton goToEndButton = new TriggerButton("Static\\DrawingScene/last_frame", new Vector2(nextFrameButton.position.X + nextFrameButton.dimensions.X + 10, 10), new Vector2(32, 32), () => animation.LastFrame(), true);
+            TriggerButton goToStartButton = new TriggerButton("Static\\DrawingScene/first_frame", new Vector2(frameCounter.position.X + frameCounter.dimensions.X + 12, 16), new Vector2(32, 32), () => animation.FirstFrame(), true);
+            TriggerButton previousFrameButton = new TriggerButton("Static\\DrawingScene/previous_frame", new Vector2(goToStartButton.position.X + goToStartButton.dimensions.X + 8, 16), new Vector2(32, 32), () => animation.PreviousFrame(), true);
+            TriggerButton playButton = new TriggerButton("Static\\DrawingScene/play", new Vector2(previousFrameButton.position.X + previousFrameButton.dimensions.X + 8, 16), new Vector2(32, 32), () => animation.TogglePlaying(), true);
+            TriggerButton nextFrameButton = new TriggerButton("Static\\DrawingScene/next_frame", new Vector2(playButton.position.X + playButton.dimensions.X + 8, 16), new Vector2(32, 32), () => animation.NextFrame(), true);
+            TriggerButton goToEndButton = new TriggerButton("Static\\DrawingScene/last_frame", new Vector2(nextFrameButton.position.X + nextFrameButton.dimensions.X + 8, 16), new Vector2(32, 32), () => animation.LastFrame(), true);
 
             uiElements.Add(goToStartButton);
             uiElements.Add(previousFrameButton);
@@ -92,14 +109,33 @@ namespace FrameByFrame.src.UI.Components
 
             // Add brush size slider
             BrushSizeSlider brushSizeSlider = new BrushSizeSlider(
-                new Vector2(goToEndButton.position.X + goToEndButton.dimensions.X + 15, 10),
-                new Vector2(120, 32), // Increased width for slider
+                new Vector2(goToEndButton.position.X + goToEndButton.dimensions.X + 16, controlY),
+                new Vector2(140, 40),
                 animation
             );
             uiElements.Add(brushSizeSlider);
             
             // Register the brush size slider with the UI interaction manager
             UIInteractionManager.RegisterUIElement(() => brushSizeSlider.IsMouseOver);
+        }
+
+        public override void Draw(Vector2 offset, Vector2 origin)
+        {
+            base.Draw(offset, origin);
+
+            Rectangle divider = new(0, UIConstants.NAVBAR_HEIGHT - 3, GlobalParameters.screenWidth, 3);
+            UIRenderer.Fill(divider, UITheme.Primary);
+
+            if (GlobalParameters.screenWidth >= 1200)
+            {
+                int labelX = 740;
+                int labelWidth = Math.Max(1, GlobalParameters.screenWidth - labelX - 390);
+                new UITextContainer
+                {
+                    Bounds = new Rectangle(labelX, 8, labelWidth, 48),
+                    MaxLines = 1
+                }.Draw(_animation.projectName, UITheme.TextMuted, .9f);
+            }
         }
     }
 }

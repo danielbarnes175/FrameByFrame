@@ -38,6 +38,7 @@ namespace FrameByFrame.src.Engine.Animation
         public int TotalFrames => frames.Count;
         public int CurrentFrameIndex { get; private set; }
         public Frame CurrentFrame => currentFrame?.Value;
+        public Rectangle DisplayBounds { get; private set; }
 
         public Animation(string projectName)
         {
@@ -48,7 +49,7 @@ namespace FrameByFrame.src.Engine.Animation
             IsPlaying = false;
             selectedLayer = "_layer1";
             CurrentFrameIndex = 0;
-            brushSize = 15;
+            brushSize = 5;
             isOnionSkinEnabled = true;
         }
 
@@ -251,7 +252,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (distance < 1f && GlobalParameters.GlobalMouse.LeftClickHold()) 
             {
                 // Still draw a single point for initial click
-                DrawBrushAt(mousePositionCur - framePosition, selectedColor);
+                DrawBrushAt(ToFramePosition(mousePositionCur), selectedColor);
                 return;
             }
 
@@ -260,9 +261,40 @@ namespace FrameByFrame.src.Engine.Animation
             for (int i = 0; i <= steps; i++)
             {
                 float t = steps > 0 ? i / (float)steps : 0;
-                Vector2 interpolatedPos = Vector2.Lerp(mousePositionOld, mousePositionCur, t) - framePosition;
+                Vector2 interpolatedPos = ToFramePosition(Vector2.Lerp(mousePositionOld, mousePositionCur, t));
                 DrawBrushAt(interpolatedPos, selectedColor);
             }
+        }
+
+        private Vector2 ToFramePosition(Vector2 screenPosition)
+        {
+            if (DisplayBounds.Width <= 0 || DisplayBounds.Height <= 0) return screenPosition - framePosition;
+            return new Vector2(
+                (screenPosition.X - DisplayBounds.X) * frameSize.X / DisplayBounds.Width,
+                (screenPosition.Y - DisplayBounds.Y) * frameSize.Y / DisplayBounds.Height);
+        }
+
+        public void SelectFrame(int index)
+        {
+            if (index < 0 || index >= TotalFrames) return;
+            currentFrame = frames.First;
+            for (int i = 0; i < index; i++) currentFrame = currentFrame.Next;
+            CurrentFrameIndex = index;
+        }
+
+        public void DrawCurrentFrame(Rectangle destination)
+        {
+            DisplayBounds = destination;
+            currentFrame?.Value.Draw(destination, 1f);
+            if (!IsPlaying && isOnionSkinEnabled)
+            {
+                for (int i = 1; i <= maxOnionFrames; i++)
+                {
+                    Frame frame = frames.ElementAtOrDefault(CurrentFrameIndex - i);
+                    if (frame != null) frame.DrawLayers(destination, baseOpacity * (maxOnionFrames - i + 1));
+                }
+            }
+            currentFrame?.Value.DrawLayers(destination, 1f);
         }
 
         private void DrawBrushAt(Vector2 localPos, Color color)

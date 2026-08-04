@@ -215,6 +215,20 @@ namespace FrameByFrame.src.Engine.Animation
             }
         }
 
+        public void Draw(Rectangle destination, float opacity)
+        {
+            if (_sharedBackgroundTexture != null)
+                GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
+        }
+
+        public void DrawLayers(Rectangle destination, float opacity)
+        {
+            if (_texturesNeedUpdate) UpdateTextures();
+            if (_layer3Pixels.Count > 0) GlobalParameters.GlobalSpriteBatch.Draw(_layer3Texture, destination, Color.White * opacity);
+            if (_layer2Pixels.Count > 0) GlobalParameters.GlobalSpriteBatch.Draw(_layer2Texture, destination, Color.White * opacity);
+            if (_layer1Pixels.Count > 0) GlobalParameters.GlobalSpriteBatch.Draw(_layer1Texture, destination, Color.White * opacity);
+        }
+
         public virtual void DrawLayers(float opacity)
         {
             // Only update textures when we need to draw

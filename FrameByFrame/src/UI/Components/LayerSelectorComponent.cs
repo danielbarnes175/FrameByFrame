@@ -20,7 +20,7 @@ namespace FrameByFrame.src.UI.Components
         public LayerSelectorComponent(Vector2 position, Vector2 dimensions, List<string> layers, SpriteFont font)
             : base((Texture2D)null, position, dimensions)
         {
-            texture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, (int)dimensions.X, (int)dimensions.Y, pixel => Color.Orange, Engine.Shapes.RECTANGLE);
+            texture = TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, UITheme.Surface, Math.Max((int)dimensions.X, (int)dimensions.Y));
             this.SetColorData();
             this.layers = layers;
             this.font = font;
@@ -68,20 +68,20 @@ namespace FrameByFrame.src.UI.Components
                 Rectangle layerRect = new Rectangle(
                     (int)((position.X + offset.X)),
                     (int)((position.Y + offset.Y + i * layerHeight)),
-                    (int)(dimensions.X * GlobalParameters.scaleX),
-                    (int)(layerHeight * GlobalParameters.scaleY)
+                    (int)dimensions.X,
+                    layerHeight
                 );
 
                 // Highlight the selected layer
-                Color backgroundColor = layerName == selectedLayer ? Color.Gray : Color.DarkGray;
+                Color backgroundColor = layerName == selectedLayer ? UITheme.Primary : UITheme.SurfaceRaised;
                 GlobalParameters.GlobalSpriteBatch.Draw(
-                    DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => Color.White, Engine.Shapes.RECTANGLE),
+                    TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, Color.White, 1),
                     layerRect,
                     backgroundColor
                 );
 
                 // Draw the layer name
-                Vector2 textSize = font.MeasureString(layerName) * GlobalParameters.scaleX;
+                Vector2 textSize = font.MeasureString(layerName);
                 Vector2 textPosition = new Vector2(
                     layerRect.X + (layerRect.Width - textSize.X) / 2,
                     layerRect.Y + (layerRect.Height - textSize.Y) / 2
@@ -91,9 +91,12 @@ namespace FrameByFrame.src.UI.Components
                     font,
                     layerName,
                     textPosition,
-                    Color.White
+                    layerName == selectedLayer ? Color.White : UITheme.Text
                 );
             }
+
+            UIRenderer.Border(new Rectangle((int)(position.X + offset.X), (int)(position.Y + offset.Y),
+                (int)dimensions.X, (int)dimensions.Y), UITheme.Primary, 3);
         }
     }
 }

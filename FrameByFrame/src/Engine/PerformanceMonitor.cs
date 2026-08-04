@@ -58,7 +58,7 @@ namespace FrameByFrame.src.Engine
             string perfInfo = GetPerformanceInfo();
             if (!string.IsNullOrEmpty(perfInfo))
             {
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, perfInfo, position, color);
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.uiFont ?? GlobalParameters.font, perfInfo, position, color);
             }
         }
     }

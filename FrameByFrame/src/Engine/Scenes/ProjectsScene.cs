@@ -1,301 +1,159 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
+using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
     public class ProjectsScene : BaseScene
     {
-        private List<BasicTexture> _textures;
-        private Texture2D _borderTexture;
-        private Texture2D _actionButtonTexture;
-
-        private List<string> projects;
-        private List<Animation.Animation> animations;
-        private int currentPreview;
-        private int previewFrame;
-        private int timePlaying;
-        private int fps;
-
-        public ProjectsScene()
-        {
-            timePlaying = 0;
-            fps = 4;
-            _textures = new List<BasicTexture>();
-
-            currentPreview = 0;
-            previewFrame = 0;
-
-            if (!Directory.Exists("Projects"))
-            {
-                Directory.CreateDirectory("Projects");
-            }
-        }
+        private readonly List<string> _projectFiles = new();
+        private readonly List<Animation.Animation> _animations = new();
+        private UIActionButton _back;
+        private UIActionButton _previous;
+        private UIActionButton _next;
+        private UIActionButton _edit;
+        private UIActionButton _export;
+        private UIActionButton _folder;
+        private int _selected;
+        private int _previewFrame;
+        private double _previewTimer;
 
         public override void LoadContent()
         {
-            _borderTexture = CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 300, pixel => Color.Orange);
-            _actionButtonTexture = CreateTexture(GlobalParameters.GlobalGraphics, 1, 1, pixel => Color.White);
-            _textures.Add(new BasicTexture(_borderTexture, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth * 2, 300)));
-            _textures.Add(new BasicTexture(_borderTexture, new Vector2(0, GlobalParameters.screenHeight), new Vector2(GlobalParameters.screenWidth * 2, 300)));
-            BasicTexture arrowRight = new BasicTexture("Static\\ProjectsScene/button_arrow", new Vector2(GlobalParameters.screenWidth / 2 + 200, GlobalParameters.screenHeight / 2), new Vector2(45, 45));
-            arrowRight.rotation = 1.571f;
-            BasicTexture arrowLeft = new BasicTexture("Static\\ProjectsScene/button_arrow", new Vector2(GlobalParameters.screenWidth / 2 - 200, GlobalParameters.screenHeight / 2), new Vector2(45, 45));
-            arrowLeft.rotation = -1.571f;
-            _textures.Add(arrowRight);
-            _textures.Add(arrowLeft);
-            _textures.Add(new BasicTexture("Static\\ProjectsScene/button_view-project-directory", new Vector2(GlobalParameters.screenWidth - 200, GlobalParameters.screenHeight - 30), new Vector2(372, 50)));
+            Directory.CreateDirectory("Projects");
+            _back = new UIActionButton("< Home", GoHome);
+            _previous = new UIActionButton("<", () => SelectRelative(-1));
+            _next = new UIActionButton(">", () => SelectRelative(1));
+            _edit = new UIActionButton("Edit animation", OpenSelectedProject);
+            _export = new UIActionButton("Export GIF", ExportSelectedProject);
+            _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
             LoadAnimations();
+        }
+
+        private void Layout()
+        {
+            int cx = GlobalParameters.screenWidth / 2;
+            int cy = GlobalParameters.screenHeight / 2;
+            int S(int value) => UILayoutEngine.Scale(value);
+            _back.Bounds = new Rectangle(S(20), S(16), S(150), S(56));
+            _folder.Bounds = new Rectangle(GlobalParameters.screenWidth - S(300), S(16), S(280), S(56));
+            _previous.Bounds = new Rectangle(cx - S(270), cy - S(25), S(54), S(54));
+            _next.Bounds = new Rectangle(cx + S(216), cy - S(25), S(54), S(54));
+            _edit.Bounds = new Rectangle(cx - S(250), cy + S(225), S(240), S(60));
+            _export.Bounds = new Rectangle(cx + S(10), cy + S(225), S(240), S(60));
+            bool hasProjects = _animations.Count > 0;
+            _previous.IsEnabled = _next.IsEnabled = _edit.IsEnabled = _export.IsEnabled = hasProjects;
         }
 
         public override void Update(GameTime gameTime)
         {
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
+            Layout(); UIPointerRouter.BeginFrame();
+            _back.Update(); _folder.Update(); _previous.Update(); _next.Update(); _edit.Update(); _export.Update();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
+            if (_animations.Count > 0)
             {
-                currentPreview = 0;
-                previewFrame = 0;
-                timePlaying = 0;
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER"))
-            {
-                OpenSelectedProject();
-            }
-
-            if (GlobalParameters.GlobalMouse.LeftClick())
-            {
-                Vector2 pointPosition = GlobalParameters.GlobalMouse.newMousePos;
-                if (animations.Count > 0 && GetEditButtonBounds().Contains(pointPosition))
+                _previewTimer += gameTime.ElapsedGameTime.TotalSeconds;
+                double frameDuration = 1d / Math.Max(1, _animations[_selected].fps);
+                while (_previewTimer >= frameDuration)
                 {
-                    OpenSelectedProject();
-                }
-                else if (animations.Count > 0 && GetExportButtonBounds().Contains(pointPosition))
-                {
-                    ExportSelectedProject();
-                }
-                else if (pointPosition.X > 570 && pointPosition.X < 615 && pointPosition.Y > 400 && pointPosition.Y < 445)
-                {
-                    currentPreview -= 1;
-                    if (currentPreview < 0) currentPreview = animations.Count - 1;
-                    previewFrame = 0;
-                    timePlaying = 0;
-                }
-                else if (pointPosition.X > 970 && pointPosition.X < 1015 && pointPosition.Y > 400 && pointPosition.Y < 445)
-                {
-                    currentPreview += 1;
-                    if (currentPreview >= animations.Count) currentPreview = 0;
-                    previewFrame = 0;
-                    timePlaying = 0;
-                }
-                else if (pointPosition.X > 1208 && pointPosition.X < 1580 && pointPosition.Y > 820 && pointPosition.Y < 866)
-                {
-                    string path = Directory.GetCurrentDirectory() + "/" + "Projects" + Path.DirectorySeparatorChar;
-                    try
-                    {
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
-                        {
-                            FileName = path,
-                            UseShellExecute = true,
-                            Verb = "open"
-                        });
-                    }
-                    catch (Exception)
-                    {
-                        //Console.WriteLine(e.Message);
-                    }
-                }
-                else
-                {
-                    Rectangle previewBounds = GetPreviewBounds();
-                    if (previewBounds.Contains(pointPosition))
-                    {
-                        OpenSelectedProject();
-                    }
+                    _previewTimer -= frameDuration;
+                    _previewFrame = (_previewFrame + 1) % _animations[_selected].TotalFrames;
                 }
             }
-
-            timePlaying += 1;
-            if (
-                animations.Count > 0
-                && timePlaying % fps == 0
-            )
-            {
-                previewFrame += 1;
-                if (previewFrame >= animations[currentPreview].frames.Count)
-                    previewFrame = 0;
-            }
-
-            base.Update(gameTime);
         }
 
         public override void Draw(Vector2 offset)
         {
-            if (animations.Count > 0)
+            GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
+            int S(int value) => UILayoutEngine.Scale(value);
+            UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, S(88)), UITheme.Surface);
+            string heading = _animations.Count == 0 ? "Your animations - No saved projects yet" : $"Your animations - {_selected + 1} of {_animations.Count}";
+            new UITextContainer
             {
-                Frame frame = animations[currentPreview].GetFrameAtIndex(previewFrame);
-                frame?.DrawPreview(GetPreviewBounds(), 1.0f);
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, $"Current Project Shown: {animations[currentPreview].projectName}", new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+                Bounds = new Rectangle(_back.Bounds.Right + S(16), S(10), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(68)),
+                HorizontalAlignment = UIAlign.Start,
+                MaxLines = 2
+            }.Draw(heading, UITheme.Text, 1f);
+            _back.Draw(); _folder.Draw();
 
-            }
-            else
-            {
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "No projects found", new Vector2(GlobalParameters.screenWidth / 2 - 50, GlobalParameters.screenHeight / 2), Color.Black);
-            }
-
-            foreach (BasicTexture texture in _textures)
-            {
-                texture.Draw(offset);
-            }
-
-            if (animations.Count > 0)
-            {
-                DrawActionButton(GetEditButtonBounds(), "EDIT");
-                DrawActionButton(GetExportButtonBounds(), "EXPORT");
-            }
-
-            base.Draw(offset);
+            if (_animations.Count == 0) DrawEmptyState(); else DrawSelectedProject();
         }
 
-        public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint)
+        private void DrawEmptyState()
         {
-            // Initialize a texture
-            Texture2D texture = new Texture2D(device, width, height);
+            int S(int value) => UILayoutEngine.Scale(value);
+            Rectangle card = new(GlobalParameters.screenWidth / 2 - S(300), GlobalParameters.screenHeight / 2 - S(160), S(600), S(300));
+            UIRenderer.Fill(card, UITheme.Surface); UIRenderer.Border(card, UITheme.Border, 2);
+            new UITextContainer { Bounds = new Rectangle(card.X + S(24), card.Y + S(40), card.Width - S(48), S(64)), MaxLines = 2 }
+                .Draw("Your first animation starts here", UITheme.Primary, 1.05f);
+            new UITextContainer { Bounds = new Rectangle(card.X + S(32), card.Y + S(110), card.Width - S(64), S(72)), MaxLines = 2 }
+                .Draw("Create a canvas, draw a frame, and save it to see it here.", UITheme.TextMuted, .9f);
+            Rectangle create = new(card.Center.X - S(120), card.Y + S(190), S(240), S(48));
+            bool hover = create.Contains(GlobalParameters.GlobalMouse.newMousePos);
+            UIRenderer.Fill(create, hover ? UITheme.PrimaryHover : UITheme.Primary);
+            new UITextContainer { Bounds = create, Padding = 10, MaxLines = 2 }.Draw("Create animation", UITheme.Text, .9f);
+        }
 
-            // The array holds the color for each pixel in the texture
-            Color[] data = new Color[width * height];
-            for (int pixel = 0; pixel < data.Count(); pixel++)
-            {
-                // The function applies the color according to the specified pixel
-                data[pixel] = paint(pixel);
-            }
-
-            // Set the color
-            texture.SetData(data);
-
-            return texture;
+        private void DrawSelectedProject()
+        {
+            int cx = GlobalParameters.screenWidth / 2;
+            int cy = GlobalParameters.screenHeight / 2;
+            int S(int value) => UILayoutEngine.Scale(value);
+            Rectangle card = new(cx - S(210), cy - S(245), S(420), S(440));
+            UIRenderer.Fill(card, UITheme.Surface); UIRenderer.Border(card, UITheme.Border, 2);
+            Rectangle preview = new(cx - S(170), cy - S(205), S(340), S(260));
+            _animations[_selected].GetFrameAtIndex(_previewFrame)?.DrawPreview(preview, 1f);
+            UIRenderer.Border(preview, UITheme.Secondary, 2);
+            string name = _animations[_selected].projectName;
+            if (name.Length > 34) name = name[..31] + "...";
+            new UITextContainer { Bounds = new Rectangle(card.X + S(20), cy + S(70), card.Width - S(40), S(64)), MaxLines = 2 }
+                .Draw(name, UITheme.Text, 1f);
+            new UITextContainer { Bounds = new Rectangle(card.X + S(20), cy + S(130), card.Width - S(40), S(46)), MaxLines = 1 }
+                .Draw($"{_animations[_selected].TotalFrames} frames  |  {_animations[_selected].fps} fps", UITheme.TextMuted, .9f);
+            _previous.Draw(); _next.Draw(); _edit.Draw(true); _export.Draw();
         }
 
         public void LoadAnimations()
         {
-            DisposePreviewAnimations();
-            projects = new List<string>();
-            animations = new List<Animation.Animation>();
-            currentPreview = 0;
-            previewFrame = 0;
-            timePlaying = 0;
-
-            foreach (string saveFilename in Directory.GetFiles("Projects", "*.fbf"))
+            DisposeAnimations(); _projectFiles.Clear(); _selected = 0; _previewFrame = 0; _previewTimer = 0;
+            foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
             {
-                try
-                {
-                    Animation.Animation savedAnimation = SaveService.LoadAnimation(saveFilename);
-                    projects.Add(saveFilename);
-                    animations.Add(savedAnimation);
-                }
-                catch (Exception exception)
-                {
-                    Debug.WriteLine($"Skipping invalid save '{saveFilename}': {exception.Message}");
-                }
+                try { _projectFiles.Add(file); _animations.Add(SaveService.LoadAnimation(file)); }
+                catch (Exception ex) { Debug.WriteLine($"Skipping invalid save '{file}': {ex.Message}"); }
             }
         }
 
-        private Rectangle GetPreviewBounds()
+        private void SelectRelative(int delta)
         {
-            return new Rectangle(
-                GlobalParameters.screenWidth / 2 - 150,
-                GlobalParameters.screenHeight / 2 - 150,
-                300,
-                300);
-        }
-
-        private Rectangle GetEditButtonBounds()
-        {
-            return new Rectangle(GlobalParameters.screenWidth / 2 - 155, GlobalParameters.screenHeight / 2 + 175, 145, 48);
-        }
-
-        private Rectangle GetExportButtonBounds()
-        {
-            return new Rectangle(GlobalParameters.screenWidth / 2 + 10, GlobalParameters.screenHeight / 2 + 175, 145, 48);
-        }
-
-        private void DrawActionButton(Rectangle bounds, string label)
-        {
-            bool isHovered = bounds.Contains(GlobalParameters.GlobalMouse.newMousePos);
-            Color buttonColor = isHovered ? new Color(255, 180, 90) : new Color(220, 110, 0);
-            GlobalParameters.GlobalSpriteBatch.Draw(_actionButtonTexture, bounds, buttonColor);
-
-            Vector2 labelSize = GlobalParameters.font.MeasureString(label);
-            Vector2 labelPosition = new Vector2(
-                bounds.X + (bounds.Width - labelSize.X) / 2,
-                bounds.Y + (bounds.Height - labelSize.Y) / 2);
-            GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, label, labelPosition, Color.White);
+            if (_animations.Count == 0) return;
+            _selected = (_selected + delta + _animations.Count) % _animations.Count; _previewFrame = 0; _previewTimer = 0;
         }
 
         private void OpenSelectedProject()
         {
-            if (animations == null || animations.Count == 0)
-            {
-                return;
-            }
-
+            if (_animations.Count == 0) return;
             try
             {
-                Animation.Animation loadedAnimation = SaveService.LoadAnimation(projects[currentPreview]);
-                DrawingScene drawingScene = (DrawingScene)GlobalParameters.Scenes["Drawing Scene"];
-                drawingScene.LoadAnimation(loadedAnimation);
-                GlobalParameters.CurrentScene = drawingScene;
+                Animation.Animation loaded = SaveService.LoadAnimation(_projectFiles[_selected]);
+                DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
+                drawing.LoadAnimation(loaded); GlobalParameters.CurrentScene = drawing;
             }
-            catch (Exception exception)
-            {
-                Debug.WriteLine($"Unable to open project '{projects[currentPreview]}': {exception.Message}");
-            }
+            catch (Exception ex) { Debug.WriteLine($"Unable to open project: {ex.Message}"); }
         }
 
-        private void ExportSelectedProject()
+        private void ExportSelectedProject() { if (_animations.Count > 0) SaveService.ExportAnimation(_animations[_selected]); }
+        private void OpenProjectFolder()
         {
-            if (animations == null || animations.Count == 0)
-                return;
-
-            try
-            {
-                SaveService.ExportAnimation(animations[currentPreview]);
-            }
-            catch (Exception exception)
-            {
-                Debug.WriteLine($"Unable to export project '{projects[currentPreview]}': {exception.Message}");
-            }
+            try { Process.Start(new ProcessStartInfo { FileName = Path.GetFullPath("Projects"), UseShellExecute = true, Verb = "open" }); }
+            catch (Exception ex) { Debug.WriteLine(ex.Message); }
         }
-
-        private void DisposePreviewAnimations()
-        {
-            if (animations == null) return;
-
-            foreach (Animation.Animation animation in animations)
-            {
-                animation?.Dispose();
-            }
-
-            animations.Clear();
-        }
-
-        public override void Dispose()
-        {
-            DisposePreviewAnimations();
-            _borderTexture?.Dispose();
-            _borderTexture = null;
-            _actionButtonTexture?.Dispose();
-            _actionButtonTexture = null;
-            projects?.Clear();
-            _textures?.Clear();
-        }
+        private void GoHome() { GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE]; }
+        private void DisposeAnimations() { foreach (Animation.Animation animation in _animations) animation.Dispose(); _animations.Clear(); }
+        public override void Dispose() => DisposeAnimations();
     }
 }

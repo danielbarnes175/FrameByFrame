@@ -1,82 +1,65 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 using FrameByFrame.src.UI;
-using FrameByFrame.src.UI.Components.Buttons;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
     public class MenuScene : BaseScene
     {
-        private List<BasicTexture> _textures;
-        private List<UIElement> _uiElements;
-
-        private BasicTexture _logo;
-        private bool cannotLoadProjects;
-
-        public MenuScene()
-        {
-            _textures = new List<BasicTexture>();
-            _uiElements = new List<UIElement>();
-            cannotLoadProjects = false;
-        }
+        private UIActionButton _newButton;
+        private UIActionButton _projectsButton;
 
         public override void LoadContent()
         {
-            Vector2 projectsButtonLocation = new Vector2(GlobalParameters.screenWidth / 2 - 300, GlobalParameters.screenHeight / 2);
-            Vector2 drawButtonLocation = new Vector2(GlobalParameters.screenWidth / 2 + 15, GlobalParameters.screenHeight / 2);
-            _uiElements.Add(new RedirectButton("Projects Scene", "Static\\MenuScene/button_view-animations", projectsButtonLocation, new Vector2(280, 54)));
-            _uiElements.Add(new RedirectButton("Drawing Scene", "Static\\MenuScene/button_new-animation", drawButtonLocation, new Vector2(285, 54)));
-            _logo = new BasicTexture("Static\\MenuScene/logo", new Vector2(0, 0), new Vector2(400, 400));
+            _newButton = new UIActionButton("Create new animation", OpenDrawing);
+            _projectsButton = new UIActionButton("Open a project", OpenProjects);
+        }
+
+        private void Layout()
+        {
+            int centerX = GlobalParameters.screenWidth / 2;
+            int cardWidth = Math.Min(UILayoutEngine.Scale(820), GlobalParameters.screenWidth - UILayoutEngine.Scale(80));
+            int cardX = centerX - cardWidth / 2;
+            int cardY = GlobalParameters.screenHeight / 2 - UILayoutEngine.Scale(250);
+            int buttonWidth = (cardWidth - UILayoutEngine.Scale(116)) / 2;
+            int y = cardY + UILayoutEngine.Scale(342);
+            _newButton.Bounds = new Rectangle(cardX + UILayoutEngine.Scale(50), y, buttonWidth, UILayoutEngine.Scale(64));
+            _projectsButton.Bounds = new Rectangle(cardX + UILayoutEngine.Scale(66) + buttonWidth, y, buttonWidth, UILayoutEngine.Scale(64));
         }
 
         public override void Update(GameTime gameTime)
         {
-            foreach (UIElement element in _uiElements)
-            {
-                element.Update();
-            }
+            Layout(); UIPointerRouter.BeginFrame(); _newButton.Update(); _projectsButton.Update();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O")) OpenDrawing();
+        }
 
-            if (GlobalParameters.GlobalKeyboard.GetPress("O"))
-            {
-                ((DrawingScene)GlobalParameters.Scenes["Drawing Scene"]).loadedScene = false;
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Drawing Scene"];
-            }
-            base.Update(gameTime);
+        private void OpenDrawing()
+        {
+            DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
+            drawing.BeginNewAnimation();
+            GlobalParameters.CurrentScene = drawing;
+        }
+
+        private void OpenProjects()
+        {
+            ProjectsScene projects = (ProjectsScene)GlobalParameters.Scenes[UIConstants.PROJECTS_SCENE];
+            projects.LoadAnimations();
+            GlobalParameters.CurrentScene = projects;
         }
 
         public override void Draw(Vector2 offset)
         {
-            _logo.Draw(new Vector2(GlobalParameters.screenWidth / 2 - 200, GlobalParameters.screenHeight / 2 - 400), new Vector2(0, 0));
-
-            foreach (UIElement element in _uiElements)
-            {
-                element.Draw(offset, new Vector2(0, 0));
-            }
-
-            foreach (BasicTexture texture in _textures)
-            {
-                texture.Draw(offset);
-            }
-
-            if (cannotLoadProjects)
-            {
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, "No projects found", new Vector2(GlobalParameters.screenWidth / 2 - 250, GlobalParameters.screenHeight / 2 + 40), Color.Black);
-            }
-            base.Draw(offset);
-        }
-
-        public override void Dispose()
-        {
-            _textures.Clear();
-            _uiElements.Clear();
-            _logo = null;
+            GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
+            int centerX = GlobalParameters.screenWidth / 2;
+            int cardWidth = Math.Min(UILayoutEngine.Scale(820), GlobalParameters.screenWidth - UILayoutEngine.Scale(80));
+            Rectangle glow = new(centerX - cardWidth / 2, GlobalParameters.screenHeight / 2 - UILayoutEngine.Scale(250), cardWidth, UILayoutEngine.Scale(440));
+            UIRenderer.Fill(glow, UITheme.Surface);
+            UIRenderer.Border(glow, UITheme.Border, 2);
+            new UITextContainer { Bounds = new Rectangle(glow.X + UILayoutEngine.Scale(24), glow.Y + UILayoutEngine.Scale(40), glow.Width - UILayoutEngine.Scale(48), UILayoutEngine.Scale(80)), MaxLines = 1 }
+                .Draw("FRAME BY FRAME", UITheme.Primary, 1.55f);
+            new UITextContainer { Bounds = new Rectangle(glow.X + UILayoutEngine.Scale(40), glow.Y + UILayoutEngine.Scale(125), glow.Width - UILayoutEngine.Scale(80), UILayoutEngine.Scale(58)), MaxLines = 2 }
+                .Draw("Bring your ideas to life", UITheme.Text, 1f);
+            _newButton.Draw(true); _projectsButton.Draw();
         }
     }
 }

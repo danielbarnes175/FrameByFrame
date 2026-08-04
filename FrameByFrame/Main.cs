@@ -5,6 +5,7 @@ using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Input;
 using FrameByFrame.src.Engine.Scenes;
 using FrameByFrame.src.Engine.Services;
+using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -49,15 +50,13 @@ namespace FrameByFrame
 
             this.IsMouseVisible = true;
 
-            // Basic resizing is implemented, but not for every element, and it's buggy, so it's disabled.
-            this.Window.AllowUserResizing = false;
+            this.Window.AllowUserResizing = true;
             this.Window.ClientSizeChanged += new EventHandler<EventArgs>(OnResize);
 
             GlobalParameters.Scenes = new Dictionary<string, BaseScene>
             {
                 { "Menu Scene", new MenuScene() },
                 { "Projects Scene", new ProjectsScene() },
-                { "Settings Scene", new SettingsScene() },
                 { "Drawing Scene", new DrawingScene() }
             };
 
@@ -80,6 +79,7 @@ namespace FrameByFrame
 
             GlobalParameters.CurrentColor = Color.Black;
             GlobalParameters.font = Content.Load<SpriteFont>("Static\\Roboto");
+            GlobalParameters.uiFont = Content.Load<SpriteFont>("UIFont");
 
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -147,15 +147,16 @@ namespace FrameByFrame
 
         private void OnResize(object sender, EventArgs e)
         {
-            GlobalParameters.screenWidth = GraphicsDevice.Viewport.Width;
-            GlobalParameters.screenHeight = GraphicsDevice.Viewport.Height;
+            GlobalParameters.screenWidth = Math.Max(UITheme.MinWidth, GraphicsDevice.Viewport.Width);
+            GlobalParameters.screenHeight = Math.Max(UITheme.MinHeight, GraphicsDevice.Viewport.Height);
 
             GlobalParameters.scaleX = Math.Max(GlobalParameters.screenWidth / 1600f, 0.5f);
             GlobalParameters.scaleY = Math.Max(GlobalParameters.screenHeight / 900f, 0.5f);
 
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
-            graphics.ApplyChanges();
+            if (GraphicsDevice.Viewport.Width < UITheme.MinWidth || GraphicsDevice.Viewport.Height < UITheme.MinHeight)
+                graphics.ApplyChanges();
         }
     }
 

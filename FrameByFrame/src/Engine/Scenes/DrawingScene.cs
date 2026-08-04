@@ -1,7 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Services;
 using FrameByFrame.src.Engine.UI;
@@ -14,28 +12,18 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class DrawingScene : BaseScene
     {
-        // Frame Management
         public Animation.Animation animation;
-
-        // Tools
         public DrawingTools drawingTool;
-
-        // UI
         private List<UIElement> components;
-
-        // Project Info
+        private int _layoutWidth;
+        private int _layoutHeight;
         public bool loadedScene;
 
-        public DrawingScene()
-        {
-            InitializeDefaults();
-        }
+        public DrawingScene() => InitializeDefaults();
 
         private void InitializeDefaults()
         {
-            string projectName = $"Project_{DateTime.Now:yyyyMMdd_HHmmss}";
-
-            animation = new Animation.Animation(projectName);
+            animation = new Animation.Animation($"Project_{DateTime.Now:yyyyMMdd_HHmmss}");
             drawingTool = DrawingTools.DRAW;
             loadedScene = false;
         }
@@ -43,29 +31,18 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void LoadContent()
         {
             SetupUI();
-            animation.InitializeFrames();
+            if (animation.TotalFrames == 0) animation.InitializeFrames();
         }
 
         public Color GetSelectedColorFromColorWheel()
         {
             foreach (UIElement element in components)
             {
-                if (element is DrawingNavbarComponent navbar)
-                {
-                    foreach (UIElement navbarElement in navbar.uiElements)
-                    {
-                        if (navbarElement is PopupButton popupButton)
-                        {
-                            if (popupButton.target is ColorWheelComponent colorWheel)
-                            {
-                                return colorWheel.SelectedColor;
-                            }
-                        }
-                    }
-                }
+                if (element is not DrawingNavbarComponent navbar) continue;
+                foreach (UIElement navbarElement in navbar.uiElements)
+                    if (navbarElement is PopupButton { target: ColorWheelComponent colorWheel })
+                        return colorWheel.SelectedColor;
             }
-
-            // Default color if no ColorWheel is found or no color is selected
             return Color.Black;
         }
 
@@ -73,102 +50,54 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             UIInteractionManager.Clear();
             components = [];
-            Texture2D navbarBG = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth, 50, pixel => Color.Orange, Shapes.RECTANGLE);
-            DrawingNavbarComponent navbar = new DrawingNavbarComponent(navbarBG, new Vector2(0, 0), new Vector2(GlobalParameters.screenWidth, 50), animation);
-
-            components.Add(navbar);
+            Texture2D background = TextureManager.GetOrCreateColorTexture(
+                GlobalParameters.GlobalGraphics, Color.White, GlobalParameters.screenWidth);
+            components.Add(new DrawingNavbarComponent(background, Vector2.Zero,
+                new Vector2(GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT), animation));
+            _layoutWidth = GlobalParameters.screenWidth;
+            _layoutHeight = GlobalParameters.screenHeight;
         }
 
         public override void Update(GameTime gameTime)
         {
+            if (_layoutWidth != GlobalParameters.screenWidth || _layoutHeight != GlobalParameters.screenHeight)
+                SetupUI();
             HandleKeyboardShortcuts();
-            
-            // Update UI elements first
-            foreach (UIElement element in components)
-            {
-                element.Update();
-            }
-            
-            // Update UI interaction manager
+            foreach (UIElement element in components) element.Update();
             UIInteractionManager.Update();
-            
             HandleMouseShortcuts();
             animation.Animate(gameTime);
-
-            base.Update(gameTime);
         }
 
         public override void Draw(Vector2 offset)
         {
-            GlobalParameters.GlobalGraphics.Clear(new Color(45, 45, 45));
-
+            GlobalParameters.GlobalGraphics.Clear(UIConstants.BACKGROUND_DARK);
             animation.DrawCurrentFrame();
-
-            foreach (UIElement element in components)
-            {
-                element.Draw(offset, new Vector2(0, 0));
-            }
-
-            // Display memory usage only in debug mode
+            foreach (UIElement element in components) element.Draw(offset, Vector2.Zero);
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
-
-            base.Draw(offset);
         }
-
 
         private void HandleMouseShortcuts()
         {
-            // So we don't start drawing until we load the scene
-            if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene)
-            {
-                loadedScene = true;
-                return;
-            }
-
-            // Check if UI is blocking drawing input
-            if (UIInteractionManager.IsUIBlocking())
-            {
-                return; // Don't draw if UI is being interacted with
-            }
-            
-            // Additional check for navbar area
-            Rectangle navbarArea = new Rectangle(0, 0, GlobalParameters.screenWidth, 50);
-            if (UIInteractionManager.IsMouseOverNavbar(navbarArea))
-            {
-                return; // Don't draw if mouse is over navbar
-            }
-
-            // Draw on current frame
-            if (GlobalParameters.GlobalMouse.LeftClickHold() && loadedScene)
-            {
-                switch (drawingTool)
-                {
-                    case DrawingTools.DRAW:
-                        Color selectedColor = GetSelectedColorFromColorWheel();
-                        animation.DrawOnCurrentLayer(selectedColor);
-                        break;
-                    case DrawingTools.ERASER:
-                        animation.DrawOnCurrentLayer(Color.Transparent);
-                        break;
-                }
-            }
+            if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene) { loadedScene = true; return; }
+            Rectangle navbar = new(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT);
+            if (UIInteractionManager.IsUIBlocking() || UIInteractionManager.IsMouseOverNavbar(navbar)) return;
+            if (!GlobalParameters.GlobalMouse.LeftClickHold() || !loadedScene) return;
+            animation.DrawOnCurrentLayer(drawingTool == DrawingTools.ERASER ? Color.Transparent : GetSelectedColorFromColorWheel());
         }
 
-        private void ResetScene()
+        public void BeginNewAnimation()
         {
             UIInteractionManager.Clear();
-
-            // Dispose old animation to free memory
             animation?.Dispose();
-            
             InitializeDefaults();
-            LoadContent();
+            animation.InitializeFrames();
+            SetupUI();
         }
 
         public void LoadAnimation(Animation.Animation loadedAnimation)
         {
             ArgumentNullException.ThrowIfNull(loadedAnimation);
-
             UIInteractionManager.Clear();
             animation?.Dispose();
             animation = loadedAnimation;
@@ -187,83 +116,21 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void HandleKeyboardShortcuts()
         {
-            // Exit drawing
-            if (GlobalParameters.GlobalKeyboard.GetPress("ESC"))
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
             {
-                ResetScene();
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
-            }
-
-            // Delete current frame
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
-            {
-                animation.DeleteFrame();
-            }
-
-            // Toggle animation playing
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("P"))
-            {
-                animation.TogglePlaying();
-            }
-
-            // Switch to settings scene
-            if (GlobalParameters.GlobalKeyboard.GetPress("W"))
-            {
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes["Settings Scene"];
                 animation.Stop();
+                GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
             }
-
-            // Erase current layer
-            if (GlobalParameters.GlobalKeyboard.GetPress("BACKSPACE"))
-            {
-                animation.EraseCurrentLayer();
-            }
-
-            // Toggle Onion Skin
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O"))
-                animation.isOnionSkinEnabled = !animation.isOnionSkinEnabled;
-
-            // Load next frame
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("M"))
-            {
-                animation.NextFrame();
-            }
-
-            // Load previous frame
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("N"))
-            {
-                animation.PreviousFrame();
-            }
-
-            // Insert a frame
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("B"))
-            {
-                animation.InsertFrame();
-            }
-
-            // Save animation
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("L"))
-            {
-                SaveService.SaveAnimation(animation);
-            }
-
-            // Brush size controls
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("["))
-            {
-                if (animation.brushSize > UIConstants.MIN_BRUSH_SIZE)
-                {
-                    animation.brushSize--;
-                }
-            }
-
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("]"))
-            {
-                if (animation.brushSize < UIConstants.MAX_BRUSH_SIZE)
-                {
-                    animation.brushSize++;
-                }
-            }
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE")) animation.DeleteFrame();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("P")) animation.TogglePlaying();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("BACKSPACE")) animation.EraseCurrentLayer();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O")) animation.isOnionSkinEnabled = !animation.isOnionSkinEnabled;
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("M")) animation.NextFrame();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("N")) animation.PreviousFrame();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("B")) animation.InsertFrame();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("L")) SaveService.SaveAnimation(animation);
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("[") && animation.brushSize > UIConstants.MIN_BRUSH_SIZE) animation.brushSize--;
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("]") && animation.brushSize < UIConstants.MAX_BRUSH_SIZE) animation.brushSize++;
         }
-
     }
 }
