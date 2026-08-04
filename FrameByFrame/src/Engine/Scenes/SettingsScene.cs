@@ -178,8 +178,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void CheckOtherButtons()
         {
-
-            if (!GlobalParameters.GlobalMouse.LeftClickHold()) return;
+            // Actions such as exporting should fire once per click, not once per
+            // update while the mouse button remains held down.
+            if (!GlobalParameters.GlobalMouse.LeftClick()) return;
             Vector2 clickPosition = GlobalParameters.GlobalMouse.newMousePos;
             if (clickPosition.X > 1410 && clickPosition.X < 1580 && clickPosition.Y > 810 && clickPosition.Y < 860)
             {

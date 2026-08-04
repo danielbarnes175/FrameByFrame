@@ -55,11 +55,8 @@ namespace FrameByFrame.src.Engine.Scenes
         [DebuggerNonUserCode]
         private Texture2D getTextureFromPng(string filename)
         {
-            FileStream setStream = File.Open(filename, FileMode.Open);
-
-            Texture2D NewTexture = Texture2D.FromStream(GlobalParameters.GlobalGraphics, setStream);
-            setStream.Dispose();
-            return NewTexture;
+            using FileStream setStream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return Texture2D.FromStream(GlobalParameters.GlobalGraphics, setStream);
         }
 
         public override void Update(GameTime gameTime)
@@ -125,8 +122,9 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (animations.Count > 0)
             {
-                animations[currentPreview].GetFrameAtIndex(previewFrame).DrawCombinedTexture(1.0f);
-                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, string.Concat("Current Project Shown: ", projects[currentPreview].AsSpan(9)), new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
+                Frame frame = animations[currentPreview].GetFrameAtIndex(previewFrame);
+                frame?.DrawCombinedTexture(1.0f);
+                GlobalParameters.GlobalSpriteBatch.DrawString(GlobalParameters.font, $"Current Project Shown: {Path.GetFileName(projects[currentPreview])}", new Vector2(GlobalParameters.screenWidth - 372, GlobalParameters.screenHeight - 80), Color.Black);
             }
             else
             {
@@ -169,30 +167,58 @@ namespace FrameByFrame.src.Engine.Scenes
         public void LoadAnimations()
         {
             LoadProjects();
+            List<string> discoveredProjects = projects;
+            projects = new List<string>();
             animations = new List<Animation.Animation>();
-            for (int i = 0; i < projects.Count; i++)
+            currentPreview = 0;
+            previewFrame = 0;
+            timePlaying = 0;
+
+            foreach (string projectDirectory in discoveredProjects)
             {
                 Animation.Animation animation = new Animation.Animation("temp");
 
                 int frameCounter = 0;
-                while (true)
+                try
                 {
-                    string filename = projects[i] + "/Frame_" + frameCounter + ".png";
-                    if (!File.Exists(filename)) break;
+                    while (true)
+                    {
+                        string filename = Path.Combine(projectDirectory, $"Frame_{frameCounter}.png");
+                        if (!File.Exists(filename)) break;
 
-                    Vector2 position = new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2);
-                    Vector2 dimensions = new Vector2(300, 300);
-                    Texture2D pngTexture = getTextureFromPng(filename);
+                        Vector2 position = new Vector2(GlobalParameters.screenWidth / 2, GlobalParameters.screenHeight / 2);
+                        Vector2 dimensions = new Vector2(300, 300);
+                        Texture2D pngTexture = getTextureFromPng(filename);
 
-                    Frame frame = new Frame(position, dimensions);
-                    BasicTexture texture = new BasicTexture(pngTexture, position, dimensions);
-                    frame.CombinedTexture = texture;
+                        Frame frame = new Frame(position, dimensions);
+                        BasicTexture texture = new BasicTexture(pngTexture, position, dimensions);
+                        frame.CombinedTexture = texture;
 
-                    animation.AddFrame(frame);
-                    frameCounter++;
+                        animation.AddFrame(frame);
+                        frameCounter++;
+                    }
                 }
+                catch (Exception exception)
+                {
+                    foreach (Frame frame in animation.frames)
+                    {
+                        frame.CombinedTexture?.texture?.Dispose();
+                    }
+                    animation.Dispose();
+                    Debug.WriteLine($"Skipping invalid project '{projectDirectory}': {exception.Message}");
+                    continue;
+                }
+
+                // Ignore empty directories so the preview never attempts to draw
+                // a nonexistent first frame.
+                if (animation.TotalFrames == 0)
+                {
+                    animation.Dispose();
+                    continue;
+                }
+
+                projects.Add(projectDirectory);
                 animations.Add(animation);
-                Debug.WriteLine(animations.ToArray().ToString());
             }
         }
     }
