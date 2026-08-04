@@ -5,7 +5,11 @@
 Frame by Frame is a simple animation program for creating frame by frame animations.
 
 ## Features
-![image](https://github.com/user-attachments/assets/abd42596-8c6f-4c85-9a26-08fa2c4dce91)
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/bd0825c1-f058-4353-8182-4e947430afd0" />
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/c10c4d92-a1e4-4451-9275-a29e7435b2ba" />
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/346b486e-4317-47db-8a6c-fe768feb2236" />
+
+
 
 - Onion skinning for easy frame-by-frame animation
 - Multiple layers support
