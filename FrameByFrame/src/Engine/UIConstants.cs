@@ -36,7 +36,6 @@ namespace FrameByFrame.src.Engine
         // Scene names
         public const string MENU_SCENE = "Menu Scene";
         public const string DRAWING_SCENE = "Drawing Scene";
-        public const string SETTINGS_SCENE = "Settings Scene";
         public const string PROJECTS_SCENE = "Projects Scene";
     }
 }

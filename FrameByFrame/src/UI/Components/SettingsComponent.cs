@@ -25,8 +25,6 @@ namespace FrameByFrame.src.UI.Components
             texture = TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, UITheme.Surface, Math.Max((int)dimensions.X, (int)dimensions.Y));
             this.SetColorData();
 
-            // Add UIElements to container
-            //"Static\\SettingsScene/Onion"
             _animation = ((DrawingScene)(GlobalParameters.Scenes["Drawing Scene"])).animation;
             container.uiElements.Add(new OnionSkinToggleButton("Static\\SettingsScene/onion_selected", "Static\\SettingsScene/Onion", _animation.isOnionSkinEnabled, new Vector2(position.X + 28, position.Y + 86), new Vector2(48, 48)));
 
@@ -59,7 +57,6 @@ namespace FrameByFrame.src.UI.Components
             saveButton.text = "SAVE PROJECT";
             saveButton.textColor = Color.White;
             container.uiElements.Add(saveButton);
-            //container.uiElements.Add(new Slider(new Vector2(position.X + 10, position.Y + 130), new Vector2(50, 200), 1, 10, 5));
         }
         public override void Update()
         {

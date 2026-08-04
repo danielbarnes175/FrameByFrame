@@ -77,7 +77,6 @@ namespace FrameByFrame
             GlobalParameters.GlobalKeyboard = new KeyboardController();
             GlobalParameters.GlobalMouse = new MouseController();
 
-            GlobalParameters.CurrentColor = Color.Black;
             GlobalParameters.font = Content.Load<SpriteFont>("Static\\Roboto");
             GlobalParameters.uiFont = Content.Load<SpriteFont>("UIFont");
 

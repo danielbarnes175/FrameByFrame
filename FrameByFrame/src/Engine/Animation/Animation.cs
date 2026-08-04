@@ -113,30 +113,9 @@ namespace FrameByFrame.src.Engine.Animation
             return _framesList[index];
         }
 
-        public void AddFrame(Frame frame)
-        {
-            frames.AddLast(frame);
-            _framesCacheValid = false;
-        }
-
         private void InvalidateFrameCache()
         {
             _framesCacheValid = false;
-        }
-
-        public void DeleteCurrentFrame()
-        {
-            if (frames.Count <= 1) return; // Cannot delete the last remaining frame
-
-            var frameToRemove = currentFrame;
-            currentFrame = currentFrame.Previous ?? currentFrame.Next;
-            
-            // Dispose the frame to free memory
-            frameToRemove.Value?.Dispose();
-            
-            frames.Remove(frameToRemove);
-            CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
-            InvalidateFrameCache();
         }
 
         public void FirstFrame()

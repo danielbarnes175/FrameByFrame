@@ -30,6 +30,5 @@ namespace FrameByFrame.src
         public static SpriteFont font;
         public static SpriteFont uiFont;
 
-        public static Color CurrentColor;
     }
 }
