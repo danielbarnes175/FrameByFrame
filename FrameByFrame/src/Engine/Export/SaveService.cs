@@ -49,7 +49,22 @@ namespace FrameByFrame.src.Engine.Export
                 SaveTextureAsPng(frameFilename, texture);
             }
 
+            RemoveObsoleteFrameFiles(projectDirectory, animation.frames.Count);
             CreateGif(animation, projectDirectory);
+        }
+
+        private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
+        {
+            foreach (string filename in Directory.EnumerateFiles(projectDirectory, "Frame_*.png"))
+            {
+                string fileStem = Path.GetFileNameWithoutExtension(filename);
+                string indexText = fileStem["Frame_".Length..];
+
+                if (int.TryParse(indexText, out int frameIndex) && frameIndex >= frameCount)
+                {
+                    File.Delete(filename);
+                }
+            }
         }
 
         private static void SaveTextureAsPng(string filename, RenderTarget2D texture)
