@@ -129,6 +129,10 @@ namespace FrameByFrame.src.Engine.Input
                     return Keys.Delete;
                 case "BACKSPACE":
                     return Keys.Back;
+                case "[":
+                    return Keys.OemOpenBrackets;
+                case "]":
+                    return Keys.OemCloseBrackets;
             }
 
             return Keys.Sleep;
