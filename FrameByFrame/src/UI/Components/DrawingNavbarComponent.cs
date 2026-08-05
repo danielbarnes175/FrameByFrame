@@ -423,7 +423,9 @@ namespace FrameByFrame.src.UI.Components
                 bool selected = _animation.SelectedLayerId == layer.Id;
                 UIRenderer.Fill(row, selected ? UITheme.Primary : UITheme.SurfaceRaised);
                 Rectangle visibility = new(row.X, row.Y, 44, row.Height);
-                new UITextContainer { Bounds = visibility, MaxLines = 1 }.Draw(layer.IsVisible ? "ON" : "OFF", selected ? Color.White : UITheme.Text, .6f);
+                Rectangle visibilityBox = new(visibility.Center.X - 9, visibility.Center.Y - 9, 18, 18);
+                UIRenderer.Fill(visibilityBox, layer.IsVisible ? Color.White : Color.Black);
+                UIRenderer.Border(visibilityBox, layer.IsVisible ? Color.Black : Color.White, 2);
                 Rectangle nameBounds = new(row.X + 44, row.Y, row.Width - 44, row.Height);
                 string status = $"{(layer.IsLocked ? "Locked - " : "")}{layer.Name}";
                 new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
