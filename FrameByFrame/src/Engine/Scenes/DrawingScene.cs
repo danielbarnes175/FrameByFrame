@@ -39,13 +39,13 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _navbar = new DrawingNavbarComponent(animation);
-            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT));
+            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
 
         public override void Update(GameTime gameTime)
         {
             UIPointerRouter.BeginFrame();
-            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UIConstants.NAVBAR_HEIGHT));
+            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
             HandleKeyboardShortcuts();
             _navbar.Update();
             HandleMouseShortcuts();
@@ -54,7 +54,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
-            GlobalParameters.GlobalGraphics.Clear(UIConstants.BACKGROUND_DARK);
+            GlobalParameters.GlobalGraphics.Clear(UITheme.CanvasStage);
             animation.DrawCurrentFrame();
             _navbar.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);

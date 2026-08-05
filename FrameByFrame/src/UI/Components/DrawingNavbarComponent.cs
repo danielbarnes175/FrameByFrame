@@ -11,6 +11,38 @@ namespace FrameByFrame.src.UI.Components
 {
     public sealed class DrawingNavbarComponent : UIElement, IDisposable
     {
+        private static class Layout
+        {
+            public const int OuterPadding = 12;
+            public const int IconSize = 32;
+            public const int ItemGap = 8;
+            public const int IconStep = IconSize + ItemGap;
+            public const int PrimaryControlGap = 10;
+            public const int FrameCounterGap = 14;
+            public const int TrailingControlGap = 12;
+            public const int ToolGroupGap = 24;
+            public const int HomeWidth = 112;
+            public const int ControlHeight = 40;
+            public const int FrameCounterWidth = 140;
+            public const int BrushSliderWidth = 140;
+            public const int PopoverTop = UITheme.AppBarHeight + ItemGap;
+            public const int PopoverEdge = UITheme.SpaceSm;
+            public const int HelpWidth = 520;
+            public const int HelpHeight = 410;
+            public const int SettingsWidth = 450;
+            public const int SettingsHeight = 330;
+            public const int ColorWidth = 236;
+            public const int ColorHeight = 200;
+            public const int LayersWidth = 200;
+            public const int LayersHeight = 150;
+            public const int MaxPlaybackFps = 60;
+            public const int SwatchSize = IconSize;
+            public const int ColorWheelDiameter = 200;
+            public const int ValueStripX = 208;
+            public const int ValueStripWidth = 28;
+            public const int ProjectLabelMinScreenWidth = 1200;
+        }
+
         private enum PopoverKind { None, Help, Settings, Color, Layers }
 
         private readonly Animation _animation;
@@ -33,7 +65,8 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIPopover _layersPopover = new();
         private readonly Texture2D _colorWheelTexture;
         private readonly Texture2D _swatchTexture;
-        private readonly Color[] _swatchPixels = new Color[32 * 32];
+        private readonly Color[] _swatchPixels = new Color[Layout.SwatchSize * Layout.SwatchSize];
+        private Rectangle _frameCounterBounds;
         private PopoverKind _openPopover;
         private Color _selectedColor = Color.Black;
         private float _selectedHue;
@@ -50,7 +83,7 @@ namespace FrameByFrame.src.UI.Components
             _settings = Icon("Static\\DrawingScene/gear", () => Toggle(PopoverKind.Settings), "Animation settings");
             _layers = Icon("Static\\DrawingScene/layers", () => Toggle(PopoverKind.Layers), "Layers");
 
-            _swatchTexture = new Texture2D(GlobalParameters.GlobalGraphics, 32, 32);
+            _swatchTexture = new Texture2D(GlobalParameters.GlobalGraphics, Layout.SwatchSize, Layout.SwatchSize);
             UpdateColorSwatch();
             _color = new UIIconButton(_swatchTexture, () => Toggle(PopoverKind.Color)) { Tooltip = "Brush color" };
 
@@ -70,9 +103,9 @@ namespace FrameByFrame.src.UI.Components
             _onionSkin = new UIToggle(_animation.isOnionSkinEnabled,
                 value => _animation.isOnionSkinEnabled = value);
             _fpsDown = new UIActionButton("-", () => _animation.fps = Math.Max(1, _animation.fps - 1));
-            _fpsUp = new UIActionButton("+", () => _animation.fps = Math.Min(60, _animation.fps + 1));
+            _fpsUp = new UIActionButton("+", () => _animation.fps = Math.Min(Layout.MaxPlaybackFps, _animation.fps + 1));
             _save = new UIActionButton("SAVE PROJECT", () => SaveService.SaveAnimation(_animation));
-            _colorWheelTexture = GenerateColorPickerTexture(236, 200);
+            _colorWheelTexture = GenerateColorPickerTexture(Layout.ColorWidth, Layout.ColorHeight);
         }
 
         private UIIconButton Icon(string asset, Action action, string tooltip) =>
@@ -100,33 +133,39 @@ namespace FrameByFrame.src.UI.Components
         public override void Arrange(Rectangle bounds)
         {
             base.Arrange(bounds);
-            const int y = 16;
-            _home.Arrange(new Rectangle(12, 12, 112, 40));
-            _help.Arrange(new Rectangle(134, y, 32, 32));
-            _settings.Arrange(new Rectangle(176, y, 32, 32));
+            int iconY = bounds.Y + (bounds.Height - Layout.IconSize) / 2;
+            int controlY = bounds.Y + (bounds.Height - Layout.ControlHeight) / 2;
+            int x = bounds.X + Layout.OuterPadding;
+            _home.Arrange(new Rectangle(x, controlY, Layout.HomeWidth, Layout.ControlHeight));
+            x = _home.Bounds.Right + Layout.PrimaryControlGap;
+            _help.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
+            x = _help.Bounds.Right + Layout.PrimaryControlGap;
+            _settings.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
 
-            Rectangle frameCounter = new(222, 12, 140, 40);
-            int x = frameCounter.Right + 12;
+            x = _settings.Bounds.Right + Layout.FrameCounterGap;
+            _frameCounterBounds = new Rectangle(x, controlY, Layout.FrameCounterWidth, Layout.ControlHeight);
+            x = _frameCounterBounds.Right + Layout.OuterPadding;
             foreach (UIIconButton button in _playback)
             {
-                button.Arrange(new Rectangle(x, y, 32, 32));
-                x += 40;
+                button.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
+                x += Layout.IconStep;
             }
-            _brushSize.Arrange(new Rectangle(x + 8, 12, 140, 40));
+            _brushSize.Arrange(new Rectangle(x + Layout.ItemGap, controlY, Layout.BrushSliderWidth, Layout.ControlHeight));
 
-            _color.Arrange(new Rectangle(bounds.Right - 48, y, 32, 32));
-            _layers.Arrange(new Rectangle(_color.Bounds.X - 44, y, 32, 32));
-            int toolX = _layers.Bounds.X - 48 - 32 * 4;
+            _color.Arrange(new Rectangle(bounds.Right - Layout.OuterPadding - Layout.IconSize, iconY, Layout.IconSize, Layout.IconSize));
+            _layers.Arrange(new Rectangle(_color.Bounds.X - Layout.IconSize - Layout.TrailingControlGap, iconY, Layout.IconSize, Layout.IconSize));
+            int toolGroupWidth = _tools.Count * Layout.IconSize + Math.Max(0, _tools.Count - 1) * Layout.ItemGap;
+            int toolX = _layers.Bounds.X - Layout.ToolGroupGap - toolGroupWidth;
             foreach (UIIconButton tool in _tools)
             {
-                tool.Arrange(new Rectangle(toolX, y, 32, 32));
-                toolX += 40;
+                tool.Arrange(new Rectangle(toolX, iconY, Layout.IconSize, Layout.IconSize));
+                toolX += Layout.IconStep;
             }
 
-            _helpPopover.Arrange(ClampPopover(new Rectangle(132, 72, 520, 410)));
-            _settingsPopover.Arrange(ClampPopover(new Rectangle(174, 72, 450, 330)));
-            _colorPopover.Arrange(ClampPopover(new Rectangle(bounds.Right - 248, 72, 236, 200)));
-            _layersPopover.Arrange(ClampPopover(new Rectangle(bounds.Right - 212, 72, 200, 150)));
+            _helpPopover.Arrange(ClampPopover(new Rectangle(_help.Bounds.X, Layout.PopoverTop, Layout.HelpWidth, Layout.HelpHeight)));
+            _settingsPopover.Arrange(ClampPopover(new Rectangle(_settings.Bounds.X, Layout.PopoverTop, Layout.SettingsWidth, Layout.SettingsHeight)));
+            _colorPopover.Arrange(ClampPopover(new Rectangle(_color.Bounds.Right - Layout.ColorWidth, Layout.PopoverTop, Layout.ColorWidth, Layout.ColorHeight)));
+            _layersPopover.Arrange(ClampPopover(new Rectangle(_layers.Bounds.Right - Layout.LayersWidth, Layout.PopoverTop, Layout.LayersWidth, Layout.LayersHeight)));
 
             Rectangle settings = _settingsPopover.Bounds;
             _onionSkin.Arrange(new Rectangle(settings.X + 28, settings.Y + 92, 48, 28));
@@ -137,9 +176,9 @@ namespace FrameByFrame.src.UI.Components
 
         private static Rectangle ClampPopover(Rectangle bounds)
         {
-            bounds.X = Math.Clamp(bounds.X, 8, Math.Max(8, GlobalParameters.screenWidth - bounds.Width - 8));
-            bounds.Y = Math.Clamp(bounds.Y, UIConstants.NAVBAR_HEIGHT + 8,
-                Math.Max(UIConstants.NAVBAR_HEIGHT + 8, GlobalParameters.screenHeight - bounds.Height - 8));
+            bounds.X = Math.Clamp(bounds.X, Layout.PopoverEdge, Math.Max(Layout.PopoverEdge, GlobalParameters.screenWidth - bounds.Width - Layout.PopoverEdge));
+            bounds.Y = Math.Clamp(bounds.Y, Layout.PopoverTop,
+                Math.Max(Layout.PopoverTop, GlobalParameters.screenHeight - bounds.Height - Layout.PopoverEdge));
             return bounds;
         }
 
@@ -202,9 +241,9 @@ namespace FrameByFrame.src.UI.Components
             Rectangle bounds = _colorPopover.Bounds;
             if (!UIPointerRouter.Held(_colorPopover, bounds)) return;
             Vector2 local = GlobalParameters.GlobalMouse.newMousePos - new Vector2(bounds.X, bounds.Y);
-            const int wheelDiameter = 200;
-            const int stripX = 208;
-            const int stripWidth = 28;
+            const int wheelDiameter = Layout.ColorWheelDiameter;
+            const int stripX = Layout.ValueStripX;
+            const int stripWidth = Layout.ValueStripWidth;
             float radius = (wheelDiameter - 1) / 2f;
             Vector2 offset = local - new Vector2(radius, radius);
             if (local.X >= 0 && local.Y >= 0 && local.X < wheelDiameter && local.Y < wheelDiameter && offset.Length() <= radius)
@@ -254,13 +293,14 @@ namespace FrameByFrame.src.UI.Components
         {
             const int outer = 15 * 15;
             const int inner = 13 * 13;
-            for (int y = 0; y < 32; y++)
-            for (int x = 0; x < 32; x++)
+            int center = Layout.SwatchSize / 2;
+            for (int y = 0; y < Layout.SwatchSize; y++)
+            for (int x = 0; x < Layout.SwatchSize; x++)
             {
-                int dx = x - 16;
-                int dy = y - 16;
+                int dx = x - center;
+                int dy = y - center;
                 int distance = dx * dx + dy * dy;
-                _swatchPixels[x + y * 32] = distance > outer ? Color.Transparent : distance >= inner ? Color.Black : _selectedColor;
+                _swatchPixels[x + y * Layout.SwatchSize] = distance > outer ? Color.Transparent : distance >= inner ? Color.Black : _selectedColor;
             }
             _swatchTexture.SetData(_swatchPixels);
         }
@@ -282,11 +322,10 @@ namespace FrameByFrame.src.UI.Components
             foreach (UIIconButton button in _playback) button.Draw();
             _brushSize.Draw();
 
-            Rectangle frame = new(222, 12, 140, 40);
-            UIRenderer.Fill(frame, UITheme.Primary);
-            new UITextContainer { Bounds = frame, MaxLines = 1 }.Draw($"{_animation.CurrentFrameIndex + 1} / {_animation.TotalFrames}", Color.White, .78f);
+            UIRenderer.Fill(_frameCounterBounds, UITheme.Primary);
+            new UITextContainer { Bounds = _frameCounterBounds, MaxLines = 1 }.Draw($"{_animation.CurrentFrameIndex + 1} / {_animation.TotalFrames}", Color.White, .78f);
 
-            if (GlobalParameters.screenWidth >= 1200)
+            if (GlobalParameters.screenWidth >= Layout.ProjectLabelMinScreenWidth)
             {
                 int labelX = _brushSize.Bounds.Right + 8;
                 int labelWidth = Math.Max(1, _tools[0].Bounds.X - labelX - 8);
@@ -361,9 +400,9 @@ namespace FrameByFrame.src.UI.Components
 
         private static Texture2D GenerateColorPickerTexture(int width, int height)
         {
-            const int wheelDiameter = 200;
-            const int stripX = 208;
-            const int stripWidth = 28;
+            const int wheelDiameter = Layout.ColorWheelDiameter;
+            const int stripX = Layout.ValueStripX;
+            const int stripWidth = Layout.ValueStripWidth;
             Texture2D texture = new(GlobalParameters.GlobalGraphics, width, height);
             Color[] colors = new Color[width * height];
             float radius = (wheelDiameter - 1) / 2f;

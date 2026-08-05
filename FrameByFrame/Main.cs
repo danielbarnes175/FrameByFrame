@@ -40,8 +40,8 @@ namespace FrameByFrame
 
         protected override void Initialize()
         {
-            GlobalParameters.screenWidth = 1600;
-            GlobalParameters.screenHeight = 900;
+            GlobalParameters.screenWidth = UITheme.DefaultScreenWidth;
+            GlobalParameters.screenHeight = UITheme.DefaultScreenHeight;
             graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
             graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
 

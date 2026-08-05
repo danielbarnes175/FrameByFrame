@@ -35,6 +35,8 @@ namespace FrameByFrame.src.UI
         public const int ToolRailWidth = 176;
         public const int InspectorWidth = 220;
         public const int TimelineHeight = 150;
+        public const int DefaultScreenWidth = 1600;
+        public const int DefaultScreenHeight = 900;
         public const int MinWidth = 1024;
         public const int MinHeight = 720;
     }
@@ -83,8 +85,8 @@ namespace FrameByFrame.src.UI
     public static class UILayoutEngine
     {
         public static float ResponsiveScale => Math.Clamp(
-            Math.Min(GlobalParameters.screenWidth / (float)UIConstants.DEFAULT_SCREEN_WIDTH,
-                GlobalParameters.screenHeight / (float)UIConstants.DEFAULT_SCREEN_HEIGHT),
+            Math.Min(GlobalParameters.screenWidth / (float)UITheme.DefaultScreenWidth,
+                GlobalParameters.screenHeight / (float)UITheme.DefaultScreenHeight),
             .72f, 1.3f);
 
         public static int Scale(int value) => Math.Max(1, (int)Math.Round(value * ResponsiveScale));
