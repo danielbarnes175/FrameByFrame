@@ -33,8 +33,10 @@ namespace FrameByFrame.src.UI.Components
             public const int SettingsHeight = 330;
             public const int ColorWidth = 236;
             public const int ColorHeight = 200;
-            public const int LayersWidth = 200;
-            public const int LayersHeight = 150;
+            public const int LayersWidth = 260;
+            public const int LayersHeight = 300;
+            public const int LayerToolbarHeight = 44;
+            public const int LayerRowHeight = 42;
             public const int MaxPlaybackFps = 60;
             public const int SwatchSize = IconSize;
             public const int ColorWheelDiameter = 200;
@@ -228,12 +230,39 @@ namespace FrameByFrame.src.UI.Components
         private void UpdateLayers()
         {
             Rectangle panel = _layersPopover.Bounds;
-            int rowHeight = panel.Height / Math.Max(1, _animation.Layers.Count);
-            for (int i = 0; i < _animation.Layers.Count; i++)
+            Rectangle toolbar = new(panel.X + 8, panel.Bottom - Layout.LayerToolbarHeight, panel.Width - 16, 36);
+            IReadOnlyList<Rectangle> actions = UILayoutEngine.Stack(toolbar, UIAxis.Horizontal, 4, 6);
+            if (UIPointerRouter.Clicked(actions[0]))
+                _animation.AddLayer($"Layer {_animation.Layers.Count + 1}");
+            else if (UIPointerRouter.Clicked(actions[1]))
+                _animation.RemoveLayer(_animation.SelectedLayerId);
+            else if (UIPointerRouter.Clicked(actions[2]))
             {
-                Rectangle row = new(panel.X, panel.Y + i * rowHeight, panel.Width, rowHeight);
+                int selected = FindSelectedLayerIndex();
+                if (selected > 0) _animation.MoveLayer(_animation.SelectedLayerId, selected - 1);
+            }
+            else if (UIPointerRouter.Clicked(actions[3]))
+            {
+                int selected = FindSelectedLayerIndex();
+                if (selected >= 0 && selected < _animation.Layers.Count - 1)
+                    _animation.MoveLayer(_animation.SelectedLayerId, selected + 1);
+            }
+
+            int visibleRows = Math.Max(1, (panel.Height - Layout.LayerToolbarHeight) / Layout.LayerRowHeight);
+            int start = Math.Max(0, FindSelectedLayerIndex() - visibleRows + 1);
+            for (int i = start; i < Math.Min(_animation.Layers.Count, start + visibleRows); i++)
+            {
+                Rectangle row = new(panel.X + 4, panel.Y + (i - start) * Layout.LayerRowHeight,
+                    panel.Width - 8, Layout.LayerRowHeight);
                 if (UIPointerRouter.Clicked(row)) _animation.SelectLayer(_animation.Layers[i].Id);
             }
+        }
+
+        private int FindSelectedLayerIndex()
+        {
+            for (int i = 0; i < _animation.Layers.Count; i++)
+                if (_animation.Layers[i].Id == _animation.SelectedLayerId) return i;
+            return -1;
         }
 
         private void UpdateColorPicker()
@@ -380,15 +409,26 @@ namespace FrameByFrame.src.UI.Components
         {
             _layersPopover.Draw();
             Rectangle panel = _layersPopover.Bounds;
-            int rowHeight = panel.Height / Math.Max(1, _animation.Layers.Count);
-            for (int i = 0; i < _animation.Layers.Count; i++)
+            int visibleRows = Math.Max(1, (panel.Height - Layout.LayerToolbarHeight) / Layout.LayerRowHeight);
+            int start = Math.Max(0, FindSelectedLayerIndex() - visibleRows + 1);
+            for (int i = start; i < Math.Min(_animation.Layers.Count, start + visibleRows); i++)
             {
                 AnimationLayer layer = _animation.Layers[i];
-                Rectangle row = new(panel.X, panel.Y + i * rowHeight, panel.Width, rowHeight);
+                Rectangle row = new(panel.X + 4, panel.Y + (i - start) * Layout.LayerRowHeight,
+                    panel.Width - 8, Layout.LayerRowHeight);
                 bool selected = _animation.SelectedLayerId == layer.Id;
                 UIRenderer.Fill(row, selected ? UITheme.Primary : UITheme.SurfaceRaised);
                 string status = $"{(layer.IsVisible ? "" : "Hidden · ")}{(layer.IsLocked ? "Locked · " : "")}{layer.Name}";
                 new UITextContainer { Bounds = row, MaxLines = 1 }.Draw(status, selected ? Color.White : UITheme.Text, .75f);
+            }
+            Rectangle toolbar = new(panel.X + 8, panel.Bottom - Layout.LayerToolbarHeight, panel.Width - 16, 36);
+            IReadOnlyList<Rectangle> actions = UILayoutEngine.Stack(toolbar, UIAxis.Horizontal, 4, 6);
+            string[] labels = { "+", "−", "↑", "↓" };
+            for (int i = 0; i < actions.Count; i++)
+            {
+                UIRenderer.Fill(actions[i], UITheme.SurfaceRaised);
+                UIRenderer.Border(actions[i], UITheme.Border, 2);
+                UIRenderer.CenteredText(labels[i], actions[i], i == 1 ? UITheme.Danger : UITheme.Text, .8f);
             }
             UIRenderer.Border(panel, UITheme.Primary, 3);
         }
