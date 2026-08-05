@@ -232,7 +232,11 @@ namespace FrameByFrame.src.UI.Components
             for (int i = 0; i < _animation.Layers.Count; i++)
             {
                 Rectangle row = new(panel.X, panel.Y + i * rowHeight, panel.Width, rowHeight);
-                if (UIPointerRouter.Clicked(row)) _animation.SelectLayer(_animation.Layers[i].Id);
+                Rectangle visibility = new(row.X, row.Y, 44, row.Height);
+                if (UIPointerRouter.Clicked(visibility))
+                    _animation.SetLayerVisibility(_animation.Layers[i].Id, !_animation.Layers[i].IsVisible);
+                else if (UIPointerRouter.Clicked(row))
+                    _animation.SelectLayer(_animation.Layers[i].Id);
             }
         }
 
@@ -387,8 +391,12 @@ namespace FrameByFrame.src.UI.Components
                 Rectangle row = new(panel.X, panel.Y + i * rowHeight, panel.Width, rowHeight);
                 bool selected = _animation.SelectedLayerId == layer.Id;
                 UIRenderer.Fill(row, selected ? UITheme.Primary : UITheme.SurfaceRaised);
-                string status = $"{(layer.IsVisible ? "" : "Hidden · ")}{(layer.IsLocked ? "Locked · " : "")}{layer.Name}";
-                new UITextContainer { Bounds = row, MaxLines = 1 }.Draw(status, selected ? Color.White : UITheme.Text, .75f);
+                Rectangle visibility = new(row.X, row.Y, 44, row.Height);
+                new UITextContainer { Bounds = visibility, MaxLines = 1 }.Draw(layer.IsVisible ? "●" : "○", selected ? Color.White : UITheme.Text, .75f);
+                Rectangle nameBounds = new(row.X + 44, row.Y, row.Width - 44, row.Height);
+                string status = $"{(layer.IsLocked ? "Locked · " : "")}{layer.Name}";
+                new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+                    .Draw(status, selected ? Color.White : UITheme.Text, .75f);
             }
             UIRenderer.Border(panel, UITheme.Primary, 3);
         }
