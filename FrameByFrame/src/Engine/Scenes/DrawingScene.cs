@@ -3,6 +3,7 @@ using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.UI;
 using FrameByFrame.src.UI.Components;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
@@ -12,6 +13,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public DrawingTools drawingTool;
         private DrawingNavbarComponent _navbar;
         public bool loadedScene;
+        private bool _pixelEditActive;
 
         public DrawingScene() => InitializeDefaults();
 
@@ -62,7 +64,13 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void HandleMouseShortcuts()
         {
-            if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene) { loadedScene = true; return; }
+            if (!GlobalParameters.GlobalMouse.LeftClickHold())
+            {
+                if (_pixelEditActive) animation.CommitPixelEdit();
+                _pixelEditActive = false;
+                if (!loadedScene) loadedScene = true;
+                return;
+            }
             if (UIPointerRouter.IsPointerBlocked()) return;
             if (!GlobalParameters.GlobalMouse.LeftClickHold() || !loadedScene) return;
 
@@ -70,19 +78,30 @@ namespace FrameByFrame.src.Engine.Scenes
             switch (drawingTool)
             {
                 case DrawingTools.DRAW:
+                    BeginPixelEdit();
                     animation.DrawOnCurrentLayer(selectedColor);
                     break;
                 case DrawingTools.ERASER:
+                    BeginPixelEdit();
                     animation.DrawOnCurrentLayer(Color.Transparent);
                     break;
                 case DrawingTools.FILL when GlobalParameters.GlobalMouse.LeftClick():
+                    animation.BeginPixelEdit();
                     animation.FillCurrentLayerAt(GlobalParameters.GlobalMouse.newMousePos, selectedColor);
+                    animation.CommitPixelEdit();
                     break;
                 case DrawingTools.COLOR_PICKER:
                     Color sampled = animation.SampleVisibleColorAt(GlobalParameters.GlobalMouse.newMousePos);
                     if (sampled.A > 0) SetSelectedColor(sampled);
                     break;
             }
+        }
+
+        private void BeginPixelEdit()
+        {
+            if (_pixelEditActive) return;
+            animation.BeginPixelEdit();
+            _pixelEditActive = true;
         }
 
         public void BeginNewAnimation()
@@ -113,6 +132,10 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void HandleKeyboardShortcuts()
         {
+            bool control = GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.LeftControl)
+                || GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightControl);
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Z)) animation.Undo();
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Y)) animation.Redo();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
             {
                 animation.Stop();

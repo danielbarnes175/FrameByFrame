@@ -14,7 +14,7 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 - [ ] Add customizable canvas size
 - [ ] Add support for toggling layer visibility
 - [ ] Add customizable onion skin (both number of frames before/after, and opacity)
-- [ ] Add undo / redo support
+- [x] Add undo / redo support
 - [ ] Add toggleable autosave
 - [ ] Add select tool (move, resize, rotate, copy, delete)
 - [ ] Playing an animation starts from currently selected frame
@@ -35,4 +35,3 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 - [ ] Drawing canvas can be rotated and resized (strictly for drawing, not for final export)
 - [ ] Projects view should display projects in a flex-style grid allowing up to 6 projects visible at once in a 2x3 grid
 - [ ] Add loading animations / error messages
-
