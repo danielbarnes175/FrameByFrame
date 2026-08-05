@@ -19,7 +19,7 @@ namespace FrameByFrame.src.Engine.Export
         private const ushort MajorVersion = 1;
         private const ushort MinorVersion = 0;
         private const uint BrotliFlag = 1;
-        private const int LayerCount = 3;
+        private const int MaxLayerCount = 1024;
         private const int KeyframeInterval = 100;
         private const int MaxStringBytes = 1024 * 1024;
         private const int MaxFrameCount = 1_000_000;
@@ -44,6 +44,8 @@ namespace FrameByFrame.src.Engine.Export
                 throw new InvalidDataException("Cannot save an animation without frames.");
             if (animation.fps <= 0)
                 throw new InvalidDataException("Animation FPS must be greater than zero.");
+            if (animation.Layers.Count == 0 || animation.Layers.Count > MaxLayerCount)
+                throw new InvalidDataException("Animation layer count is invalid or unsupported.");
 
             Frame firstFrame = animation.frames.First.Value;
             ValidateDimensions(firstFrame.width, firstFrame.height);
@@ -63,16 +65,23 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.framePosition.X);
                     writer.Write(animation.framePosition.Y);
                     writer.Write(animation.fps);
-                    writer.Write(LayerCount);
+                    writer.Write(animation.Layers.Count);
                     writer.Write(animation.frames.Count);
                     writer.Write(KeyframeInterval);
                     WriteString(writer, animation.projectName);
+                    foreach (AnimationLayer layer in animation.Layers)
+                    {
+                        writer.Write(layer.Id.ToByteArray());
+                        WriteString(writer, layer.Name);
+                        writer.Write(layer.IsVisible);
+                        writer.Write(layer.IsLocked);
+                    }
 
                     long indexOffsetPosition = stream.Position;
                     writer.Write((long)0);
 
                     var frameOffsets = new List<long>(animation.frames.Count);
-                    Dictionary<int, uint>[] previousLayers = CreateEmptyLayers();
+                    Dictionary<int, uint>[] previousLayers = CreateEmptyLayers(animation.Layers.Count);
                     int frameIndex = 0;
 
                     foreach (Frame frame in animation.frames)
@@ -80,7 +89,7 @@ namespace FrameByFrame.src.Engine.Export
                         if (frame.width != firstFrame.width || frame.height != firstFrame.height)
                             throw new InvalidDataException("All frames in an FBF v1 project must have identical dimensions.");
 
-                        Dictionary<int, uint>[] currentLayers = SnapshotLayers(frame);
+                        Dictionary<int, uint>[] currentLayers = SnapshotLayers(frame, animation.Layers);
                         bool isKeyframe = frameIndex % KeyframeInterval == 0;
                         FrameKind frameKind = isKeyframe
                             ? FrameKind.Keyframe
@@ -147,16 +156,18 @@ namespace FrameByFrame.src.Engine.Export
             int frameCount = reader.ReadInt32();
             int keyframeInterval = reader.ReadInt32();
             string projectName = ReadString(reader);
+            List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
             long indexOffset = reader.ReadInt64();
 
-            if (fps <= 0 || layerCount != LayerCount || frameCount <= 0 || frameCount > MaxFrameCount || keyframeInterval <= 0)
+            if (fps <= 0 || layerCount <= 0 || layerCount > MaxLayerCount ||
+                frameCount <= 0 || frameCount > MaxFrameCount || keyframeInterval <= 0)
                 throw new InvalidDataException("The FBF project header contains invalid values.");
             if (string.IsNullOrWhiteSpace(projectName))
                 throw new InvalidDataException("The FBF project name is missing.");
 
             long[] frameOffsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
             var loadedFrames = new List<Frame>(frameCount);
-            Dictionary<int, uint>[] currentLayers = CreateEmptyLayers();
+            Dictionary<int, uint>[] currentLayers = CreateEmptyLayers(layerCount);
 
             try
             {
@@ -165,12 +176,12 @@ namespace FrameByFrame.src.Engine.Export
                     stream.Position = frameOffsets[frameIndex];
                     ReadFrameChunk(reader, frameIndex, pixelCount, currentLayers);
 
-                    Frame frame = new Frame(framePosition, new Vector2(width, height));
-                    RestoreLayers(frame, currentLayers);
+                    Frame frame = new Frame(framePosition, new Vector2(width, height), layers);
+                    RestoreLayers(frame, currentLayers, layers);
                     loadedFrames.Add(frame);
                 }
 
-                var animation = new Animation.Animation(projectName) { fps = fps };
+                var animation = new Animation.Animation(projectName, layers) { fps = fps };
                 animation.LoadFrames(loadedFrames, framePosition, new Vector2(width, height));
                 return animation;
             }
@@ -199,7 +210,7 @@ namespace FrameByFrame.src.Engine.Export
             using var uncompressedStream = new MemoryStream();
             using (var payloadWriter = new BinaryWriter(uncompressedStream, Encoding.UTF8, leaveOpen: true))
             {
-                for (int layerIndex = 0; layerIndex < LayerCount; layerIndex++)
+                for (int layerIndex = 0; layerIndex < currentLayers.Length; layerIndex++)
                 {
                     List<PixelChange> changes = kind == FrameKind.Keyframe
                         ? CreateKeyframeChanges(currentLayers[layerIndex])
@@ -284,7 +295,7 @@ namespace FrameByFrame.src.Engine.Export
                     layer.Clear();
             }
 
-            for (int layerIndex = 0; layerIndex < LayerCount; layerIndex++)
+            for (int layerIndex = 0; layerIndex < currentLayers.Length; layerIndex++)
             {
                 int changeCount = payloadReader.ReadInt32();
                 if (changeCount < 0 || changeCount > pixelCount * 2L)
@@ -337,28 +348,27 @@ namespace FrameByFrame.src.Engine.Export
             return offsets;
         }
 
-        private static Dictionary<int, uint>[] SnapshotLayers(Frame frame)
+        private static Dictionary<int, uint>[] SnapshotLayers(Frame frame, IReadOnlyList<AnimationLayer> definitions)
         {
-            string[] layerNames = ["_layer1", "_layer2", "_layer3"];
-            var layers = CreateEmptyLayers();
-            for (int layerIndex = 0; layerIndex < LayerCount; layerIndex++)
+            var layers = CreateEmptyLayers(definitions.Count);
+            for (int layerIndex = 0; layerIndex < definitions.Count; layerIndex++)
             {
-                foreach (var pixel in frame.GetSparseLayerPixels(layerNames[layerIndex]))
+                foreach (var pixel in frame.GetSparseLayerPixels(definitions[layerIndex].Id))
                     layers[layerIndex][pixel.Key] = pixel.Value.PackedValue;
             }
             return layers;
         }
 
-        private static void RestoreLayers(Frame frame, Dictionary<int, uint>[] layers)
+        private static void RestoreLayers(Frame frame, Dictionary<int, uint>[] layers, IReadOnlyList<AnimationLayer> definitions)
         {
-            string[] layerNames = ["_layer1", "_layer2", "_layer3"];
-            for (int layerIndex = 0; layerIndex < LayerCount; layerIndex++)
+            for (int layerIndex = 0; layerIndex < definitions.Count; layerIndex++)
             {
+                Color[] pixels = new Color[frame.width * frame.height];
                 foreach (var pixel in layers[layerIndex])
                 {
-                    Color color = new Color { PackedValue = pixel.Value };
-                    frame.SetPixel(layerNames[layerIndex], pixel.Key % frame.width, pixel.Key / frame.width, color);
+                    pixels[pixel.Key] = new Color { PackedValue = pixel.Value };
                 }
+                frame.SetLayerPixels(definitions[layerIndex].Id, pixels, ignoreLock: true);
             }
         }
 
@@ -387,7 +397,8 @@ namespace FrameByFrame.src.Engine.Export
 
         private static bool LayersEqual(Dictionary<int, uint>[] left, Dictionary<int, uint>[] right)
         {
-            for (int i = 0; i < LayerCount; i++)
+            if (left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++)
             {
                 if (left[i].Count != right[i].Count)
                     return false;
@@ -400,9 +411,30 @@ namespace FrameByFrame.src.Engine.Export
             return true;
         }
 
-        private static Dictionary<int, uint>[] CreateEmptyLayers()
+        private static Dictionary<int, uint>[] CreateEmptyLayers(int count)
         {
-            return [new Dictionary<int, uint>(), new Dictionary<int, uint>(), new Dictionary<int, uint>()];
+            return Enumerable.Range(0, count).Select(_ => new Dictionary<int, uint>()).ToArray();
+        }
+
+        private static List<AnimationLayer> ReadLayerDefinitions(BinaryReader reader, int count)
+        {
+            if (count <= 0 || count > MaxLayerCount)
+                throw new InvalidDataException("The FBF layer count is invalid or unsupported.");
+            var layers = new List<AnimationLayer>(count);
+            var ids = new HashSet<Guid>();
+            for (int i = 0; i < count; i++)
+            {
+                byte[] idBytes = reader.ReadBytes(16);
+                if (idBytes.Length != 16) throw new EndOfStreamException("The FBF layer ID is incomplete.");
+                Guid id = new Guid(idBytes);
+                string name = ReadString(reader);
+                bool isVisible = reader.ReadBoolean();
+                bool isLocked = reader.ReadBoolean();
+                if (id == Guid.Empty || !ids.Add(id) || string.IsNullOrWhiteSpace(name))
+                    throw new InvalidDataException("The FBF layer metadata is invalid.");
+                layers.Add(new AnimationLayer(name, id, isVisible, isLocked));
+            }
+            return layers;
         }
 
         private static void ValidateDimensions(int width, int height)

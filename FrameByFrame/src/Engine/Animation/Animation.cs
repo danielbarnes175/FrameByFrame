@@ -26,7 +26,10 @@ namespace FrameByFrame.src.Engine.Animation
         public int brushSize;
         private int maxOnionFrames = 3;
         private float baseOpacity = 0.1f;
-        public string selectedLayer;
+        private readonly List<AnimationLayer> _layers;
+        public IReadOnlyList<AnimationLayer> Layers => _layers;
+        public Guid SelectedLayerId { get; private set; }
+        public AnimationLayer SelectedLayer => _layers.FirstOrDefault(layer => layer.Id == SelectedLayerId);
 
         // Project Settings
         public string projectName;
@@ -40,14 +43,19 @@ namespace FrameByFrame.src.Engine.Animation
         public Frame CurrentFrame => currentFrame?.Value;
         public Rectangle DisplayBounds { get; private set; }
 
-        public Animation(string projectName)
+        public Animation(string projectName, IEnumerable<AnimationLayer> layers = null)
         {
             this.projectName = projectName;
             fps = 12;
             frames = new LinkedList<Frame>();
             playbackTimer = 0;
             IsPlaying = false;
-            selectedLayer = "_layer1";
+            _layers = layers?.ToList() ??
+                [new AnimationLayer("Layer 1"), new AnimationLayer("Layer 2"), new AnimationLayer("Layer 3")];
+            if (_layers.Count == 0) throw new ArgumentException("An animation must have at least one layer.", nameof(layers));
+            if (_layers.Select(layer => layer.Id).Distinct().Count() != _layers.Count)
+                throw new ArgumentException("Layer IDs must be unique.", nameof(layers));
+            SelectedLayerId = _layers[0].Id;
             CurrentFrameIndex = 0;
             brushSize = 5;
             isOnionSkinEnabled = true;
@@ -60,7 +68,7 @@ namespace FrameByFrame.src.Engine.Animation
                 GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2,
                 GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
 
-            frames.AddLast(new Frame(framePosition, frameSize));
+            frames.AddLast(new Frame(framePosition, frameSize, _layers));
             currentFrame = frames.First;
         }
 
@@ -135,7 +143,7 @@ namespace FrameByFrame.src.Engine.Animation
             CurrentFrameIndex += 1;
             if (CurrentFrameIndex > TotalFrames - 1)
             {
-                frames.AddLast(new Frame(framePosition, frameSize));
+                frames.AddLast(new Frame(framePosition, frameSize, _layers));
             }
             currentFrame = currentFrame.Next;
         }
@@ -152,7 +160,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void EraseCurrentLayer()
         {
-            currentFrame.Value.ClearLayer(selectedLayer);
+            currentFrame.Value.ClearLayer(SelectedLayerId);
         }
 
         public void DeleteFrame()
@@ -173,7 +181,7 @@ namespace FrameByFrame.src.Engine.Animation
         
         public void InsertFrame()
         {
-            var newFrame = new Frame(framePosition, frameSize);
+            var newFrame = new Frame(framePosition, frameSize, _layers);
             frames.AddBefore(currentFrame, newFrame);
             currentFrame = currentFrame.Previous;
             InvalidateFrameCache();
@@ -256,7 +264,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            currentFrame?.Value.FloodFill(selectedLayer, (int)local.X, (int)local.Y, color);
+            currentFrame?.Value.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color);
         }
 
         public Color SampleVisibleColorAt(Vector2 screenPosition)
@@ -310,15 +318,63 @@ namespace FrameByFrame.src.Engine.Animation
                     
                     if (dx * dx + dy * dy <= brushSizeSquared)
                     {
-                        currentFrame.Value.SetPixel(selectedLayer, x, y, color);
+                        currentFrame.Value.SetPixel(SelectedLayerId, x, y, color);
                     }
                 }
             }
         }
 
-        public Color[] GetLayerPixels(string layerName)
+        public Color[] GetLayerPixels(Guid layerId)
         {
-            return currentFrame.Value.GetLayerPixels(layerName);
+            return currentFrame.Value.GetLayerPixels(layerId);
+        }
+
+        public AnimationLayer AddLayer(string name, int index = 0)
+        {
+            var layer = new AnimationLayer(name);
+            index = Math.Clamp(index, 0, _layers.Count);
+            _layers.Insert(index, layer);
+            foreach (Frame frame in frames) frame.AddLayer(layer, index);
+            SelectedLayerId = layer.Id;
+            return layer;
+        }
+
+        public bool RemoveLayer(Guid layerId)
+        {
+            if (_layers.Count <= 1) return false;
+            int index = _layers.FindIndex(layer => layer.Id == layerId);
+            if (index < 0) return false;
+            _layers.RemoveAt(index);
+            foreach (Frame frame in frames) frame.RemoveLayer(layerId);
+            if (SelectedLayerId == layerId) SelectedLayerId = _layers[Math.Min(index, _layers.Count - 1)].Id;
+            return true;
+        }
+
+        public bool MoveLayer(Guid layerId, int newIndex)
+        {
+            int oldIndex = _layers.FindIndex(layer => layer.Id == layerId);
+            if (oldIndex < 0 || newIndex < 0 || newIndex >= _layers.Count || oldIndex == newIndex) return false;
+            AnimationLayer layer = _layers[oldIndex];
+            _layers.RemoveAt(oldIndex);
+            _layers.Insert(newIndex, layer);
+            foreach (Frame frame in frames) frame.ReorderLayers(_layers);
+            return true;
+        }
+
+        public bool RenameLayer(Guid layerId, string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            AnimationLayer layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
+            if (layer == null) return false;
+            layer.Rename(name);
+            return true;
+        }
+
+        public bool SelectLayer(Guid layerId)
+        {
+            if (_layers.All(layer => layer.Id != layerId)) return false;
+            SelectedLayerId = layerId;
+            return true;
         }
 
         public void DrawCurrentFrame()

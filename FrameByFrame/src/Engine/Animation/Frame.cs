@@ -1,157 +1,151 @@
-﻿using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Services;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
+using System.Linq;
 
 namespace FrameByFrame.src.Engine.Animation
 {
     public class Frame : IDisposable
     {
         public Matrix transform;
-        private Rectangle drawRectangle;
-
-        // Compressed layer storage - only store non-transparent pixels
-        private Dictionary<int, Color> _layer1Pixels = new Dictionary<int, Color>();
-        private Dictionary<int, Color> _layer2Pixels = new Dictionary<int, Color>();
-        private Dictionary<int, Color> _layer3Pixels = new Dictionary<int, Color>();
-        
-        // Lazy texture creation - only create when needed for drawing
-        private Texture2D _layer1Texture;
-        private Texture2D _layer2Texture;
-        private Texture2D _layer3Texture;
+        private readonly Rectangle drawRectangle;
         private bool _texturesNeedUpdate = true;
+        private bool _disposed;
+
+        public IReadOnlyList<FrameLayer> Layers => _layers;
+        private readonly List<FrameLayer> _layers;
 
         public BasicTexture CombinedTexture;
-        
-        // Shared static background texture - all frames use the same one
         private static Texture2D _sharedBackgroundTexture;
-        private bool _disposed = false;
 
         public static Vector2 position;
         public static int staticWidth { get; set; }
         public static int staticHeight { get; set; }
-
         public int width { get; set; }
         public int height { get; set; }
 
-        public Frame(Vector2 givenPosition, Vector2 dimensions)
+        public Frame(Vector2 givenPosition, Vector2 dimensions, IEnumerable<AnimationLayer> layers = null)
         {
-            staticWidth = (int)dimensions.X;
-            staticHeight = (int)dimensions.Y;
-
-            width = (int)dimensions.X;
-            height = (int)dimensions.Y;
-
+            staticWidth = width = (int)dimensions.X;
+            staticHeight = height = (int)dimensions.Y;
             position = givenPosition;
             transform = Matrix.Identity;
-
             drawRectangle = new Rectangle((int)position.X, (int)position.Y, width, height);
+            _layers = (layers ?? CreateDefaultLayers()).Select(layer => new FrameLayer(layer)).ToList();
 
-            // Create shared background texture only once
             if (_sharedBackgroundTexture == null)
-            {
-                _sharedBackgroundTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height, pixel => Color.White, Shapes.RECTANGLE);
-            }
+                _sharedBackgroundTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height,
+                    _ => Color.White, Shapes.RECTANGLE);
         }
 
-        // Set a pixel in a layer - use compressed storage
-        public void SetPixel(string layerName, int x, int y, Color color)
+        private static IEnumerable<AnimationLayer> CreateDefaultLayers() =>
+            new[] { new AnimationLayer("Layer 1"), new AnimationLayer("Layer 2"), new AnimationLayer("Layer 3") };
+
+        public void AddLayer(AnimationLayer definition, int index = -1)
         {
-            if (x < 0 || x >= width || y < 0 || y >= height) return;
-            
-            int idx = y * width + x;
-            var targetLayer = GetLayerDict(layerName);
-            
-            if (targetLayer != null)
-            {
-                if (color == Color.Transparent)
-                {
-                    targetLayer.Remove(idx); // Remove transparent pixels to save memory
-                }
-                else
-                {
-                    targetLayer[idx] = color;
-                }
-                _texturesNeedUpdate = true;
-            }
+            if (_layers.Any(layer => layer.Id == definition.Id)) return;
+            var layer = new FrameLayer(definition);
+            if (index < 0 || index >= _layers.Count) _layers.Add(layer);
+            else _layers.Insert(index, layer);
+            _texturesNeedUpdate = true;
         }
 
-        // Get the pixel array for a layer - convert from compressed storage
-        public Color[] GetLayerPixels(string layerName)
+        public void RemoveLayer(Guid layerId)
         {
-            var layerDict = GetLayerDict(layerName);
-            if (layerDict == null) return null;
+            FrameLayer layer = FindLayer(layerId);
+            if (layer == null) return;
+            layer.Dispose();
+            _layers.Remove(layer);
+            _texturesNeedUpdate = true;
+        }
 
+        public void ReorderLayers(IReadOnlyList<AnimationLayer> order)
+        {
+            var byId = _layers.ToDictionary(layer => layer.Id);
+            if (order.Count != _layers.Count || order.Any(layer => !byId.ContainsKey(layer.Id)))
+                throw new ArgumentException("Layer order must contain every frame layer exactly once.", nameof(order));
+            _layers.Clear();
+            _layers.AddRange(order.Select(layer => byId[layer.Id]));
+        }
+
+        public void SetPixel(Guid layerId, int x, int y, Color color)
+        {
+            FrameLayer layer = FindLayer(layerId);
+            if (layer == null || layer.Definition.IsLocked || x < 0 || x >= width || y < 0 || y >= height) return;
+            int index = y * width + x;
+            if (color == Color.Transparent) layer.Pixels.Remove(index);
+            else layer.Pixels[index] = color;
+            _texturesNeedUpdate = true;
+        }
+
+        public Color[] GetLayerPixels(Guid layerId)
+        {
+            FrameLayer layer = FindLayer(layerId);
+            if (layer == null) return null;
             Color[] pixels = new Color[width * height];
-            // Initialize all to transparent
             Array.Fill(pixels, Color.Transparent);
-            
-            // Fill in non-transparent pixels
-            foreach (var kvp in layerDict)
-            {
-                pixels[kvp.Key] = kvp.Value;
-            }
-            
+            foreach (var pixel in layer.Pixels) pixels[pixel.Key] = pixel.Value;
             return pixels;
+        }
+
+        public IEnumerable<KeyValuePair<int, Color>> GetSparseLayerPixels(Guid layerId)
+        {
+            FrameLayer layer = FindLayer(layerId) ?? throw new ArgumentException("Unknown layer.", nameof(layerId));
+            return layer.Pixels;
+        }
+
+        public void SetLayerPixels(Guid layerId, Color[] pixels, bool ignoreLock = false)
+        {
+            ArgumentNullException.ThrowIfNull(pixels);
+            if (pixels.Length != width * height)
+                throw new ArgumentException("Layer pixel count does not match the frame dimensions.", nameof(pixels));
+            FrameLayer layer = FindLayer(layerId) ?? throw new ArgumentException("Unknown layer.", nameof(layerId));
+            if (layer.Definition.IsLocked && !ignoreLock) return;
+            layer.Pixels.Clear();
+            for (int i = 0; i < pixels.Length; i++)
+                if (pixels[i] != Color.Transparent) layer.Pixels[i] = pixels[i];
+            _texturesNeedUpdate = true;
         }
 
         public Color GetVisiblePixel(int x, int y)
         {
             if (x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
             int index = y * width + x;
-
-            // Layers are drawn 3, 2, 1, making layer 1 the topmost visible layer.
-            if (_layer1Pixels.TryGetValue(index, out Color color)) return color;
-            if (_layer2Pixels.TryGetValue(index, out color)) return color;
-            if (_layer3Pixels.TryGetValue(index, out color)) return color;
+            foreach (FrameLayer layer in _layers)
+                if (layer.Definition.IsVisible && layer.Pixels.TryGetValue(index, out Color color)) return color;
             return Color.White;
         }
 
-        public void FloodFill(string layerName, int startX, int startY, Color replacement)
+        public void FloodFill(Guid layerId, int startX, int startY, Color replacement)
         {
-            if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
-            Color[] pixels = GetLayerPixels(layerName);
-            if (pixels == null) return;
-
-            int startIndex = startY * width + startX;
-            Color target = pixels[startIndex];
-            if (target == replacement) return;
-
+            FrameLayer layer = FindLayer(layerId);
+            if (layer == null || layer.Definition.IsLocked || startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+            Color[] pixels = GetLayerPixels(layerId);
             FloodFillPixels(pixels, width, height, startX, startY, replacement);
-            SetLayerPixels(layerName, pixels);
+            SetLayerPixels(layerId, pixels);
         }
 
-        public static void FloodFillPixels(Color[] pixels, int width, int height,
-            int startX, int startY, Color replacement)
+        public static void FloodFillPixels(Color[] pixels, int width, int height, int startX, int startY, Color replacement)
         {
             ArgumentNullException.ThrowIfNull(pixels);
             if (pixels.Length != width * height)
                 throw new ArgumentException("Pixel count does not match the supplied dimensions.", nameof(pixels));
             if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
-
             int startIndex = startY * width + startX;
             Color target = pixels[startIndex];
             if (target == replacement) return;
-
             Queue<int> pending = new();
             pending.Enqueue(startIndex);
             pixels[startIndex] = replacement;
-
             while (pending.Count > 0)
             {
                 int index = pending.Dequeue();
                 int x = index % width;
                 int y = index / width;
-                TryQueue(x - 1, y);
-                TryQueue(x + 1, y);
-                TryQueue(x, y - 1);
-                TryQueue(x, y + 1);
+                TryQueue(x - 1, y); TryQueue(x + 1, y); TryQueue(x, y - 1); TryQueue(x, y + 1);
             }
-
             void TryQueue(int x, int y)
             {
                 if (x < 0 || x >= width || y < 0 || y >= height) return;
@@ -162,120 +156,33 @@ namespace FrameByFrame.src.Engine.Animation
             }
         }
 
-        public IEnumerable<KeyValuePair<int, Color>> GetSparseLayerPixels(string layerName)
+        public void ClearLayer(Guid layerId)
         {
-            var layerDict = GetLayerDict(layerName);
-            if (layerDict == null)
-                throw new ArgumentException($"Unknown layer '{layerName}'.", nameof(layerName));
-
-            foreach (var pixel in layerDict)
-                yield return pixel;
-        }
-
-        public void SetLayerPixels(string layerName, Color[] pixels)
-        {
-            ArgumentNullException.ThrowIfNull(pixels);
-
-            if (pixels.Length != width * height)
-            {
-                throw new ArgumentException("Layer pixel count does not match the frame dimensions.", nameof(pixels));
-            }
-
-            var targetLayer = GetLayerDict(layerName);
-            if (targetLayer == null)
-            {
-                throw new ArgumentException($"Unknown layer '{layerName}'.", nameof(layerName));
-            }
-
-            targetLayer.Clear();
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                if (pixels[i] != Color.Transparent)
-                {
-                    targetLayer[i] = pixels[i];
-                }
-            }
-
+            FrameLayer layer = FindLayer(layerId);
+            if (layer == null || layer.Definition.IsLocked) return;
+            layer.Pixels.Clear();
             _texturesNeedUpdate = true;
         }
 
-        private Dictionary<int, Color> GetLayerDict(string layerName)
-        {
-            return layerName switch
-            {
-                "_layer1" => _layer1Pixels,
-                "_layer2" => _layer2Pixels,
-                "_layer3" => _layer3Pixels,
-                _ => null
-            };
-        }
+        private FrameLayer FindLayer(Guid layerId) => _layers.FirstOrDefault(layer => layer.Id == layerId);
 
-        // Clear a layer
-        public void ClearLayer(string layerName)
-        {
-            var targetLayer = GetLayerDict(layerName);
-            if (targetLayer != null)
-            {
-                targetLayer.Clear();
-                _texturesNeedUpdate = true;
-            }
-        }
-
-        // Lazy texture creation and update
         public void UpdateTextures()
         {
             if (!_texturesNeedUpdate) return;
-
-            // Only create textures when we need them
-            EnsureTexturesCreated();
-
-            // Update each layer texture from compressed data
-            UpdateLayerTexture(_layer1Texture, _layer1Pixels);
-            UpdateLayerTexture(_layer2Texture, _layer2Pixels);
-            UpdateLayerTexture(_layer3Texture, _layer3Pixels);
-
-            _texturesNeedUpdate = false;
-        }
-
-        private void EnsureTexturesCreated()
-        {
-            if (_layer1Texture == null)
-                _layer1Texture = new Texture2D(GlobalParameters.GlobalGraphics, width, height);
-            if (_layer2Texture == null)
-                _layer2Texture = new Texture2D(GlobalParameters.GlobalGraphics, width, height);
-            if (_layer3Texture == null)
-                _layer3Texture = new Texture2D(GlobalParameters.GlobalGraphics, width, height);
-        }
-
-        private void UpdateLayerTexture(Texture2D texture, Dictionary<int, Color> layerData)
-        {
-            if (texture == null) return;
-
-            // Create pixel array and fill from compressed data
-            Color[] pixels = new Color[width * height];
-            Array.Fill(pixels, Color.Transparent);
-            
-            foreach (var kvp in layerData)
+            foreach (FrameLayer layer in _layers)
             {
-                pixels[kvp.Key] = kvp.Value;
+                layer.Texture ??= new Texture2D(GlobalParameters.GlobalGraphics, width, height);
+                Color[] pixels = GetLayerPixels(layer.Id);
+                layer.Texture.SetData(pixels);
             }
-            
-            texture.SetData(pixels);
+            _texturesNeedUpdate = false;
         }
 
         public virtual void Draw(float opacity)
         {
             if (_sharedBackgroundTexture != null)
-            {
-                GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture,
-                    drawRectangle,
-                    null,
-                    Color.White * opacity,
-                    0.0f,
-                    new Vector2(0, 0),
-                    new SpriteEffects(),
-                    0.2f);
-            }
+                GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, drawRectangle, null, Color.White * opacity,
+                    0f, Vector2.Zero, SpriteEffects.None, .2f);
         }
 
         public void Draw(Rectangle destination, float opacity)
@@ -284,33 +191,21 @@ namespace FrameByFrame.src.Engine.Animation
                 GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
         }
 
-        public void DrawLayers(Rectangle destination, float opacity)
+        public void DrawLayers(Rectangle destination, float opacity) => DrawLayersCore(destination, opacity);
+        public virtual void DrawLayers(float opacity) => DrawLayersCore(drawRectangle, opacity);
+
+        private void DrawLayersCore(Rectangle destination, float opacity)
         {
             if (_texturesNeedUpdate) UpdateTextures();
-            if (_layer3Pixels.Count > 0) GlobalParameters.GlobalSpriteBatch.Draw(_layer3Texture, destination, Color.White * opacity);
-            if (_layer2Pixels.Count > 0) GlobalParameters.GlobalSpriteBatch.Draw(_layer2Texture, destination, Color.White * opacity);
-            if (_layer1Pixels.Count > 0) GlobalParameters.GlobalSpriteBatch.Draw(_layer1Texture, destination, Color.White * opacity);
+            for (int i = _layers.Count - 1; i >= 0; i--)
+            {
+                FrameLayer layer = _layers[i];
+                if (layer.Definition.IsVisible && layer.Pixels.Count > 0 && layer.Texture != null)
+                    GlobalParameters.GlobalSpriteBatch.Draw(layer.Texture, destination, Color.White * opacity);
+            }
         }
 
-        public virtual void DrawLayers(float opacity)
-        {
-            // Only update textures when we need to draw
-            if (_texturesNeedUpdate)
-                UpdateTextures();
-
-            // Draw each layer texture (only if they have content)
-            if (_layer3Pixels.Count > 0 && _layer3Texture != null)
-                GlobalParameters.GlobalSpriteBatch.Draw(_layer3Texture, drawRectangle, Color.White * opacity);
-            if (_layer2Pixels.Count > 0 && _layer2Texture != null)
-                GlobalParameters.GlobalSpriteBatch.Draw(_layer2Texture, drawRectangle, Color.White * opacity);
-            if (_layer1Pixels.Count > 0 && _layer1Texture != null)
-                GlobalParameters.GlobalSpriteBatch.Draw(_layer1Texture, drawRectangle, Color.White * opacity);
-        }
-
-        public void DrawCombinedTexture(float opacity)
-        {
-            CombinedTexture?.Draw(Vector2.Zero, opacity);
-        }
+        public void DrawCombinedTexture(float opacity) => CombinedTexture?.Draw(Vector2.Zero, opacity);
 
         public void DrawPreview(Rectangle destination, float opacity)
         {
@@ -319,71 +214,21 @@ namespace FrameByFrame.src.Engine.Animation
                 GlobalParameters.GlobalSpriteBatch.Draw(CombinedTexture.texture, destination, Color.White * opacity);
                 return;
             }
-
-            if (_texturesNeedUpdate)
-                UpdateTextures();
-
             GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
-            if (_layer3Pixels.Count > 0)
-                GlobalParameters.GlobalSpriteBatch.Draw(_layer3Texture, destination, Color.White * opacity);
-            if (_layer2Pixels.Count > 0)
-                GlobalParameters.GlobalSpriteBatch.Draw(_layer2Texture, destination, Color.White * opacity);
-            if (_layer1Pixels.Count > 0)
-                GlobalParameters.GlobalSpriteBatch.Draw(_layer1Texture, destination, Color.White * opacity);
+            DrawLayersCore(destination, opacity);
         }
 
-        // Get memory usage info for debugging
-        public long GetMemoryUsage()
-        {
-            long memory = 0;
-            memory += _layer1Pixels.Count * (sizeof(int) + 16); // Dictionary overhead + Color size
-            memory += _layer2Pixels.Count * (sizeof(int) + 16);
-            memory += _layer3Pixels.Count * (sizeof(int) + 16);
-            
-            // Add texture memory (if created)
-            if (_layer1Texture != null) memory += width * height * 4; // 4 bytes per pixel
-            if (_layer2Texture != null) memory += width * height * 4;
-            if (_layer3Texture != null) memory += width * height * 4;
-            
-            return memory;
-        }
+        public long GetMemoryUsage() => _layers.Sum(layer =>
+            (long)layer.Pixels.Count * (sizeof(int) + 16) + (layer.Texture == null ? 0L : (long)width * height * 4));
 
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
             if (_disposed) return;
-
-            if (disposing)
-            {
-                // Dispose textures
-                _layer1Texture?.Dispose();
-                _layer2Texture?.Dispose();
-                _layer3Texture?.Dispose();
-                
-                // Clear pixel data
-                _layer1Pixels?.Clear();
-                _layer2Pixels?.Clear();
-                _layer3Pixels?.Clear();
-
-                // Combined textures are created from project preview PNGs and are
-                // owned by this frame.
-                CombinedTexture?.texture?.Dispose();
-
-                // Don't dispose shared background texture - it's shared!
-                CombinedTexture = null;
-            }
-
+            foreach (FrameLayer layer in _layers) layer.Dispose();
+            CombinedTexture?.texture?.Dispose();
+            CombinedTexture = null;
             _disposed = true;
-        }
-
-        ~Frame()
-        {
-            Dispose(false);
+            GC.SuppressFinalize(this);
         }
     }
 }

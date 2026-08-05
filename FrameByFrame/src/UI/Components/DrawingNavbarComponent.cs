@@ -228,11 +228,11 @@ namespace FrameByFrame.src.UI.Components
         private void UpdateLayers()
         {
             Rectangle panel = _layersPopover.Bounds;
-            int rowHeight = panel.Height / 3;
-            for (int i = 0; i < 3; i++)
+            int rowHeight = panel.Height / Math.Max(1, _animation.Layers.Count);
+            for (int i = 0; i < _animation.Layers.Count; i++)
             {
                 Rectangle row = new(panel.X, panel.Y + i * rowHeight, panel.Width, rowHeight);
-                if (UIPointerRouter.Clicked(row)) _animation.selectedLayer = $"_layer{i + 1}";
+                if (UIPointerRouter.Clicked(row)) _animation.SelectLayer(_animation.Layers[i].Id);
             }
         }
 
@@ -380,14 +380,15 @@ namespace FrameByFrame.src.UI.Components
         {
             _layersPopover.Draw();
             Rectangle panel = _layersPopover.Bounds;
-            int rowHeight = panel.Height / 3;
-            for (int i = 0; i < 3; i++)
+            int rowHeight = panel.Height / Math.Max(1, _animation.Layers.Count);
+            for (int i = 0; i < _animation.Layers.Count; i++)
             {
-                string layer = $"_layer{i + 1}";
+                AnimationLayer layer = _animation.Layers[i];
                 Rectangle row = new(panel.X, panel.Y + i * rowHeight, panel.Width, rowHeight);
-                bool selected = _animation.selectedLayer == layer;
+                bool selected = _animation.SelectedLayerId == layer.Id;
                 UIRenderer.Fill(row, selected ? UITheme.Primary : UITheme.SurfaceRaised);
-                new UITextContainer { Bounds = row, MaxLines = 1 }.Draw(layer, selected ? Color.White : UITheme.Text, .75f);
+                string status = $"{(layer.IsVisible ? "" : "Hidden · ")}{(layer.IsLocked ? "Locked · " : "")}{layer.Name}";
+                new UITextContainer { Bounds = row, MaxLines = 1 }.Draw(status, selected ? Color.White : UITheme.Text, .75f);
             }
             UIRenderer.Border(panel, UITheme.Primary, 3);
         }

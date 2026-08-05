@@ -14,11 +14,6 @@ namespace FrameByFrame.src.Engine
         public static readonly Color DEBUG_PERFORMANCE = Color.Red;
         public static readonly Color DEBUG_MEMORY = Color.Cyan;
 
-        // Layer names
-        public const string LAYER_1 = "_layer1";
-        public const string LAYER_2 = "_layer2";
-        public const string LAYER_3 = "_layer3";
-
         // Scene names
         public const string MENU_SCENE = "Menu Scene";
         public const string DRAWING_SCENE = "Drawing Scene";

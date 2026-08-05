@@ -32,6 +32,20 @@ element.Arrange(new Rectangle(12, 18, 140, 44));
 Assert(element.Bounds == new Rectangle(12, 18, 140, 44), "UI elements should retain arranged bounds.");
 Assert(element.Measure(new Point(100, 30)) == new Point(100, 30), "UI measurement should respect available space.");
 
+using (var animation = new Animation("Layer model test"))
+{
+    Assert(animation.Layers.Count == 3, "Animations should start with three editable layers.");
+    AnimationLayer added = animation.AddLayer("Highlights");
+    Assert(animation.Layers[0] == added && animation.SelectedLayerId == added.Id,
+        "New layers should be inserted and selected by stable ID.");
+    Assert(animation.RenameLayer(added.Id, "Lighting") && added.Name == "Lighting",
+        "Layers should be renameable without changing identity.");
+    Assert(animation.MoveLayer(added.Id, animation.Layers.Count - 1) && animation.Layers[^1].Id == added.Id,
+        "Layers should support explicit reordering.");
+    Assert(animation.RemoveLayer(added.Id) && animation.Layers.Count == 3,
+        "Removing a layer should update the project layer collection.");
+}
+
 UISlider slider = new(1, 50, 5);
 slider.SetValue(-20);
 Assert(slider.Value == 1, "Sliders should clamp values to their minimum.");

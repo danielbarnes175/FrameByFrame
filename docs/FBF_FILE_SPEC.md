@@ -31,7 +31,6 @@ Version 1 does not provide:
 
 - encryption;
 - checksums or cryptographic authentication;
-- arbitrary layer counts;
 - different canvas dimensions per frame;
 - per-frame timing;
 - vector drawing data;
@@ -88,11 +87,14 @@ Frame chunks occur in ascending frame order. The index also records each chunk's
 | Canvas X | `f32` | Drawing canvas screen position |
 | Canvas Y | `f32` | Drawing canvas screen position |
 | FPS | `i32` | Playback frames per second, greater than zero |
-| Layer count | `i32` | Exactly `3` |
+| Layer count | `i32` | Number of project layers, from `1` through `1024` |
 | Frame count | `i32` | Greater than zero |
 | Keyframe interval | `i32` | Greater than zero; currently `100` |
 | Project name | `string` | Non-empty UTF-8 project name |
+| Layer metadata | repeated | One metadata record per layer, in front-to-back order |
 | Index offset | `i64` | Absolute offset of the `INDX` signature |
+
+Each layer metadata record contains a 16-byte GUID, a non-empty name string, a visibility boolean, and a lock boolean. The GUID is the stable identity used to associate each frame's pixel section with its project-wide layer definition.
 
 The writer initially reserves the index-offset field, writes all frame chunks and the index, then seeks back and fills in the final offset.
 
@@ -127,7 +129,7 @@ Each frame starts with an uncompressed chunk header:
 
 ### Frame kind 0: keyframe
 
-A keyframe resets all three reconstructed layers before applying its records. Its records contain every non-transparent pixel in the frame.
+A keyframe resets all reconstructed layers before applying its records. Its records contain every non-transparent pixel in the frame.
 
 Frame zero must be a keyframe. The current writer also emits a keyframe every 100 frames. Periodic keyframes bound the number of deltas required for future random-access decoding and limit corruption propagation.
 
@@ -143,7 +145,7 @@ A removal is represented by the affected pixel index and a packed color of zero.
 
 ### Frame kind 2: same as previous
 
-This record means all three layers are identical to the preceding frame.
+This record means all layers are identical to the preceding frame.
 
 For this frame kind:
 
@@ -154,11 +156,7 @@ For this frame kind:
 
 ## Decompressed frame payload
 
-Keyframe and delta payloads contain three layer sections in this fixed order:
-
-1. `_layer1`
-2. `_layer2`
-3. `_layer3`
+Keyframe and delta payloads contain one section per layer in the same front-to-back order as the header metadata.
 
 Each layer section is:
 
@@ -174,7 +172,7 @@ Each pixel record is:
 | Pixel index | `varuint` | Linear canvas pixel index |
 | Packed color | `u32` | MonoGame packed color; zero removes a delta pixel |
 
-The entire three-layer payload is compressed as one Brotli stream using the optimal compression level. Compression is scoped to one frame, so the writer and reader never need to buffer the complete project file.
+The entire layer payload is compressed as one Brotli stream using the optimal compression level. Compression is scoped to one frame, so the writer and reader never need to buffer the complete project file.
 
 ## Variable-length pixel indexes
 
@@ -189,7 +187,7 @@ Example encodings:
 | `128` | `80 01` |
 | `16384` | `80 80 01` |
 
-Version 1 readers reject encodings longer than five bytes.
+Readers reject encodings longer than five bytes.
 
 ## Frame index
 
@@ -243,7 +241,7 @@ If saving fails, the temporary file is deleted and an existing project file rema
 6. For a same-as-previous frame, leave the maps unchanged.
 7. Reconstruct an editable FrameByFrame frame from the resulting maps.
 
-The version 1 application currently performs step 7 for every frame during project loading. A future implementation may keep compressed chunks on disk and materialize frames on demand.
+The application currently performs step 7 for every frame during project loading. A future implementation may keep compressed chunks on disk and materialize frames on demand.
 
 ## Reader validation requirements
 
@@ -263,7 +261,7 @@ A conforming reader should reject a file when any of the following is true:
 - Brotli output does not exactly match its declared length;
 - a layer change count is invalid;
 - a pixel index lies outside the canvas;
-- decompressed payload bytes remain after the three layer sections.
+- decompressed payload bytes remain after all declared layer sections.
 
 ## Versioning
 
@@ -272,7 +270,7 @@ Readers use the major version to determine structural compatibility.
 - A different major version is incompatible and must be rejected.
 - A greater minor version may only be accepted when its feature flags and added data are explicitly understood.
 - New mandatory behavior requires a new feature flag or major version.
-- New optional metadata should be introduced in a future extensible metadata section rather than silently changing version 1 records.
+- New optional metadata should be introduced in a future extensible metadata section rather than silently changing existing records.
 
 ## Expected scaling
 
