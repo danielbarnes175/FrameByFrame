@@ -16,8 +16,13 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-VERSION="$1"
+VERSION="${1#v}"
 FRAMEWORK="${2:-net8.0}"
+
+if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "Error: Version must resemble 0.1.0 or v0.1.0."
+  exit 1
+fi
 
 # Find the csproj if not specified
 if [[ -z "$PROJECT_FILE" ]]; then
@@ -111,6 +116,7 @@ EOF
 # Create the zip beside release/
 OUT_ZIP="release/${ZIP_BASENAME}-v${VERSION}.zip"
 echo "==> Creating ${OUT_ZIP}"
+rm -f "${OUT_ZIP}"
 ( cd "${STAGE_ROOT}" && zip -r "../${OUT_ZIP}" "$(basename "${STAGE_DIR}")" >/dev/null )
 
 echo ""

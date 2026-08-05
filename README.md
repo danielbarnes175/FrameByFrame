@@ -28,6 +28,26 @@ Please see the latest [release](https://github.com/danielbarnes175/FrameByFrame/
 - `dotnet build`
 - `dotnet run`
 
+## Publish a new version
+
+Publishing requires the .NET 8 SDK, `git`, `zip`, and an authenticated [GitHub CLI](https://cli.github.com/). Commit or stash all local changes before starting because the release script requires a clean working tree.
+
+To build the release archive for Linux x64, Windows x64, Intel macOS, and Apple Silicon macOS without creating a tag or GitHub release, pass the version to the build script:
+
+```bash
+./scripts/release.sh v0.1.0
+```
+
+This creates `release/FrameByFrame-v0.1.0.zip` containing all four platform builds.
+
+From the repository root, pass the new version number to the publish script:
+
+```bash
+./scripts/publish-release.sh v0.1.0
+```
+
+The version may be provided with or without the `v` prefix. The script builds the supported platform versions, creates `release/FrameByFrame-v0.1.0.zip`, creates and pushes the `v0.1.0` tag, and publishes a GitHub release with the ZIP attached and generated release notes.
+
 ## Contributing
 
 To contribute to Frame by Frame, please view our [Contributing Guidelines](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
