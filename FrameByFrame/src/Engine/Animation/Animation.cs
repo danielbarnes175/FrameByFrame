@@ -377,6 +377,14 @@ namespace FrameByFrame.src.Engine.Animation
             return true;
         }
 
+        public bool SetLayerVisibility(Guid layerId, bool isVisible)
+        {
+            AnimationLayer layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
+            if (layer == null) return false;
+            layer.IsVisible = isVisible;
+            return true;
+        }
+
         public void DrawCurrentFrame()
         {
             currentFrame?.Value.Draw(1.0f);
