@@ -40,6 +40,8 @@ using (var animation = new Animation("Layer model test"))
         "New layers should be inserted and selected by stable ID.");
     Assert(animation.RenameLayer(added.Id, "Lighting") && added.Name == "Lighting",
         "Layers should be renameable without changing identity.");
+    Assert(animation.SetLayerVisibility(added.Id, false) && !added.IsVisible,
+        "Layer visibility should be configurable through the animation model.");
     Assert(animation.MoveLayer(added.Id, animation.Layers.Count - 1) && animation.Layers[^1].Id == added.Id,
         "Layers should support explicit reordering.");
     Assert(animation.RemoveLayer(added.Id) && animation.Layers.Count == 3,
