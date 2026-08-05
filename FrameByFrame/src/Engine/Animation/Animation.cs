@@ -64,6 +64,8 @@ namespace FrameByFrame.src.Engine.Animation
         public int CurrentFrameIndex { get; private set; }
         public Frame CurrentFrame => currentFrame?.Value;
         public Rectangle DisplayBounds { get; private set; }
+        public const int MinCanvasDimension = 64;
+        public const int MaxCanvasDimension = 4096;
 
         public Animation(string projectName, IEnumerable<AnimationLayer> layers = null)
         {
@@ -122,6 +124,40 @@ namespace FrameByFrame.src.Engine.Animation
             playbackTimer = 0;
             IsPlaying = false;
             InvalidateFrameCache();
+        }
+
+        public bool ResizeCanvas(int width, int height)
+        {
+            width = Math.Clamp(width, MinCanvasDimension, MaxCanvasDimension);
+            height = Math.Clamp(height, MinCanvasDimension, MaxCanvasDimension);
+            if ((int)frameSize.X == width && (int)frameSize.Y == height) return false;
+
+            int selectedFrame = CurrentFrameIndex;
+            int oldWidth = (int)frameSize.X;
+            int oldHeight = (int)frameSize.Y;
+            Vector2 newSize = new(width, height);
+            LinkedList<Frame> resized = new();
+            foreach (Frame source in frames)
+            {
+                Frame target = new(framePosition, newSize, _layers);
+                foreach (AnimationLayer layer in _layers)
+                {
+                    Color[] sourcePixels = source.GetLayerPixels(layer.Id);
+                    Color[] targetPixels = new Color[width * height];
+                    int copyWidth = Math.Min(oldWidth, width);
+                    int copyHeight = Math.Min(oldHeight, height);
+                    for (int y = 0; y < copyHeight; y++)
+                        Array.Copy(sourcePixels, y * oldWidth, targetPixels, y * width, copyWidth);
+                    target.SetLayerPixels(layer.Id, targetPixels, true);
+                }
+                resized.AddLast(target);
+            }
+            foreach (Frame source in frames) source.Dispose();
+            frames = resized;
+            frameSize = newSize;
+            InvalidateFrameCache();
+            SelectFrame(Math.Min(selectedFrame, TotalFrames - 1));
+            return true;
         }
 
         // Cache for faster frame access

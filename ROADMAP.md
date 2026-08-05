@@ -15,7 +15,7 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 - [ ] Add custom brush editor/creator
 - [ ] Support 3rd party (e.g. photoshop) brushes
 - [ ] Add support for arbitrary layer counts
-- [ ] Add customizable canvas size
+- [x] Add customizable canvas size
 - [ ] Add support for toggling layer visibility
 - [ ] Add customizable onion skin (both number of frames before/after, and opacity)
 - [x] Add undo / redo support
