@@ -30,7 +30,7 @@ namespace FrameByFrame.src.UI.Components
             public const int HelpWidth = 520;
             public const int HelpHeight = 410;
             public const int SettingsWidth = 450;
-            public const int SettingsHeight = 450;
+            public const int SettingsHeight = 570;
             public const int ColorWidth = 236;
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
@@ -66,6 +66,10 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIActionButton _fpsDown;
         private readonly UIActionButton _fpsUp;
         private readonly UIActionButton _save;
+        private readonly UIActionButton _canvasWidthDown;
+        private readonly UIActionButton _canvasWidthUp;
+        private readonly UIActionButton _canvasHeightDown;
+        private readonly UIActionButton _canvasHeightUp;
         private readonly UIPopover _helpPopover = new();
         private readonly UIPopover _settingsPopover = new();
         private readonly UIPopover _colorPopover = new() { ShowOutline = false };
@@ -118,8 +122,15 @@ namespace FrameByFrame.src.UI.Components
             _fpsDown = new UIActionButton("-", () => _animation.fps = Math.Max(1, _animation.fps - 1));
             _fpsUp = new UIActionButton("+", () => _animation.fps = Math.Min(Layout.MaxPlaybackFps, _animation.fps + 1));
             _save = new UIActionButton("SAVE PROJECT", () => SaveService.SaveAnimation(_animation));
+            _canvasWidthDown = new UIActionButton("-", () => ResizeCanvas(-64, 0));
+            _canvasWidthUp = new UIActionButton("+", () => ResizeCanvas(64, 0));
+            _canvasHeightDown = new UIActionButton("-", () => ResizeCanvas(0, -64));
+            _canvasHeightUp = new UIActionButton("+", () => ResizeCanvas(0, 64));
             _colorWheelTexture = GenerateColorPickerTexture(Layout.ColorWidth, Layout.ColorHeight);
         }
+
+        private void ResizeCanvas(int widthDelta, int heightDelta) => _animation.ResizeCanvas(
+            (int)_animation.frameSize.X + widthDelta, (int)_animation.frameSize.Y + heightDelta);
 
         private UIIconButton Icon(string asset, Action action, string tooltip) =>
             new(GlobalParameters.GlobalContent.Load<Texture2D>(asset), action) { Tooltip = tooltip };
@@ -189,6 +200,10 @@ namespace FrameByFrame.src.UI.Components
             _nextOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 236, 42, 38));
             _fpsDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 290, 48, 42));
             _fpsUp.Arrange(new Rectangle(settings.X + 329, settings.Y + 290, 48, 42));
+            _canvasWidthDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 342, 48, 42));
+            _canvasWidthUp.Arrange(new Rectangle(settings.X + 329, settings.Y + 342, 48, 42));
+            _canvasHeightDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 394, 48, 42));
+            _canvasHeightUp.Arrange(new Rectangle(settings.X + 329, settings.Y + 394, 48, 42));
             _save.Arrange(new Rectangle(settings.Center.X - 105, settings.Bottom - 70, 210, 50));
         }
 
@@ -247,6 +262,10 @@ namespace FrameByFrame.src.UI.Components
             _onionOpacity.Update();
             _fpsDown.Update();
             _fpsUp.Update();
+            _canvasWidthDown.Update();
+            _canvasWidthUp.Update();
+            _canvasHeightDown.Update();
+            _canvasHeightUp.Update();
             _save.Update();
         }
 
@@ -446,6 +465,18 @@ namespace FrameByFrame.src.UI.Components
             _fpsUp.Draw();
             new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 290, 72, 42), MaxLines = 1 }
                 .Draw(_animation.fps.ToString(), UITheme.Primary, .65f);
+            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 342, 160, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+                .Draw("Canvas width", UITheme.Text, .6f);
+            _canvasWidthDown.Draw();
+            _canvasWidthUp.Draw();
+            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 342, 72, 42), MaxLines = 1 }
+                .Draw(((int)_animation.frameSize.X).ToString(), UITheme.Primary, .58f);
+            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 394, 160, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+                .Draw("Canvas height", UITheme.Text, .6f);
+            _canvasHeightDown.Draw();
+            _canvasHeightUp.Draw();
+            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 394, 72, 42), MaxLines = 1 }
+                .Draw(((int)_animation.frameSize.Y).ToString(), UITheme.Primary, .58f);
             _save.Draw(true);
         }
 
