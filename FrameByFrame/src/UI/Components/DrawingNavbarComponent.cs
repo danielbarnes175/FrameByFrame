@@ -423,15 +423,15 @@ namespace FrameByFrame.src.UI.Components
                 bool selected = _animation.SelectedLayerId == layer.Id;
                 UIRenderer.Fill(row, selected ? UITheme.Primary : UITheme.SurfaceRaised);
                 Rectangle visibility = new(row.X, row.Y, 44, row.Height);
-                new UITextContainer { Bounds = visibility, MaxLines = 1 }.Draw(layer.IsVisible ? "●" : "○", selected ? Color.White : UITheme.Text, .75f);
+                new UITextContainer { Bounds = visibility, MaxLines = 1 }.Draw(layer.IsVisible ? "ON" : "OFF", selected ? Color.White : UITheme.Text, .6f);
                 Rectangle nameBounds = new(row.X + 44, row.Y, row.Width - 44, row.Height);
-                string status = $"{(layer.IsLocked ? "Locked · " : "")}{layer.Name}";
+                string status = $"{(layer.IsLocked ? "Locked - " : "")}{layer.Name}";
                 new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                     .Draw(status, selected ? Color.White : UITheme.Text, .75f);
             }
             Rectangle toolbar = new(panel.X + 8, panel.Bottom - Layout.LayerToolbarHeight, panel.Width - 16, 36);
             IReadOnlyList<Rectangle> actions = UILayoutEngine.Stack(toolbar, UIAxis.Horizontal, 4, 6);
-            string[] labels = { "+", "−", "↑", "↓" };
+            string[] labels = { "+", "-", "^", "v" };
             for (int i = 0; i < actions.Count; i++)
             {
                 UIRenderer.Fill(actions[i], UITheme.SurfaceRaised);
