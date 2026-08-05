@@ -37,6 +37,12 @@ namespace FrameByFrame.src.Engine.Animation
         public LinkedList<Frame> frames;
         private LinkedListNode<Frame> currentFrame;
         private bool _disposed = false;
+        private const int MaxHistoryEntries = 20;
+        private readonly Stack<PixelEdit> _undoHistory = new();
+        private readonly Stack<PixelEdit> _redoHistory = new();
+        private PixelEdit _pendingPixelEdit;
+
+        private sealed record PixelEdit(int FrameIndex, Guid LayerId, Color[] Before, Color[] After);
 
         public int TotalFrames => frames.Count;
         public int CurrentFrameIndex { get; private set; }
@@ -160,7 +166,62 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void EraseCurrentLayer()
         {
+            BeginPixelEdit();
             currentFrame.Value.ClearLayer(SelectedLayerId);
+            CommitPixelEdit();
+        }
+
+        public void BeginPixelEdit()
+        {
+            if (_pendingPixelEdit != null || CurrentFrame == null || SelectedLayer == null) return;
+            _pendingPixelEdit = new PixelEdit(CurrentFrameIndex, SelectedLayerId,
+                CurrentFrame.GetLayerPixels(SelectedLayerId), null);
+        }
+
+        public void CommitPixelEdit()
+        {
+            if (_pendingPixelEdit == null) return;
+            Frame frame = GetFrameAtIndex(_pendingPixelEdit.FrameIndex);
+            Color[] after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
+            PixelEdit completed = _pendingPixelEdit with { After = after };
+            _pendingPixelEdit = null;
+            if (after == null || completed.Before.SequenceEqual(after)) return;
+            _undoHistory.Push(completed);
+            while (_undoHistory.Count > MaxHistoryEntries)
+            {
+                PixelEdit[] entries = _undoHistory.ToArray();
+                _undoHistory.Clear();
+                for (int i = entries.Length - 2; i >= 0; i--) _undoHistory.Push(entries[i]);
+            }
+            _redoHistory.Clear();
+        }
+
+        public bool Undo()
+        {
+            CommitPixelEdit();
+            if (_undoHistory.Count == 0) return false;
+            PixelEdit edit = _undoHistory.Pop();
+            Frame frame = GetFrameAtIndex(edit.FrameIndex);
+            if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
+            frame.SetLayerPixels(edit.LayerId, edit.Before, true);
+            SelectFrame(edit.FrameIndex);
+            SelectLayer(edit.LayerId);
+            _redoHistory.Push(edit);
+            return true;
+        }
+
+        public bool Redo()
+        {
+            CommitPixelEdit();
+            if (_redoHistory.Count == 0) return false;
+            PixelEdit edit = _redoHistory.Pop();
+            Frame frame = GetFrameAtIndex(edit.FrameIndex);
+            if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
+            frame.SetLayerPixels(edit.LayerId, edit.After, true);
+            SelectFrame(edit.FrameIndex);
+            SelectLayer(edit.LayerId);
+            _undoHistory.Push(edit);
+            return true;
         }
 
         public void DeleteFrame()
