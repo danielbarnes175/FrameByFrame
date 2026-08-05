@@ -43,6 +43,10 @@ namespace FrameByFrame.src.UI.Components
             public const int ValueStripX = 208;
             public const int ValueStripWidth = 28;
             public const int ProjectLabelMinScreenWidth = 1200;
+            public const int HomeCompactWidth = 76;
+            public const int FrameCounterCompactWidth = 100;
+            public const int BrushSliderCompactWidth = 96;
+            public const int CompactGap = 6;
         }
 
         private enum PopoverKind { None, Help, Settings, Color, Layers }
@@ -161,29 +165,37 @@ namespace FrameByFrame.src.UI.Components
         public override void Arrange(Rectangle bounds)
         {
             base.Arrange(bounds);
+            bool compact = bounds.Width < Layout.ProjectLabelMinScreenWidth;
+            int homeWidth = compact ? Layout.HomeCompactWidth : Layout.HomeWidth;
+            int primaryGap = compact ? Layout.CompactGap : Layout.PrimaryControlGap;
+            int iconStep = Layout.IconSize + (compact ? Layout.CompactGap : Layout.ItemGap);
+            int frameCounterWidth = compact ? Layout.FrameCounterCompactWidth : Layout.FrameCounterWidth;
+            int brushSliderWidth = compact ? Layout.BrushSliderCompactWidth : Layout.BrushSliderWidth;
+            int trailingGap = compact ? Layout.CompactGap : Layout.TrailingControlGap;
+            int toolGroupGap = compact ? Layout.ItemGap : Layout.ToolGroupGap;
             int iconY = bounds.Y + (bounds.Height - Layout.IconSize) / 2;
             int controlY = bounds.Y + (bounds.Height - Layout.ControlHeight) / 2;
             int x = bounds.X + Layout.OuterPadding;
-            _home.Arrange(new Rectangle(x, controlY, Layout.HomeWidth, Layout.ControlHeight));
-            x = _home.Bounds.Right + Layout.PrimaryControlGap;
+            _home.Arrange(new Rectangle(x, controlY, homeWidth, Layout.ControlHeight));
+            x = _home.Bounds.Right + primaryGap;
             _help.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
-            x = _help.Bounds.Right + Layout.PrimaryControlGap;
+            x = _help.Bounds.Right + primaryGap;
             _settings.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
 
-            x = _settings.Bounds.Right + Layout.FrameCounterGap;
-            _frameCounterBounds = new Rectangle(x, controlY, Layout.FrameCounterWidth, Layout.ControlHeight);
+            x = _settings.Bounds.Right + (compact ? Layout.ItemGap : Layout.FrameCounterGap);
+            _frameCounterBounds = new Rectangle(x, controlY, frameCounterWidth, Layout.ControlHeight);
             x = _frameCounterBounds.Right + Layout.OuterPadding;
             foreach (UIIconButton button in _playback)
             {
                 button.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
-                x += Layout.IconStep;
+                x += iconStep;
             }
-            _brushSize.Arrange(new Rectangle(x + Layout.ItemGap, controlY, Layout.BrushSliderWidth, Layout.ControlHeight));
+            _brushSize.Arrange(new Rectangle(x + Layout.ItemGap, controlY, brushSliderWidth, Layout.ControlHeight));
 
             _color.Arrange(new Rectangle(bounds.Right - Layout.OuterPadding - Layout.IconSize, iconY, Layout.IconSize, Layout.IconSize));
-            _layers.Arrange(new Rectangle(_color.Bounds.X - Layout.IconSize - Layout.TrailingControlGap, iconY, Layout.IconSize, Layout.IconSize));
+            _layers.Arrange(new Rectangle(_color.Bounds.X - Layout.IconSize - trailingGap, iconY, Layout.IconSize, Layout.IconSize));
             int toolGroupWidth = _tools.Count * Layout.IconSize + Math.Max(0, _tools.Count - 1) * Layout.ItemGap;
-            int toolX = _layers.Bounds.X - Layout.ToolGroupGap - toolGroupWidth;
+            int toolX = _layers.Bounds.X - toolGroupGap - toolGroupWidth;
             foreach (UIIconButton tool in _tools)
             {
                 tool.Arrange(new Rectangle(toolX, iconY, Layout.IconSize, Layout.IconSize));
