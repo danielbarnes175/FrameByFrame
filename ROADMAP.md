@@ -4,7 +4,11 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 
 ## Editor
 
-- [ ] Add timeline scrubber, allowing a user to cycle through frames, duplicate, copy/paste, and reorder
+- [ ] Add timeline scrubber features
+  - [x] Display scrollable frame previews and navigate between frames
+  - [ ] Duplicate frames
+  - [ ] Copy and paste frames
+  - [ ] Reorder frames
 - [ ] Add audio support, allowing a user to add and modify audio tracks from the timeline
 - [ ] Add support for renaming projects
 - [ ] Add new brush types for paintbrush and eraser
@@ -35,4 +39,3 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 - [ ] Drawing canvas can be rotated and resized (strictly for drawing, not for final export)
 - [ ] Projects view should display projects in a flex-style grid allowing up to 6 projects visible at once in a 2x3 grid
 - [ ] Add loading animations / error messages
-

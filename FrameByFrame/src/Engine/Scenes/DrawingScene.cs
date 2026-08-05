@@ -11,6 +11,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public Animation.Animation animation;
         public DrawingTools drawingTool;
         private DrawingNavbarComponent _navbar;
+        private TimelineComponent _timeline;
         public bool loadedScene;
 
         public DrawingScene() => InitializeDefaults();
@@ -39,6 +40,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _navbar = new DrawingNavbarComponent(animation);
+            _timeline = new TimelineComponent(animation);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
 
@@ -46,8 +48,11 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             UIPointerRouter.BeginFrame();
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
+            _timeline.Arrange(new Rectangle(0, GlobalParameters.screenHeight - UITheme.TimelineHeight,
+                GlobalParameters.screenWidth, UITheme.TimelineHeight));
             HandleKeyboardShortcuts();
             _navbar.Update();
+            _timeline.Update();
             HandleMouseShortcuts();
             animation.Animate(gameTime);
         }
@@ -55,8 +60,11 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Draw(Vector2 offset)
         {
             GlobalParameters.GlobalGraphics.Clear(UITheme.CanvasStage);
-            animation.DrawCurrentFrame();
+            Rectangle stage = new(24, UITheme.AppBarHeight + 24, GlobalParameters.screenWidth - 48,
+                GlobalParameters.screenHeight - UITheme.AppBarHeight - UITheme.TimelineHeight - 48);
+            animation.DrawCurrentFrame(UILayoutEngine.FitAspect(stage, animation.frameSize.X / animation.frameSize.Y));
             _navbar.Draw();
+            _timeline.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
         }
 
@@ -107,6 +115,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _navbar = null;
+            _timeline = null;
             animation?.Dispose();
             animation = null;
         }
