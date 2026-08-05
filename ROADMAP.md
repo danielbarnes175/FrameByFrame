@@ -4,7 +4,11 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 
 ## Editor
 
-- [ ] Add timeline scrubber, allowing a user to cycle through frames, duplicate, copy/paste, and reorder
+- [ ] Add timeline scrubber features
+  - [x] Display scrollable frame previews and navigate between frames
+  - [ ] Duplicate frames
+  - [ ] Copy and paste frames
+  - [ ] Reorder frames
 - [ ] Add audio support, allowing a user to add and modify audio tracks from the timeline
 - [ ] Add support for renaming projects
 - [ ] Add new brush types for paintbrush and eraser
