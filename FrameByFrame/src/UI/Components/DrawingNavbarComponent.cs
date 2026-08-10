@@ -28,9 +28,9 @@ namespace FrameByFrame.src.UI.Components
             public const int PopoverTop = UITheme.AppBarHeight + ItemGap;
             public const int PopoverEdge = UITheme.SpaceSm;
             public const int HelpWidth = 520;
-            public const int HelpHeight = 410;
+            public const int HelpContentHeight = 410;
             public const int SettingsWidth = 450;
-            public const int SettingsHeight = 470;
+            public const int SettingsContentHeight = 430;
             public const int ColorWidth = 236;
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
@@ -84,8 +84,11 @@ namespace FrameByFrame.src.UI.Components
         private float _selectedSaturation;
         private float _selectedValue;
         private string _saveError = string.Empty;
+        private int _settingsScroll;
 
         public Color SelectedColor => _selectedColor;
+        public bool HasOpenPopover => _openPopover != PopoverKind.None;
+        public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
         public DrawingNavbarComponent(Animation animation)
         {
@@ -165,6 +168,7 @@ namespace FrameByFrame.src.UI.Components
         public override void Arrange(Rectangle bounds)
         {
             base.Arrange(bounds);
+            bool narrow = bounds.Width < 960;
             bool compact = bounds.Width < Layout.ProjectLabelMinScreenWidth;
             int homeWidth = compact ? Layout.HomeCompactWidth : Layout.HomeWidth;
             int primaryGap = compact ? Layout.CompactGap : Layout.PrimaryControlGap;
@@ -176,6 +180,30 @@ namespace FrameByFrame.src.UI.Components
             int iconY = bounds.Y + (bounds.Height - Layout.IconSize) / 2;
             int controlY = bounds.Y + (bounds.Height - Layout.ControlHeight) / 2;
             int x = bounds.X + Layout.OuterPadding;
+            if (narrow)
+            {
+                int gap = bounds.Width < 560 ? 5 : 8;
+                int rowHeight = bounds.Height / (bounds.Width < 560 ? 3 : 2);
+                int row = 0;
+                x = bounds.X + gap;
+                int y = bounds.Y + (rowHeight - Layout.IconSize) / 2;
+                void NextRow() { row++; x = bounds.X + gap; y = bounds.Y + row * rowHeight + (rowHeight - Layout.IconSize) / 2; }
+                void Place(UIElement element, int width = Layout.IconSize)
+                {
+                    if (x + width > bounds.Right - gap) NextRow();
+                    element.Arrange(new Rectangle(x, y, width, Layout.IconSize));
+                    x += width + gap;
+                }
+                Place(_home, Math.Min(Layout.HomeCompactWidth, Math.Max(52, bounds.Width / 5)));
+                Place(_help); Place(_settings);
+                _frameCounterBounds = new Rectangle(x, y, Math.Min(Layout.FrameCounterCompactWidth, Math.Max(72, bounds.Right - gap - x)), Layout.IconSize);
+                x = _frameCounterBounds.Right + gap;
+                foreach (UIIconButton button in _playback) Place(button);
+                Place(_brushSize, Math.Min(Layout.BrushSliderCompactWidth, Math.Max(72, bounds.Width / 4)));
+                foreach (UIIconButton tool in _tools) Place(tool);
+                Place(_layers); Place(_color);
+                goto Popovers;
+            }
             _home.Arrange(new Rectangle(x, controlY, homeWidth, Layout.ControlHeight));
             x = _home.Bounds.Right + primaryGap;
             _help.Arrange(new Rectangle(x, iconY, Layout.IconSize, Layout.IconSize));
@@ -202,28 +230,43 @@ namespace FrameByFrame.src.UI.Components
                 toolX += Layout.IconStep;
             }
 
-            _helpPopover.Arrange(ClampPopover(new Rectangle(_help.Bounds.X, Layout.PopoverTop, Layout.HelpWidth, Layout.HelpHeight)));
-            _settingsPopover.Arrange(ClampPopover(new Rectangle(_settings.Bounds.X, Layout.PopoverTop, Layout.SettingsWidth, Layout.SettingsHeight)));
-            _colorPopover.Arrange(ClampPopover(new Rectangle(_color.Bounds.Right - Layout.ColorWidth, Layout.PopoverTop, Layout.ColorWidth, Layout.ColorHeight)));
-            _layersPopover.Arrange(ClampPopover(new Rectangle(_layers.Bounds.Right - Layout.LayersWidth, Layout.PopoverTop, Layout.LayersWidth, Layout.LayersHeight)));
+        Popovers:
+            int popoverTop = bounds.Bottom + Layout.ItemGap;
+            int availableHeight = Math.Max(80, GlobalParameters.screenHeight - popoverTop - Layout.PopoverEdge);
+            int helpWidth = Math.Min(Layout.HelpWidth, GlobalParameters.screenWidth - Layout.PopoverEdge * 2);
+            int settingsWidth = Math.Min(Layout.SettingsWidth, GlobalParameters.screenWidth - Layout.PopoverEdge * 2);
+            _helpPopover.Arrange(ClampPopover(new Rectangle(_help.Bounds.X, popoverTop, helpWidth,
+                Math.Min(Layout.HelpContentHeight, availableHeight)), popoverTop));
+            _settingsPopover.Arrange(ClampPopover(new Rectangle(_settings.Bounds.X, popoverTop, settingsWidth,
+                Math.Min(Layout.SettingsContentHeight, availableHeight)), popoverTop));
+            _colorPopover.Arrange(ClampPopover(new Rectangle(_color.Bounds.Right - Layout.ColorWidth, popoverTop, Layout.ColorWidth, Layout.ColorHeight), popoverTop));
+            _layersPopover.Arrange(ClampPopover(new Rectangle(_layers.Bounds.Right - Layout.LayersWidth, popoverTop, Layout.LayersWidth,
+                Math.Min(Layout.LayersHeight, availableHeight)), popoverTop));
 
             Rectangle settings = _settingsPopover.Bounds;
-            _onionSkin.Arrange(new Rectangle(settings.X + 28, settings.Y + 92, 48, 28));
-            _onionOpacity.Arrange(new Rectangle(settings.X + 205, settings.Y + 130, 172, 44));
-            _previousOnionDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 190, 42, 38));
-            _previousOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 190, 42, 38));
-            _nextOnionDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 236, 42, 38));
-            _nextOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 236, 42, 38));
-            _fpsDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 290, 48, 42));
-            _fpsUp.Arrange(new Rectangle(settings.X + 329, settings.Y + 290, 48, 42));
-            _save.Arrange(new Rectangle(settings.Center.X - 105, settings.Bottom - 70, 210, 50));
+            _settingsScroll = Math.Clamp(_settingsScroll, 0, Math.Max(0, Layout.SettingsContentHeight - settings.Height));
+            int scroll = _settingsScroll;
+            _onionSkin.Arrange(new Rectangle(settings.X + 28, settings.Y + 92 - scroll, 48, 28));
+            int controlX = Math.Max(settings.X + 150, settings.Right - 245);
+            int controlRight = settings.Right - 28;
+            _onionOpacity.Arrange(new Rectangle(controlX, settings.Y + 130 - scroll, Math.Max(70, controlRight - controlX), 44));
+            _previousOnionDown.Arrange(new Rectangle(controlX, settings.Y + 190 - scroll, 42, 38));
+            _previousOnionUp.Arrange(new Rectangle(controlRight - 42, settings.Y + 190 - scroll, 42, 38));
+            _nextOnionDown.Arrange(new Rectangle(controlX, settings.Y + 236 - scroll, 42, 38));
+            _nextOnionUp.Arrange(new Rectangle(controlRight - 42, settings.Y + 236 - scroll, 42, 38));
+            _fpsDown.Arrange(new Rectangle(controlX, settings.Y + 290 - scroll, 48, 42));
+            _fpsUp.Arrange(new Rectangle(controlRight - 48, settings.Y + 290 - scroll, 48, 42));
+            int saveWidth = Math.Min(210, settings.Width - 40);
+            _save.Arrange(new Rectangle(settings.Center.X - saveWidth / 2, settings.Y + 370 - scroll, saveWidth, 50));
         }
 
-        private static Rectangle ClampPopover(Rectangle bounds)
+        private static Rectangle ClampPopover(Rectangle bounds, int minimumTop = Layout.PopoverTop)
         {
+            bounds.Width = Math.Min(bounds.Width, Math.Max(1, GlobalParameters.screenWidth - Layout.PopoverEdge * 2));
+            bounds.Height = Math.Min(bounds.Height, Math.Max(1, GlobalParameters.screenHeight - minimumTop - Layout.PopoverEdge));
             bounds.X = Math.Clamp(bounds.X, Layout.PopoverEdge, Math.Max(Layout.PopoverEdge, GlobalParameters.screenWidth - bounds.Width - Layout.PopoverEdge));
-            bounds.Y = Math.Clamp(bounds.Y, Layout.PopoverTop,
-                Math.Max(Layout.PopoverTop, GlobalParameters.screenHeight - bounds.Height - Layout.PopoverEdge));
+            bounds.Y = Math.Clamp(bounds.Y, minimumTop,
+                Math.Max(minimumTop, GlobalParameters.screenHeight - bounds.Height - Layout.PopoverEdge));
             return bounds;
         }
 
@@ -263,19 +306,34 @@ namespace FrameByFrame.src.UI.Components
 
         private void UpdateSettings()
         {
+            Rectangle panel = _settingsPopover.Bounds;
+            if (panel.Contains(GlobalParameters.GlobalMouse.newMousePos) && GlobalParameters.GlobalMouse.ScrollDelta != 0)
+            {
+                int maxScroll = Math.Max(0, Layout.SettingsContentHeight - panel.Height);
+                _settingsScroll = Math.Clamp(_settingsScroll - Math.Sign(GlobalParameters.GlobalMouse.ScrollDelta) * 36, 0, maxScroll);
+                Arrange(Bounds);
+            }
             _onionSkin.Value = _animation.isOnionSkinEnabled;
-            _onionSkin.Update();
-            _previousOnionDown.Update();
-            _previousOnionUp.Update();
-            _nextOnionDown.Update();
-            _nextOnionUp.Update();
+            Rectangle viewport = SettingsViewport(panel);
+            if (FullyVisible(_onionSkin.Bounds, viewport)) _onionSkin.Update();
+            if (FullyVisible(_previousOnionDown.Bounds, viewport)) _previousOnionDown.Update();
+            if (FullyVisible(_previousOnionUp.Bounds, viewport)) _previousOnionUp.Update();
+            if (FullyVisible(_nextOnionDown.Bounds, viewport)) _nextOnionDown.Update();
+            if (FullyVisible(_nextOnionUp.Bounds, viewport)) _nextOnionUp.Update();
             _onionOpacity.SetValue((int)Math.Round(_animation.OnionSkinOpacity * 100));
             _onionOpacity.IsEnabled = _animation.isOnionSkinEnabled;
-            _onionOpacity.Update();
-            _fpsDown.Update();
-            _fpsUp.Update();
-            _save.Update();
+            if (FullyVisible(_onionOpacity.Bounds, viewport)) _onionOpacity.Update();
+            if (FullyVisible(_fpsDown.Bounds, viewport)) _fpsDown.Update();
+            if (FullyVisible(_fpsUp.Bounds, viewport)) _fpsUp.Update();
+            if (FullyVisible(_save.Bounds, viewport)) _save.Update();
         }
+
+        private static Rectangle SettingsViewport(Rectangle panel) => new(
+            panel.X + 4, panel.Y + 64, Math.Max(1, panel.Width - 8), Math.Max(1, panel.Height - 68));
+
+        private static bool FullyVisible(Rectangle bounds, Rectangle viewport) =>
+            bounds.X >= viewport.X && bounds.Right <= viewport.Right &&
+            bounds.Y >= viewport.Y && bounds.Bottom <= viewport.Bottom;
 
         private void UpdateLayers()
         {
@@ -446,39 +504,46 @@ namespace FrameByFrame.src.UI.Components
         {
             _settingsPopover.Draw();
             Rectangle panel = _settingsPopover.Bounds;
+            Rectangle viewport = SettingsViewport(panel);
+            int scroll = _settingsScroll;
             new UITextContainer { Bounds = new Rectangle(panel.X + 24, panel.Y + 16, panel.Width - 48, 48), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Animation settings", UITheme.Primary, .72f);
-            _onionSkin.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 88, panel.Y + 89, panel.Width - 112, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw($"Onion skin: {(_animation.isOnionSkinEnabled ? "On" : "Off")}", UITheme.Text, .6f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 130, 160, 44), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Onion opacity", UITheme.Text, .6f);
-            _onionOpacity.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 205, panel.Y + 164, 172, 24), MaxLines = 1 }
-                .Draw($"{(int)Math.Round(_animation.OnionSkinOpacity * 100)}%", UITheme.TextMuted, .55f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 190, 160, 38), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Previous frames", UITheme.Text, .6f);
-            _previousOnionDown.Draw();
-            _previousOnionUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 190, 72, 38), MaxLines = 1 }
-                .Draw(_animation.PreviousOnionFrames.ToString(), UITheme.Primary, .65f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 236, 160, 38), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Next frames", UITheme.Text, .6f);
-            _nextOnionDown.Draw();
-            _nextOnionUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 236, 72, 38), MaxLines = 1 }
-                .Draw(_animation.NextOnionFrames.ToString(), UITheme.Primary, .65f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 290, 160, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Playback FPS", UITheme.Text, .6f);
-            _fpsDown.Draw();
-            _fpsUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 290, 72, 42), MaxLines = 1 }
-                .Draw(_animation.fps.ToString(), UITheme.Primary, .65f);
-            DrawSizeBar(new Rectangle(panel.X + 28, panel.Y + 342, panel.Width - 56, 28));
+            void TextIfVisible(Rectangle bounds, string text, Color color, float scale, UIAlign alignment = UIAlign.Center)
+            {
+                if (FullyVisible(bounds, viewport))
+                    new UITextContainer { Bounds = bounds, HorizontalAlignment = alignment, MaxLines = 1 }.Draw(text, color, scale);
+            }
+            if (FullyVisible(_onionSkin.Bounds, viewport)) _onionSkin.Draw();
+            TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 89 - scroll, panel.Width - 112, 42),
+                $"Onion skin: {(_animation.isOnionSkinEnabled ? "On" : "Off")}", UITheme.Text, .6f, UIAlign.Start);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 130 - scroll, 120, 44), "Onion opacity", UITheme.Text, .6f, UIAlign.Start);
+            if (FullyVisible(_onionOpacity.Bounds, viewport)) _onionOpacity.Draw();
+            TextIfVisible(new Rectangle(_onionOpacity.Bounds.X, panel.Y + 164 - scroll, _onionOpacity.Bounds.Width, 24),
+                $"{(int)Math.Round(_animation.OnionSkinOpacity * 100)}%", UITheme.TextMuted, .55f);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 190 - scroll, 120, 38), "Previous frames", UITheme.Text, .6f, UIAlign.Start);
+            if (FullyVisible(_previousOnionDown.Bounds, viewport)) _previousOnionDown.Draw();
+            if (FullyVisible(_previousOnionUp.Bounds, viewport)) _previousOnionUp.Draw();
+            TextIfVisible(new Rectangle(_previousOnionDown.Bounds.Right, panel.Y + 190 - scroll,
+                Math.Max(1, _previousOnionUp.Bounds.X - _previousOnionDown.Bounds.Right), 38), _animation.PreviousOnionFrames.ToString(), UITheme.Primary, .65f);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 236 - scroll, 120, 38), "Next frames", UITheme.Text, .6f, UIAlign.Start);
+            if (FullyVisible(_nextOnionDown.Bounds, viewport)) _nextOnionDown.Draw();
+            if (FullyVisible(_nextOnionUp.Bounds, viewport)) _nextOnionUp.Draw();
+            TextIfVisible(new Rectangle(_nextOnionDown.Bounds.Right, panel.Y + 236 - scroll,
+                Math.Max(1, _nextOnionUp.Bounds.X - _nextOnionDown.Bounds.Right), 38), _animation.NextOnionFrames.ToString(), UITheme.Primary, .65f);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 290 - scroll, 120, 42), "Playback FPS", UITheme.Text, .6f, UIAlign.Start);
+            if (FullyVisible(_fpsDown.Bounds, viewport)) _fpsDown.Draw();
+            if (FullyVisible(_fpsUp.Bounds, viewport)) _fpsUp.Draw();
+            TextIfVisible(new Rectangle(_fpsDown.Bounds.Right, panel.Y + 290 - scroll,
+                Math.Max(1, _fpsUp.Bounds.X - _fpsDown.Bounds.Right), 42), _animation.fps.ToString(), UITheme.Primary, .65f);
+            Rectangle sizeBounds = new(panel.X + 28, panel.Y + 342 - scroll, panel.Width - 56, 28);
+            if (FullyVisible(sizeBounds, viewport)) DrawSizeBar(sizeBounds);
             if (!string.IsNullOrEmpty(_saveError))
-                new UITextContainer { Bounds = new Rectangle(panel.X + 24, panel.Y + 374, panel.Width - 48, 32), MaxLines = 2 }
-                    .Draw(_saveError, Color.IndianRed, .52f);
-            _save.Draw(true);
+            {
+                Rectangle errorBounds = new(panel.X + 24, panel.Y + 374 - scroll, panel.Width - 48, 32);
+                if (FullyVisible(errorBounds, viewport))
+                    new UITextContainer { Bounds = errorBounds, MaxLines = 2 }.Draw(_saveError, Color.IndianRed, .52f);
+            }
+            if (FullyVisible(_save.Bounds, viewport)) _save.Draw(true);
         }
 
         private void DrawSizeBar(Rectangle bounds)
