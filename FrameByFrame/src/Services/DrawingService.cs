@@ -80,31 +80,46 @@ namespace FrameByFrame.src.Engine.Services
 
         public static RenderTarget2D CombineTextures(Frame givenFrame)
         {
-            RenderTarget2D renderTarget2D = new RenderTarget2D(GlobalParameters.GlobalGraphics, GlobalParameters.screenWidth - 222, GlobalParameters.screenHeight);
+            ArgumentNullException.ThrowIfNull(givenFrame);
 
-            // Set render target
-            GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget2D);
-            GlobalParameters.GlobalGraphics.Clear(Color.White);
+            RenderTarget2D renderTarget = new RenderTarget2D(
+                GlobalParameters.GlobalGraphics, givenFrame.width, givenFrame.height);
+            RenderTargetBinding[] previousTargets = GlobalParameters.GlobalGraphics.GetRenderTargets();
+            bool spriteBatchBegun = false;
 
-            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
-
-            // Draw each layer texture
-            Rectangle drawRectangle = new Rectangle((int)Frame.position.X, (int)Frame.position.Y, givenFrame.width, givenFrame.height);
-            if (givenFrame != null)
+            try
             {
-                // Draw background
-                givenFrame.Draw(1.0f);
-                
-                // Draw layers - this will automatically call UpdateTextures() if needed
-                givenFrame.DrawLayers(1.0f);
+                GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget);
+                GlobalParameters.GlobalGraphics.Clear(Color.White);
+                GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend,
+                    SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
+                spriteBatchBegun = true;
+
+                Rectangle canvasBounds = new Rectangle(0, 0, givenFrame.width, givenFrame.height);
+                givenFrame.Draw(canvasBounds, 1.0f);
+                givenFrame.DrawLayers(canvasBounds, 1.0f);
+
+                GlobalParameters.GlobalSpriteBatch.End();
+                spriteBatchBegun = false;
+            }
+            catch
+            {
+                renderTarget.Dispose();
+                throw;
+            }
+            finally
+            {
+                try
+                {
+                    if (spriteBatchBegun) GlobalParameters.GlobalSpriteBatch.End();
+                }
+                finally
+                {
+                    GlobalParameters.GlobalGraphics.SetRenderTargets(previousTargets);
+                }
             }
 
-            GlobalParameters.GlobalSpriteBatch.End();
-
-            // Unset render target
-            GlobalParameters.GlobalGraphics.SetRenderTarget(null);
-
-            return renderTarget2D;
+            return renderTarget;
         }
     }
 }
