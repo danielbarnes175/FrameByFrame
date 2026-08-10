@@ -14,9 +14,8 @@ namespace FrameByFrame.src.Engine.Animation
     public class Animation : IDisposable
     {
         // Animation
-        private double playbackTimer;
         public int fps;
-        public bool IsPlaying { get; private set; }
+        public bool IsPlaying => _timeline.IsPlaying;
 
         public Vector2 frameSize;
         public Vector2 framePosition;
@@ -50,25 +49,24 @@ namespace FrameByFrame.src.Engine.Animation
         // Project Settings
         public string projectName;
 
-        public LinkedList<Frame> frames;
-        private LinkedListNode<Frame> currentFrame;
+        private readonly Timeline _timeline;
+        public IEnumerable<Frame> Frames => _timeline.Frames;
         private bool _disposed = false;
         private const int MaxHistoryEntries = 20;
         private readonly Stack<PixelEdit> _undoHistory = new();
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
-        private Dictionary<Guid, Color[]> _frameClipboard;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
 
-        public int TotalFrames => frames.Count;
-        public int CurrentFrameIndex { get; private set; }
-        public Frame CurrentFrame => currentFrame?.Value;
+        public int TotalFrames => _timeline.TotalFrames;
+        public int CurrentFrameIndex => _timeline.CurrentFrameIndex;
+        public Frame CurrentFrame => _timeline.CurrentFrame;
         public Rectangle DisplayBounds { get; private set; }
         public const int MinCanvasDimension = 64;
         public const int MaxCanvasDimension = 4096;
         public const long MaxStoredPixels = 268_435_456;
-        public long StoredPixelCount => frames.Sum(frame => frame.NonTransparentPixelCount);
+        public long StoredPixelCount => Frames.Sum(frame => frame.NonTransparentPixelCount);
         public float ResourceBudgetRemaining => Math.Clamp(1f -
             (float)(StoredPixelCount / (double)MaxStoredPixels), 0f, 1f);
 
@@ -76,16 +74,14 @@ namespace FrameByFrame.src.Engine.Animation
         {
             this.projectName = projectName;
             fps = 12;
-            frames = new LinkedList<Frame>();
-            playbackTimer = 0;
-            IsPlaying = false;
             _layers = layers?.ToList() ??
                 [new AnimationLayer("Layer 1"), new AnimationLayer("Layer 2"), new AnimationLayer("Layer 3")];
             if (_layers.Count == 0) throw new ArgumentException("An animation must have at least one layer.", nameof(layers));
             if (_layers.Select(layer => layer.Id).Distinct().Count() != _layers.Count)
                 throw new ArgumentException("Layer IDs must be unique.", nameof(layers));
+            _timeline = new Timeline(() => framePosition, () => frameSize, () => _layers,
+                CommitPixelEdit, ClearEditHistory);
             SelectedLayerId = _layers[0].Id;
-            CurrentFrameIndex = 0;
             brushSize = 5;
             isOnionSkinEnabled = true;
         }
@@ -99,104 +95,29 @@ namespace FrameByFrame.src.Engine.Animation
                 GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2,
                 GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
 
-            frames.AddLast(new Frame(framePosition, frameSize, _layers));
-            currentFrame = frames.First;
+            _timeline.Initialize();
         }
 
         public void LoadFrames(IEnumerable<Frame> loadedFrames, Vector2 loadedFramePosition, Vector2 loadedFrameSize)
         {
             ArgumentNullException.ThrowIfNull(loadedFrames);
 
-            foreach (Frame frame in frames)
-            {
-                frame?.Dispose();
-            }
-
-            frames.Clear();
-            foreach (Frame frame in loadedFrames)
-            {
-                if (frame != null)
-                    frames.AddLast(frame);
-            }
-
-            if (frames.Count == 0)
-            {
-                throw new ArgumentException("A saved animation must contain at least one frame.", nameof(loadedFrames));
-            }
-
+            _timeline.Load(loadedFrames);
             framePosition = loadedFramePosition;
             frameSize = loadedFrameSize;
-            currentFrame = frames.First;
-            CurrentFrameIndex = 0;
-            playbackTimer = 0;
-            IsPlaying = false;
-            InvalidateFrameCache();
+            ClearEditHistory();
         }
 
-        // Cache for faster frame access
-        private List<Frame> _framesList = new List<Frame>();
-        private bool _framesCacheValid = true;
-
-        public Frame GetFrameAtIndex(int index)
-        {
-            if (index < 0 || index >= frames.Count) return null;
-
-            // Use cached list for O(1) access
-            if (!_framesCacheValid || _framesList.Count != frames.Count)
-            {
-                _framesList.Clear();
-                _framesList.AddRange(frames);
-                _framesCacheValid = true;
-            }
-
-            return _framesList[index];
-        }
-
-        private void InvalidateFrameCache()
-        {
-            _framesCacheValid = false;
-        }
-
-        public void FirstFrame()
-        {
-            CommitPixelEdit();
-            currentFrame = frames.First;
-            CurrentFrameIndex = 0;
-        }
-
-        public void LastFrame()
-        {
-            CommitPixelEdit();
-            currentFrame = frames.Last;
-            CurrentFrameIndex = TotalFrames - 1;
-        }
-
-        public void NextFrame()
-        {
-            CommitPixelEdit();
-            CurrentFrameIndex += 1;
-            if (CurrentFrameIndex > TotalFrames - 1)
-            {
-                frames.AddLast(new Frame(framePosition, frameSize, _layers));
-            }
-            currentFrame = currentFrame.Next;
-        }
-
-        public void PreviousFrame()
-        {
-            if (CurrentFrameIndex <= 0) return;
-            CommitPixelEdit();
-            if (CurrentFrameIndex > 0)
-            {
-                CurrentFrameIndex -= 1;
-            }
-            currentFrame = currentFrame.Previous;
-        }
+        public Frame GetFrameAtIndex(int index) => _timeline.GetFrameAtIndex(index);
+        public void FirstFrame() => _timeline.FirstFrame();
+        public void LastFrame() => _timeline.LastFrame();
+        public void NextFrame() => _timeline.NextFrame();
+        public void PreviousFrame() => _timeline.PreviousFrame();
 
         public void EraseCurrentLayer()
         {
             BeginPixelEdit();
-            currentFrame.Value.ClearLayer(SelectedLayerId);
+            CurrentFrame.ClearLayer(SelectedLayerId);
             CommitPixelEdit();
         }
 
@@ -210,7 +131,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void CommitPixelEdit()
         {
             if (_pendingPixelEdit == null) return;
-            Frame frame = frames.Contains(_pendingPixelEdit.Frame) ? _pendingPixelEdit.Frame : null;
+            Frame frame = _timeline.Contains(_pendingPixelEdit.Frame) ? _pendingPixelEdit.Frame : null;
             Color[] after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
             PixelEdit completed = _pendingPixelEdit with { After = after };
             _pendingPixelEdit = null;
@@ -225,17 +146,24 @@ namespace FrameByFrame.src.Engine.Animation
             _redoHistory.Clear();
         }
 
+        private void ClearEditHistory()
+        {
+            _pendingPixelEdit = null;
+            _undoHistory.Clear();
+            _redoHistory.Clear();
+        }
+
         public bool Undo()
         {
             CommitPixelEdit();
             if (_undoHistory.Count == 0) return false;
             PixelEdit edit = _undoHistory.Peek();
-            Frame frame = frames.Contains(edit.Frame) ? edit.Frame : null;
+            Frame frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
             if (!CanReplaceLayer(frame, edit.LayerId, edit.Before)) return false;
             _undoHistory.Pop();
             frame.SetLayerPixels(edit.LayerId, edit.Before, true);
-            SelectFrame(frames.ToList().IndexOf(frame));
+            SelectFrame(_timeline.IndexOf(frame));
             SelectLayer(edit.LayerId);
             _redoHistory.Push(edit);
             return true;
@@ -246,161 +174,27 @@ namespace FrameByFrame.src.Engine.Animation
             CommitPixelEdit();
             if (_redoHistory.Count == 0) return false;
             PixelEdit edit = _redoHistory.Peek();
-            Frame frame = frames.Contains(edit.Frame) ? edit.Frame : null;
+            Frame frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
             if (!CanReplaceLayer(frame, edit.LayerId, edit.After)) return false;
             _redoHistory.Pop();
             frame.SetLayerPixels(edit.LayerId, edit.After, true);
-            SelectFrame(frames.ToList().IndexOf(frame));
+            SelectFrame(_timeline.IndexOf(frame));
             SelectLayer(edit.LayerId);
             _undoHistory.Push(edit);
             return true;
         }
 
-        public void DeleteFrame()
-        {
-            // Can't delete the only frame
-            if (frames.Count <= 1) return;
-            CommitPixelEdit();
-
-            var toRemove = currentFrame;
-            bool hasNextFrame = currentFrame.Next != null;
-            currentFrame = currentFrame.Next ?? currentFrame.Previous;
-            
-            // Dispose the frame to free memory
-            toRemove.Value?.Dispose();
-            
-            frames.Remove(toRemove);
-            if (!hasNextFrame) CurrentFrameIndex--;
-            _undoHistory.Clear();
-            _redoHistory.Clear();
-            InvalidateFrameCache();
-        }
-        
-        public void InsertFrame()
-        {
-            CommitPixelEdit();
-            var newFrame = new Frame(framePosition, frameSize, _layers);
-            frames.AddBefore(currentFrame, newFrame);
-            currentFrame = currentFrame.Previous;
-            InvalidateFrameCache();
-        }
-
-        public void DuplicateCurrentFrame()
-        {
-            if (currentFrame == null) return;
-
-            var duplicate = new Frame(framePosition, frameSize, _layers);
-            foreach (AnimationLayer layer in _layers)
-            {
-                duplicate.SetLayerPixels(layer.Id, currentFrame.Value.GetLayerPixels(layer.Id), ignoreLock: true);
-            }
-
-            currentFrame = frames.AddAfter(currentFrame, duplicate);
-            CurrentFrameIndex++;
-            InvalidateFrameCache();
-        }
-
-        public void CopyCurrentFrame()
-        {
-            if (currentFrame == null) return;
-            CommitPixelEdit();
-            _frameClipboard = _layers.ToDictionary(
-                layer => layer.Id,
-                layer => currentFrame.Value.GetLayerPixels(layer.Id));
-        }
-
-        public bool PasteFrame()
-        {
-            if (currentFrame == null || _frameClipboard == null) return false;
-            CommitPixelEdit();
-
-            var pastedFrame = new Frame(framePosition, frameSize, _layers);
-            foreach (AnimationLayer layer in _layers)
-            {
-                if (_frameClipboard.TryGetValue(layer.Id, out Color[] pixels))
-                    pastedFrame.SetLayerPixels(layer.Id, pixels, ignoreLock: true);
-            }
-
-            currentFrame = frames.AddAfter(currentFrame, pastedFrame);
-            CurrentFrameIndex++;
-            InvalidateFrameCache();
-            return true;
-        }
-
-        public bool MoveFrame(int oldIndex, int newIndex)
-        {
-            if (oldIndex < 0 || oldIndex >= TotalFrames ||
-                newIndex < 0 || newIndex >= TotalFrames || oldIndex == newIndex)
-                return false;
-
-            CommitPixelEdit();
-            LinkedListNode<Frame> moving = frames.First;
-            for (int i = 0; i < oldIndex; i++) moving = moving.Next;
-
-            Frame selectedFrame = currentFrame?.Value;
-            frames.Remove(moving);
-            if (newIndex >= frames.Count)
-            {
-                frames.AddLast(moving);
-            }
-            else
-            {
-                LinkedListNode<Frame> destination = frames.First;
-                for (int i = 0; i < newIndex; i++) destination = destination.Next;
-                frames.AddBefore(destination, moving);
-            }
-
-            currentFrame = frames.Find(selectedFrame) ?? moving;
-            CurrentFrameIndex = 0;
-            for (LinkedListNode<Frame> node = frames.First;
-                 node != null && node != currentFrame; node = node.Next)
-                CurrentFrameIndex++;
-            InvalidateFrameCache();
-            return true;
-        }
-
-        public void TogglePlaying()
-        {
-            CommitPixelEdit();
-            IsPlaying = !IsPlaying;
-        }
-
-        public void Animate(GameTime gameTime)
-        {
-            if (!IsPlaying || fps <= 0 || TotalFrames == 0) return;
-
-            double frameDuration = 1.0 / fps; // Seconds per frame
-            playbackTimer += gameTime.ElapsedGameTime.TotalSeconds;
-
-            if (playbackTimer >= frameDuration)
-            {
-                long elapsedFrames = (long)(playbackTimer / frameDuration);
-                playbackTimer -= elapsedFrames * frameDuration;
-
-                // Full animation cycles end on the same frame, so only traverse
-                // the remaining steps through the linked list.
-                int framesToAdvance = (int)(elapsedFrames % TotalFrames);
-                CurrentFrameIndex = (CurrentFrameIndex + framesToAdvance) % TotalFrames;
-
-                for (int i = 0; i < framesToAdvance; i++)
-                {
-                    currentFrame = currentFrame.Next ?? frames.First;
-                }
-            }
-        }
-
-        public void Stop()
-        {
-            CommitPixelEdit();
-            IsPlaying = false;
-        }
-
-        public void Start()
-        {
-            CommitPixelEdit();
-            IsPlaying = true;
-        }
+        public void DeleteFrame() => _timeline.DeleteFrame();
+        public void InsertFrame() => _timeline.InsertFrame();
+        public void DuplicateCurrentFrame() => _timeline.DuplicateCurrentFrame();
+        public void CopyCurrentFrame() => _timeline.CopyCurrentFrame();
+        public bool PasteFrame() => _timeline.PasteFrame();
+        public bool MoveFrame(int oldIndex, int newIndex) => _timeline.MoveFrame(oldIndex, newIndex);
+        public void TogglePlaying() => _timeline.TogglePlaying();
+        public void Animate(GameTime gameTime) => _timeline.Animate(gameTime, fps);
+        public void Stop() => _timeline.Stop();
+        public void Start() => _timeline.Start();
 
         public void DrawOnCurrentLayer(Color selectedColor)
         {
@@ -440,43 +234,39 @@ namespace FrameByFrame.src.Engine.Animation
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            currentFrame?.Value.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color,
+            CurrentFrame?.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color,
                 Math.Max(0, MaxStoredPixels - StoredPixelCount));
         }
 
         public Color SampleVisibleColorAt(Vector2 screenPosition)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            return currentFrame?.Value.GetVisiblePixel((int)local.X, (int)local.Y) ?? Color.Transparent;
+            return CurrentFrame?.GetVisiblePixel((int)local.X, (int)local.Y) ?? Color.Transparent;
         }
 
         public void SelectFrame(int index)
         {
-            if (index < 0 || index >= TotalFrames) return;
-            CommitPixelEdit();
-            currentFrame = frames.First;
-            for (int i = 0; i < index; i++) currentFrame = currentFrame.Next;
-            CurrentFrameIndex = index;
+            _timeline.SelectFrame(index);
         }
 
         public void DrawCurrentFrame(Rectangle destination)
         {
             DisplayBounds = destination;
-            currentFrame?.Value.Draw(destination, 1f);
+            CurrentFrame?.Draw(destination, 1f);
             if (!IsPlaying && isOnionSkinEnabled)
             {
                 for (int i = 1; i <= previousOnionFrames; i++)
                 {
-                    Frame frame = frames.ElementAtOrDefault(CurrentFrameIndex - i);
+                    Frame frame = GetFrameAtIndex(CurrentFrameIndex - i);
                     if (frame != null) frame.DrawLayers(destination, baseOpacity * (previousOnionFrames - i + 1));
                 }
                 for (int i = 1; i <= nextOnionFrames; i++)
                 {
-                    Frame frame = frames.ElementAtOrDefault(CurrentFrameIndex + i);
+                    Frame frame = GetFrameAtIndex(CurrentFrameIndex + i);
                     if (frame != null) frame.DrawLayers(destination, baseOpacity * (nextOnionFrames - i + 1));
                 }
             }
-            currentFrame?.Value.DrawLayers(destination, 1f);
+            CurrentFrame?.DrawLayers(destination, 1f);
         }
 
         private void DrawBrushAt(Vector2 localPos, Color color)
@@ -503,7 +293,7 @@ namespace FrameByFrame.src.Engine.Animation
                     if (dx * dx + dy * dy <= brushSizeSquared)
                     {
                         bool canAddPixel = color == Color.Transparent || availablePixels > 0;
-                        if (currentFrame.Value.SetPixel(SelectedLayerId, x, y, color, canAddPixel))
+                        if (CurrentFrame.SetPixel(SelectedLayerId, x, y, color, canAddPixel))
                             availablePixels--;
                     }
                 }
@@ -512,7 +302,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public Color[] GetLayerPixels(Guid layerId)
         {
-            return currentFrame.Value.GetLayerPixels(layerId);
+            return CurrentFrame.GetLayerPixels(layerId);
         }
 
         private bool CanReplaceLayer(Frame frame, Guid layerId, Color[] replacement)
@@ -527,7 +317,7 @@ namespace FrameByFrame.src.Engine.Animation
             var layer = new AnimationLayer(name);
             index = Math.Clamp(index, 0, _layers.Count);
             _layers.Insert(index, layer);
-            foreach (Frame frame in frames) frame.AddLayer(layer, index);
+            foreach (Frame frame in Frames) frame.AddLayer(layer, index);
             SelectedLayerId = layer.Id;
             return layer;
         }
@@ -540,7 +330,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (index < 0) return false;
             CommitPixelEdit();
             _layers.RemoveAt(index);
-            foreach (Frame frame in frames) frame.RemoveLayer(layerId);
+            foreach (Frame frame in Frames) frame.RemoveLayer(layerId);
             if (SelectedLayerId == layerId) SelectedLayerId = _layers[Math.Min(index, _layers.Count - 1)].Id;
             return true;
         }
@@ -553,7 +343,7 @@ namespace FrameByFrame.src.Engine.Animation
             AnimationLayer layer = _layers[oldIndex];
             _layers.RemoveAt(oldIndex);
             _layers.Insert(newIndex, layer);
-            foreach (Frame frame in frames) frame.ReorderLayers(_layers);
+            foreach (Frame frame in Frames) frame.ReorderLayers(_layers);
             return true;
         }
 
@@ -584,21 +374,21 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawCurrentFrame()
         {
-            currentFrame?.Value.Draw(1.0f);
+            CurrentFrame?.Draw(1.0f);
 
             if (!IsPlaying && isOnionSkinEnabled)
             {
                 DrawOnionSkin();
             }
 
-            DrawFrameWithOpacity(currentFrame?.Value, 1.0f);
+            DrawFrameWithOpacity(CurrentFrame, 1.0f);
         }
 
         public void DrawOnionSkin()
         {
             for (int i = 1; i <= previousOnionFrames; i++)
             {
-                var frame = frames.ElementAtOrDefault(CurrentFrameIndex - i);
+                Frame frame = GetFrameAtIndex(CurrentFrameIndex - i);
                 if (frame != null)
                 {
                     float opacity = baseOpacity * (previousOnionFrames - i + 1);
@@ -607,7 +397,7 @@ namespace FrameByFrame.src.Engine.Animation
             }
             for (int i = 1; i <= nextOnionFrames; i++)
             {
-                var frame = frames.ElementAtOrDefault(CurrentFrameIndex + i);
+                Frame frame = GetFrameAtIndex(CurrentFrameIndex + i);
                 if (frame != null)
                 {
                     float opacity = baseOpacity * (nextOnionFrames - i + 1);
@@ -625,7 +415,7 @@ namespace FrameByFrame.src.Engine.Animation
         public long GetTotalMemoryUsage()
         {
             long total = 0;
-            foreach (var frame in frames)
+            foreach (Frame frame in Frames)
             {
                 total += frame.GetMemoryUsage();
             }
@@ -644,13 +434,7 @@ namespace FrameByFrame.src.Engine.Animation
 
             if (disposing)
             {
-                // Dispose all frames
-                foreach (var frame in frames)
-                {
-                    frame?.Dispose();
-                }
-                frames.Clear();
-                currentFrame = null;
+                _timeline.Dispose();
             }
 
             _disposed = true;

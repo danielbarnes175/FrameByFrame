@@ -40,16 +40,16 @@ namespace FrameByFrame.src.Engine.Export
             ArgumentException.ThrowIfNullOrWhiteSpace(filename);
             ArgumentNullException.ThrowIfNull(animation);
 
-            if (animation.frames.Count == 0)
+            if (animation.TotalFrames == 0)
                 throw new InvalidDataException("Cannot save an animation without frames.");
             if (animation.fps <= 0)
                 throw new InvalidDataException("Animation FPS must be greater than zero.");
             if (animation.Layers.Count == 0 || animation.Layers.Count > MaxLayerCount)
                 throw new InvalidDataException("Animation layer count is invalid or unsupported.");
 
-            Frame firstFrame = animation.frames.First.Value;
+            Frame firstFrame = animation.GetFrameAtIndex(0);
             ValidateDimensions(firstFrame.width, firstFrame.height);
-            ValidateResourceCounts(animation.Layers.Count, animation.frames.Count);
+            ValidateResourceCounts(animation.Layers.Count, animation.TotalFrames);
             if (animation.StoredPixelCount > Animation.Animation.MaxStoredPixels)
                 throw new InvalidDataException("The project exceeds the supported stored pixel budget.");
 
@@ -69,7 +69,7 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.framePosition.Y);
                     writer.Write(animation.fps);
                     writer.Write(animation.Layers.Count);
-                    writer.Write(animation.frames.Count);
+                    writer.Write(animation.TotalFrames);
                     writer.Write(KeyframeInterval);
                     WriteString(writer, animation.projectName);
                     foreach (AnimationLayer layer in animation.Layers)
@@ -83,11 +83,11 @@ namespace FrameByFrame.src.Engine.Export
                     long indexOffsetPosition = stream.Position;
                     writer.Write((long)0);
 
-                    var frameOffsets = new List<long>(animation.frames.Count);
+                    var frameOffsets = new List<long>(animation.TotalFrames);
                     Dictionary<int, uint>[] previousLayers = CreateEmptyLayers(animation.Layers.Count);
                     int frameIndex = 0;
 
-                    foreach (Frame frame in animation.frames)
+                    foreach (Frame frame in animation.Frames)
                     {
                         if (frame.width != firstFrame.width || frame.height != firstFrame.height)
                             throw new InvalidDataException("All frames in an FBF v1 project must have identical dimensions.");
