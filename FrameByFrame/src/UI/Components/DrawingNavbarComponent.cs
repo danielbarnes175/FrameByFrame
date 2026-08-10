@@ -84,7 +84,25 @@ namespace FrameByFrame.src.UI.Components
         private float _selectedSaturation;
         private float _selectedValue;
         private string _saveError = string.Empty;
+        private int _helpScroll;
         private int _settingsScroll;
+
+        private static readonly string[] HelpShortcuts =
+        {
+            "Ctrl+Z / Ctrl+Y - Undo or redo",
+            "Ctrl+D - Duplicate selected frame",
+            "Ctrl+C / Ctrl+V - Copy or paste frame",
+            "Drag timeline frames - Reorder frames",
+            "P - Play or pause",
+            "N / M - Previous or next frame",
+            "B - Insert a frame",
+            "Delete - Remove current frame",
+            "O - Toggle onion skin",
+            "[ / ] - Change brush size",
+            "Backspace - Clear selected layer",
+            "L - Save project",
+            "Esc - Return home"
+        };
 
         public Color SelectedColor => _selectedColor;
         public bool HasOpenPopover => _openPopover != PopoverKind.None;
@@ -243,6 +261,8 @@ namespace FrameByFrame.src.UI.Components
             _layersPopover.Arrange(ClampPopover(new Rectangle(_layers.Bounds.Right - Layout.LayersWidth, popoverTop, Layout.LayersWidth,
                 Math.Min(Layout.LayersHeight, availableHeight)), popoverTop));
 
+            _helpScroll = Math.Clamp(_helpScroll, 0,
+                Math.Max(0, Layout.HelpContentHeight - _helpPopover.Bounds.Height));
             Rectangle settings = _settingsPopover.Bounds;
             _settingsScroll = Math.Clamp(_settingsScroll, 0, Math.Max(0, Layout.SettingsContentHeight - settings.Height));
             int scroll = _settingsScroll;
@@ -289,6 +309,7 @@ namespace FrameByFrame.src.UI.Components
             _layersPopover.IsOpen = _openPopover == PopoverKind.Layers;
             ActivePopover()?.Update();
 
+            if (_helpPopover.IsOpen) UpdateHelp();
             if (_settingsPopover.IsOpen) UpdateSettings();
             if (_layersPopover.IsOpen) UpdateLayers();
             if (_colorPopover.IsOpen) UpdateColorPicker();
@@ -303,6 +324,16 @@ namespace FrameByFrame.src.UI.Components
             PopoverKind.Layers => _layersPopover,
             _ => null
         };
+
+        private void UpdateHelp()
+        {
+            Rectangle panel = _helpPopover.Bounds;
+            if (panel.Contains(GlobalParameters.GlobalMouse.newMousePos) && GlobalParameters.GlobalMouse.ScrollDelta != 0)
+            {
+                int maxScroll = Math.Max(0, Layout.HelpContentHeight - panel.Height);
+                _helpScroll = Math.Clamp(_helpScroll - Math.Sign(GlobalParameters.GlobalMouse.ScrollDelta) * 36, 0, maxScroll);
+            }
+        }
 
         private void UpdateSettings()
         {
@@ -329,6 +360,9 @@ namespace FrameByFrame.src.UI.Components
         }
 
         private static Rectangle SettingsViewport(Rectangle panel) => new(
+            panel.X + 4, panel.Y + 64, Math.Max(1, panel.Width - 8), Math.Max(1, panel.Height - 68));
+
+        private static Rectangle HelpViewport(Rectangle panel) => new(
             panel.X + 4, panel.Y + 64, Math.Max(1, panel.Width - 8), Math.Max(1, panel.Height - 68));
 
         private static bool FullyVisible(Rectangle bounds, Rectangle viewport) =>
@@ -493,11 +527,16 @@ namespace FrameByFrame.src.UI.Components
         {
             _helpPopover.Draw();
             Rectangle panel = _helpPopover.Bounds;
+            Rectangle viewport = HelpViewport(panel);
             new UITextContainer { Bounds = new Rectangle(panel.X + 22, panel.Y + 18, panel.Width - 44, 48), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Keyboard shortcuts", UITheme.Primary, 1.05f);
-            const string shortcuts = "Ctrl+Z / Ctrl+Y - Undo or redo\nCtrl+D - Duplicate selected frame\nCtrl+C / Ctrl+V - Copy or paste frame\nDrag timeline frames - Reorder frames\nP - Play or pause\nN / M - Previous or next frame\nB - Insert a frame\nDelete - Remove current frame\nO - Toggle onion skin\n[ / ] - Change brush size\nBackspace - Clear selected layer\nL - Save project\nEsc - Return home";
-            new UITextContainer { Bounds = new Rectangle(panel.X + 22, panel.Y + 72, panel.Width - 44, panel.Height - 92), HorizontalAlignment = UIAlign.Start, VerticalAlignment = UIAlign.Start, Padding = 4, MaxLines = 13 }
-                .Draw(shortcuts, UITheme.Text, .85f);
+            for (int i = 0; i < HelpShortcuts.Length; i++)
+            {
+                Rectangle row = new(panel.X + 22, panel.Y + 72 + i * 24 - _helpScroll, panel.Width - 44, 24);
+                if (FullyVisible(row, viewport))
+                    new UITextContainer { Bounds = row, HorizontalAlignment = UIAlign.Start, Padding = 4, MaxLines = 1 }
+                        .Draw(HelpShortcuts[i], UITheme.Text, .85f);
+            }
         }
 
         private void DrawSettings()
