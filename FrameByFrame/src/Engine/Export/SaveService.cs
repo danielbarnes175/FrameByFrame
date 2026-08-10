@@ -15,7 +15,8 @@ namespace FrameByFrame.src.Engine.Export
             ArgumentNullException.ThrowIfNull(animation);
 
             Directory.CreateDirectory(ProjectsDirectory);
-            string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}.fbf");
+            string projectName = ValidateProjectName(animation.projectName);
+            string filename = GetProjectPath($"{projectName}.fbf");
             FbfProjectFile.Save(filename, animation);
         }
 
@@ -29,14 +30,10 @@ namespace FrameByFrame.src.Engine.Export
             ArgumentNullException.ThrowIfNull(animation);
             ArgumentException.ThrowIfNullOrWhiteSpace(currentFilename);
 
-            string normalizedName = newName?.Trim();
-            if (string.IsNullOrWhiteSpace(normalizedName) || normalizedName is "." or ".." ||
-                normalizedName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
-                normalizedName.IndexOfAny(['<', '>', ':', '"', '/', '\\', '|', '?', '*']) >= 0)
-                throw new ArgumentException("Project names must contain valid filename characters.", nameof(newName));
+            string normalizedName = ValidateProjectName(newName);
 
             Directory.CreateDirectory(ProjectsDirectory);
-            string destination = Path.Combine(ProjectsDirectory, $"{normalizedName}.fbf");
+            string destination = GetProjectPath($"{normalizedName}.fbf");
             string currentFullPath = Path.GetFullPath(currentFilename);
             string destinationFullPath = Path.GetFullPath(destination);
             if (!string.Equals(currentFullPath, destinationFullPath, StringComparison.OrdinalIgnoreCase) && File.Exists(destination))
@@ -79,7 +76,8 @@ namespace FrameByFrame.src.Engine.Export
             // producing flattened PNG/GIF output.
             SaveAnimation(animation);
 
-            string projectDirectory = Path.Combine(ProjectsDirectory, animation.projectName);
+            string projectName = ValidateProjectName(animation.projectName);
+            string projectDirectory = GetProjectPath(projectName);
             Directory.CreateDirectory(projectDirectory);
 
             int exportedFrameCount = endFrameIndex - startFrameIndex + 1;
@@ -92,7 +90,7 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             RemoveObsoleteFrameFiles(projectDirectory, exportedFrameCount);
-            CreateGif(animation, projectDirectory, exportedFrameCount);
+            CreateGif(animation, projectName, projectDirectory, exportedFrameCount);
         }
 
         private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
@@ -115,9 +113,10 @@ namespace FrameByFrame.src.Engine.Export
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
         }
 
-        private static void CreateGif(Animation.Animation animation, string projectDirectory, int frameCount)
+        private static void CreateGif(Animation.Animation animation, string projectName,
+            string projectDirectory, int frameCount)
         {
-            string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}.gif");
+            string filename = GetProjectPath($"{projectName}.gif");
             uint frameDelay = (uint)Math.Max(1, Math.Round(100d / animation.fps));
 
             using MagickImageCollection collection = new MagickImageCollection();
@@ -129,6 +128,29 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             collection.Write(filename);
+        }
+
+        internal static string ValidateProjectName(string name)
+        {
+            string normalizedName = name?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedName) || normalizedName is "." or ".." ||
+                Path.IsPathRooted(normalizedName) ||
+                normalizedName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                normalizedName.IndexOfAny(['<', '>', ':', '"', '/', '\\', '|', '?', '*']) >= 0)
+                throw new ArgumentException("Project names must contain valid filename characters.", nameof(name));
+            return normalizedName;
+        }
+
+        private static string GetProjectPath(string relativeName)
+        {
+            string projectsRoot = Path.GetFullPath(ProjectsDirectory);
+            string candidate = Path.GetFullPath(Path.Combine(projectsRoot, relativeName));
+            string rootPrefix = projectsRoot.EndsWith(Path.DirectorySeparatorChar)
+                ? projectsRoot
+                : projectsRoot + Path.DirectorySeparatorChar;
+            if (!candidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The project path must remain inside the projects directory.");
+            return candidate;
         }
     }
 }
