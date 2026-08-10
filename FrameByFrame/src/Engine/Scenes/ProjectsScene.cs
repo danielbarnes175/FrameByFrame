@@ -116,6 +116,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 while (_previewTimer >= frameDuration)
                 {
                     _previewTimer -= frameDuration;
+                    _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
                     _previewFrame = (_previewFrame + 1) % _animations[_selected].TotalFrames;
                 }
             }
@@ -254,6 +255,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void SelectRelative(int delta)
         {
             if (_animations.Count == 0) return;
+            _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
             _selected = (_selected + delta + _animations.Count) % _animations.Count; _previewFrame = 0; _previewTimer = 0;
         }
 
