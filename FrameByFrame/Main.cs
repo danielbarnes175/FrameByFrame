@@ -146,16 +146,11 @@ namespace FrameByFrame
 
         private void OnResize(object sender, EventArgs e)
         {
-            GlobalParameters.screenWidth = Math.Max(UITheme.MinWidth, GraphicsDevice.Viewport.Width);
-            GlobalParameters.screenHeight = Math.Max(UITheme.MinHeight, GraphicsDevice.Viewport.Height);
+            GlobalParameters.screenWidth = Math.Max(1, GraphicsDevice.Viewport.Width);
+            GlobalParameters.screenHeight = Math.Max(1, GraphicsDevice.Viewport.Height);
 
-            GlobalParameters.scaleX = Math.Max(GlobalParameters.screenWidth / 1600f, 0.5f);
-            GlobalParameters.scaleY = Math.Max(GlobalParameters.screenHeight / 900f, 0.5f);
-
-            graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
-            graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
-            if (GraphicsDevice.Viewport.Width < UITheme.MinWidth || GraphicsDevice.Viewport.Height < UITheme.MinHeight)
-                graphics.ApplyChanges();
+            GlobalParameters.scaleX = GlobalParameters.screenWidth / 1600f;
+            GlobalParameters.scaleY = GlobalParameters.screenHeight / 900f;
         }
     }
 

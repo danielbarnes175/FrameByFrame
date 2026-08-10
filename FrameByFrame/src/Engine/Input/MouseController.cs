@@ -50,5 +50,7 @@ namespace FrameByFrame.src.Engine.Input
         {
             return (newMouse.LeftButton == ButtonState.Pressed);
         }
+
+        public int ScrollDelta => newMouse.ScrollWheelValue - oldMouse.ScrollWheelValue;
     }
 }

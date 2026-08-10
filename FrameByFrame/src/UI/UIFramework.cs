@@ -37,8 +37,8 @@ namespace FrameByFrame.src.UI
         public const int TimelineHeight = 150;
         public const int DefaultScreenWidth = 1600;
         public const int DefaultScreenHeight = 900;
-        public const int MinWidth = 1024;
-        public const int MinHeight = 720;
+        public const int MinWidth = 320;
+        public const int MinHeight = 480;
     }
 
     public enum UIAxis { Horizontal, Vertical }
@@ -87,9 +87,24 @@ namespace FrameByFrame.src.UI
         public static float ResponsiveScale => Math.Clamp(
             Math.Min(GlobalParameters.screenWidth / (float)UITheme.DefaultScreenWidth,
                 GlobalParameters.screenHeight / (float)UITheme.DefaultScreenHeight),
-            .72f, 1.3f);
+            .45f, 1.3f);
 
         public static int Scale(int value) => Math.Max(1, (int)Math.Round(value * ResponsiveScale));
+
+        public static Rectangle InsetScreen(int margin)
+        {
+            int inset = Math.Min(margin, Math.Max(0, Math.Min(GlobalParameters.screenWidth, GlobalParameters.screenHeight) / 2 - 1));
+            return new Rectangle(inset, inset, Math.Max(1, GlobalParameters.screenWidth - inset * 2),
+                Math.Max(1, GlobalParameters.screenHeight - inset * 2));
+        }
+
+        public static Rectangle CenteredInScreen(int preferredWidth, int preferredHeight, int margin = UITheme.SpaceMd)
+        {
+            Rectangle available = InsetScreen(margin);
+            int width = Math.Min(preferredWidth, available.Width);
+            int height = Math.Min(preferredHeight, available.Height);
+            return new Rectangle(available.Center.X - width / 2, available.Center.Y - height / 2, width, height);
+        }
 
         public static IReadOnlyList<Rectangle> Stack(Rectangle bounds, UIAxis axis, int count, int spacing = UITheme.SpaceSm)
         {

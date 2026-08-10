@@ -15,6 +15,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _createButton;
         private UIActionButton _cancelButton;
         private bool _isConfiguringNewAnimation;
+        private Rectangle _cardBounds;
+        private Rectangle _dialogBounds;
         private int _canvasWidth = 1200;
         private int _canvasHeight = 800;
 
@@ -32,31 +34,41 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void Layout()
         {
-            int centerX = GlobalParameters.screenWidth / 2;
-            int cardWidth = Math.Min(UILayoutEngine.Scale(820), GlobalParameters.screenWidth - UILayoutEngine.Scale(80));
-            int cardX = centerX - cardWidth / 2;
-            int cardY = GlobalParameters.screenHeight / 2 - UILayoutEngine.Scale(250);
-            int buttonWidth = (cardWidth - UILayoutEngine.Scale(116)) / 2;
-            int y = cardY + UILayoutEngine.Scale(342);
-            _newButton.Bounds = new Rectangle(cardX + UILayoutEngine.Scale(50), y, buttonWidth, UILayoutEngine.Scale(64));
-            _projectsButton.Bounds = new Rectangle(cardX + UILayoutEngine.Scale(66) + buttonWidth, y, buttonWidth, UILayoutEngine.Scale(64));
+            int S(int value) => UILayoutEngine.Scale(value);
+            bool narrow = GlobalParameters.screenWidth < 600;
+            _cardBounds = UILayoutEngine.CenteredInScreen(S(820), Math.Min(S(440), GlobalParameters.screenHeight - S(24)), S(16));
+            int gap = S(12);
+            int buttonHeight = S(58);
+            int actionBottom = _cardBounds.Bottom - S(28);
+            if (narrow)
+            {
+                int width = _cardBounds.Width - S(40);
+                _projectsButton.Bounds = new Rectangle(_cardBounds.X + S(20), actionBottom - buttonHeight, width, buttonHeight);
+                _newButton.Bounds = new Rectangle(_cardBounds.X + S(20), _projectsButton.Bounds.Y - gap - buttonHeight, width, buttonHeight);
+            }
+            else
+            {
+                int width = (_cardBounds.Width - S(116)) / 2;
+                _newButton.Bounds = new Rectangle(_cardBounds.X + S(50), actionBottom - buttonHeight, width, buttonHeight);
+                _projectsButton.Bounds = new Rectangle(_newButton.Bounds.Right + S(16), _newButton.Bounds.Y, width, buttonHeight);
+            }
 
-            int dialogWidth = Math.Min(UILayoutEngine.Scale(560), GlobalParameters.screenWidth - UILayoutEngine.Scale(48));
-            int dialogX = centerX - dialogWidth / 2;
-            int dialogY = GlobalParameters.screenHeight / 2 - UILayoutEngine.Scale(190);
-            int valueX = dialogX + UILayoutEngine.Scale(245);
-            int controlWidth = UILayoutEngine.Scale(48);
-            int valueWidth = UILayoutEngine.Scale(100);
-            int firstRowY = dialogY + UILayoutEngine.Scale(100);
-            int secondRowY = dialogY + UILayoutEngine.Scale(160);
-            _widthDown.Bounds = new Rectangle(valueX, firstRowY, controlWidth, UILayoutEngine.Scale(44));
-            _widthUp.Bounds = new Rectangle(valueX + controlWidth + valueWidth, firstRowY, controlWidth, UILayoutEngine.Scale(44));
-            _heightDown.Bounds = new Rectangle(valueX, secondRowY, controlWidth, UILayoutEngine.Scale(44));
-            _heightUp.Bounds = new Rectangle(valueX + controlWidth + valueWidth, secondRowY, controlWidth, UILayoutEngine.Scale(44));
-            int actionY = dialogY + UILayoutEngine.Scale(270);
-            _createButton.Bounds = new Rectangle(dialogX + UILayoutEngine.Scale(35), actionY, UILayoutEngine.Scale(235), UILayoutEngine.Scale(54));
-            _cancelButton.Bounds = new Rectangle(dialogX + dialogWidth - UILayoutEngine.Scale(235) - UILayoutEngine.Scale(35), actionY,
-                UILayoutEngine.Scale(235), UILayoutEngine.Scale(54));
+            _dialogBounds = UILayoutEngine.CenteredInScreen(S(560), S(narrow ? 430 : 360), S(12));
+            int controlWidth = Math.Max(36, S(48));
+            int valueWidth = Math.Max(72, Math.Min(S(100), _dialogBounds.Width - controlWidth * 2 - S(56)));
+            int valueX = _dialogBounds.Right - S(28) - controlWidth * 2 - valueWidth;
+            int firstRowY = _dialogBounds.Y + S(100);
+            int secondRowY = firstRowY + S(60);
+            _widthDown.Bounds = new Rectangle(valueX, firstRowY, controlWidth, S(44));
+            _widthUp.Bounds = new Rectangle(valueX + controlWidth + valueWidth, firstRowY, controlWidth, S(44));
+            _heightDown.Bounds = new Rectangle(valueX, secondRowY, controlWidth, S(44));
+            _heightUp.Bounds = new Rectangle(valueX + controlWidth + valueWidth, secondRowY, controlWidth, S(44));
+            int actionY = _dialogBounds.Bottom - S(narrow ? 124 : 90);
+            int actionWidth = narrow ? _dialogBounds.Width - S(40) : (_dialogBounds.Width - S(86)) / 2;
+            _createButton.Bounds = new Rectangle(_dialogBounds.X + S(20), actionY, actionWidth, S(52));
+            _cancelButton.Bounds = narrow
+                ? new Rectangle(_dialogBounds.X + S(20), _createButton.Bounds.Bottom + S(8), actionWidth, S(52))
+                : new Rectangle(_createButton.Bounds.Right + S(16), actionY, actionWidth, S(52));
         }
 
         public override void Update(GameTime gameTime)
@@ -104,9 +116,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Draw(Vector2 offset)
         {
             GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
-            int centerX = GlobalParameters.screenWidth / 2;
-            int cardWidth = Math.Min(UILayoutEngine.Scale(820), GlobalParameters.screenWidth - UILayoutEngine.Scale(80));
-            Rectangle glow = new(centerX - cardWidth / 2, GlobalParameters.screenHeight / 2 - UILayoutEngine.Scale(250), cardWidth, UILayoutEngine.Scale(440));
+            Rectangle glow = _cardBounds;
             UIRenderer.Fill(glow, UITheme.Surface);
             UIRenderer.Border(glow, UITheme.Border, 2);
             new UITextContainer { Bounds = new Rectangle(glow.X + UILayoutEngine.Scale(24), glow.Y + UILayoutEngine.Scale(40), glow.Width - UILayoutEngine.Scale(48), UILayoutEngine.Scale(80)), MaxLines = 1 }
@@ -121,9 +131,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             int S(int value) => UILayoutEngine.Scale(value);
             UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, GlobalParameters.screenHeight), new Color(0, 0, 0, 170));
-            int width = Math.Min(S(560), GlobalParameters.screenWidth - S(48));
-            Rectangle dialog = new(GlobalParameters.screenWidth / 2 - width / 2,
-                GlobalParameters.screenHeight / 2 - S(190), width, S(360));
+            Rectangle dialog = _dialogBounds;
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised);
             UIRenderer.Border(dialog, UITheme.Primary, 3);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(20), dialog.Width - S(56), S(48)), MaxLines = 1 }

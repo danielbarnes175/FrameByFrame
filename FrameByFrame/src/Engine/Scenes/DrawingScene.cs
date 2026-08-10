@@ -49,12 +49,15 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Update(GameTime gameTime)
         {
             UIPointerRouter.BeginFrame();
-            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
-            _timeline.Arrange(new Rectangle(0, GlobalParameters.screenHeight - UITheme.TimelineHeight,
-                GlobalParameters.screenWidth, UITheme.TimelineHeight));
+            int navbarHeight = DrawingNavbarComponent.PreferredHeight(GlobalParameters.screenWidth);
+            int timelineHeight = Math.Min(UITheme.TimelineHeight,
+                Math.Max(72, (GlobalParameters.screenHeight - navbarHeight) / 3));
+            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, navbarHeight));
+            _timeline.Arrange(new Rectangle(0, GlobalParameters.screenHeight - timelineHeight,
+                GlobalParameters.screenWidth, timelineHeight));
             HandleKeyboardShortcuts();
+            if (!_navbar.HasOpenPopover) _timeline.Update();
             _navbar.Update();
-            _timeline.Update();
             HandleMouseShortcuts();
             animation.Animate(gameTime);
         }
@@ -62,11 +65,14 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Draw(Vector2 offset)
         {
             GlobalParameters.GlobalGraphics.Clear(UITheme.CanvasStage);
-            Rectangle stage = new(24, UITheme.AppBarHeight + 24, GlobalParameters.screenWidth - 48,
-                GlobalParameters.screenHeight - UITheme.AppBarHeight - UITheme.TimelineHeight - 48);
+            int navbarHeight = _navbar.Bounds.Height;
+            int timelineHeight = _timeline.Bounds.Height;
+            int margin = Math.Min(24, Math.Max(4, Math.Min(GlobalParameters.screenWidth, GlobalParameters.screenHeight) / 30));
+            Rectangle stage = new(margin, navbarHeight + margin, Math.Max(1, GlobalParameters.screenWidth - margin * 2),
+                Math.Max(1, GlobalParameters.screenHeight - navbarHeight - timelineHeight - margin * 2));
             animation.DrawCurrentFrame(UILayoutEngine.FitAspect(stage, animation.frameSize.X / animation.frameSize.Y));
-            _navbar.Draw();
             _timeline.Draw();
+            _navbar.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
         }
 

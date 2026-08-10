@@ -8,7 +8,7 @@ namespace FrameByFrame.src.UI.Components
     {
         private const int NavigationWidth = 44;
         private const int Gap = 8;
-        private const int ThumbnailWidth = 112;
+        private int ThumbnailWidth => Math.Clamp(Bounds.Width / 4, 64, 112);
         private readonly Animation _animation;
         private readonly UIActionButton _previousPage;
         private readonly UIActionButton _nextPage;
