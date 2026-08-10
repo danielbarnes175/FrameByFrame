@@ -24,7 +24,18 @@ namespace FrameByFrame.src.Engine.Animation
         // Tools
         public bool isOnionSkinEnabled;
         public int brushSize;
-        private int maxOnionFrames = 3;
+        private int previousOnionFrames = 3;
+        private int nextOnionFrames;
+        public int PreviousOnionFrames
+        {
+            get => previousOnionFrames;
+            set => previousOnionFrames = Math.Clamp(value, 0, 10);
+        }
+        public int NextOnionFrames
+        {
+            get => nextOnionFrames;
+            set => nextOnionFrames = Math.Clamp(value, 0, 10);
+        }
         private float baseOpacity = 0.1f;
         private readonly List<AnimationLayer> _layers;
         public IReadOnlyList<AnimationLayer> Layers => _layers;
@@ -348,10 +359,15 @@ namespace FrameByFrame.src.Engine.Animation
             currentFrame?.Value.Draw(destination, 1f);
             if (!IsPlaying && isOnionSkinEnabled)
             {
-                for (int i = 1; i <= maxOnionFrames; i++)
+                for (int i = 1; i <= previousOnionFrames; i++)
                 {
                     Frame frame = frames.ElementAtOrDefault(CurrentFrameIndex - i);
-                    if (frame != null) frame.DrawLayers(destination, baseOpacity * (maxOnionFrames - i + 1));
+                    if (frame != null) frame.DrawLayers(destination, baseOpacity * (previousOnionFrames - i + 1));
+                }
+                for (int i = 1; i <= nextOnionFrames; i++)
+                {
+                    Frame frame = frames.ElementAtOrDefault(CurrentFrameIndex + i);
+                    if (frame != null) frame.DrawLayers(destination, baseOpacity * (nextOnionFrames - i + 1));
                 }
             }
             currentFrame?.Value.DrawLayers(destination, 1f);
@@ -460,12 +476,21 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawOnionSkin()
         {
-            for (int i = 1; i <= maxOnionFrames; i++)
+            for (int i = 1; i <= previousOnionFrames; i++)
             {
                 var frame = frames.ElementAtOrDefault(CurrentFrameIndex - i);
                 if (frame != null)
                 {
-                    float opacity = baseOpacity * (maxOnionFrames - i + 1);
+                    float opacity = baseOpacity * (previousOnionFrames - i + 1);
+                    frame.DrawLayers(opacity);
+                }
+            }
+            for (int i = 1; i <= nextOnionFrames; i++)
+            {
+                var frame = frames.ElementAtOrDefault(CurrentFrameIndex + i);
+                if (frame != null)
+                {
+                    float opacity = baseOpacity * (nextOnionFrames - i + 1);
                     frame.DrawLayers(opacity);
                 }
             }
