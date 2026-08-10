@@ -164,6 +164,14 @@ namespace FrameByFrame.src.Engine.Export
                 throw new InvalidDataException("The FBF project header contains invalid values.");
             if (string.IsNullOrWhiteSpace(projectName))
                 throw new InvalidDataException("The FBF project name is missing.");
+            try
+            {
+                projectName = SaveService.ValidateProjectName(projectName);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidDataException("The FBF project name is invalid.", ex);
+            }
 
             long[] frameOffsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
             var loadedFrames = new List<Frame>(frameCount);
