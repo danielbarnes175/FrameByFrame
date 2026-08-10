@@ -111,11 +111,11 @@ namespace FrameByFrame.src.Engine.Scenes
             _pixelEditActive = true;
         }
 
-        public void BeginNewAnimation()
+        public void BeginNewAnimation(int width, int height)
         {
             animation?.Dispose();
             InitializeDefaults();
-            animation.InitializeFrames();
+            animation.InitializeFrames(width, height);
             SetupUI();
         }
 
@@ -156,7 +156,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("M")) animation.NextFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("N")) animation.PreviousFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("B")) animation.InsertFrame();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("L")) SaveService.SaveAnimation(animation);
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("L")) _navbar.SaveAnimation();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("[") && animation.brushSize > UIConstants.MIN_BRUSH_SIZE) animation.brushSize--;
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("]") && animation.brushSize < UIConstants.MAX_BRUSH_SIZE) animation.brushSize++;
         }

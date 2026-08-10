@@ -24,7 +24,6 @@ namespace FrameByFrame.src.Engine.Export
         private const int MaxStringBytes = 1024 * 1024;
         private const int MaxFrameCount = 1_000_000;
         private const int MaxDimension = 4_096;
-        private const long MaxDecodedPixelSlots = 268_435_456;
         private const int MaxFramePayloadBytes = 512 * 1024 * 1024;
 
         private enum FrameKind : byte
@@ -463,7 +462,7 @@ namespace FrameByFrame.src.Engine.Export
                 throw new InvalidDataException("The project resource counts are invalid or unsupported.");
 
             long decodedPixelSlots = (long)width * height * layerCount * frameCount;
-            if (decodedPixelSlots > MaxDecodedPixelSlots)
+            if (decodedPixelSlots > Animation.Animation.MaxDecodedPixelSlots)
                 throw new InvalidDataException("The project exceeds the supported decoded pixel budget.");
         }
 
