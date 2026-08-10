@@ -7,11 +7,13 @@ namespace FrameByFrame.src.UI.Components
     public sealed class TimelineComponent : UIElement
     {
         private const int NavigationWidth = 44;
+        private const int DuplicateWidth = 92;
         private const int Gap = 8;
         private int ThumbnailWidth => Math.Clamp(Bounds.Width / 4, 64, 112);
         private readonly Animation _animation;
         private readonly UIActionButton _previousPage;
         private readonly UIActionButton _nextPage;
+        private readonly UIActionButton _duplicate;
         private int _firstVisibleFrame;
 
         public TimelineComponent(Animation animation)
@@ -19,10 +21,14 @@ namespace FrameByFrame.src.UI.Components
             _animation = animation;
             _previousPage = new UIActionButton("<", () => Scroll(-1));
             _nextPage = new UIActionButton(">", () => Scroll(1));
+            _duplicate = new UIActionButton("DUPLICATE", _animation.DuplicateCurrentFrame)
+            {
+                Tooltip = "Duplicate selected frame - Ctrl+D"
+            };
         }
 
         private int VisibleFrameCount => Math.Max(1,
-            (Bounds.Width - NavigationWidth * 2 - Gap * 4) / (ThumbnailWidth + Gap));
+            (Bounds.Width - NavigationWidth * 2 - DuplicateWidth - Gap * 5) / (ThumbnailWidth + Gap));
 
         public override void Arrange(Rectangle bounds)
         {
@@ -30,6 +36,7 @@ namespace FrameByFrame.src.UI.Components
             int buttonY = bounds.Y + (bounds.Height - 44) / 2;
             _previousPage.Arrange(new Rectangle(bounds.X + Gap, buttonY, NavigationWidth, 44));
             _nextPage.Arrange(new Rectangle(bounds.Right - Gap - NavigationWidth, buttonY, NavigationWidth, 44));
+            _duplicate.Arrange(new Rectangle(_nextPage.Bounds.X - Gap - DuplicateWidth, buttonY, DuplicateWidth, 44));
             EnsureSelectionVisible();
         }
 
@@ -40,6 +47,7 @@ namespace FrameByFrame.src.UI.Components
             _nextPage.IsEnabled = _firstVisibleFrame + VisibleFrameCount < _animation.TotalFrames;
             _previousPage.Update();
             _nextPage.Update();
+            _duplicate.Update();
 
             int startX = _previousPage.Bounds.Right + Gap;
             for (int slot = 0; slot < VisibleFrameCount; slot++)
@@ -58,6 +66,7 @@ namespace FrameByFrame.src.UI.Components
             UIRenderer.Fill(new Rectangle(Bounds.X, Bounds.Y, Bounds.Width, 3), UITheme.Primary);
             _previousPage.Draw();
             _nextPage.Draw();
+            _duplicate.Draw();
 
             int startX = _previousPage.Bounds.Right + Gap;
             for (int slot = 0; slot < VisibleFrameCount; slot++)

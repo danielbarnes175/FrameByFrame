@@ -150,6 +150,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 || GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightControl);
             if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Z)) animation.Undo();
             if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Y)) animation.Redo();
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.D)) animation.DuplicateCurrentFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
             {
                 animation.Stop();
