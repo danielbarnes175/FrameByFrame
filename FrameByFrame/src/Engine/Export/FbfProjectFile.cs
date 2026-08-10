@@ -23,7 +23,8 @@ namespace FrameByFrame.src.Engine.Export
         private const int KeyframeInterval = 100;
         private const int MaxStringBytes = 1024 * 1024;
         private const int MaxFrameCount = 1_000_000;
-        private const int MaxDimension = 32_768;
+        private const int MaxDimension = 4_096;
+        private const long MaxDecodedPixelSlots = 268_435_456;
         private const int MaxFramePayloadBytes = 512 * 1024 * 1024;
 
         private enum FrameKind : byte
@@ -49,6 +50,8 @@ namespace FrameByFrame.src.Engine.Export
 
             Frame firstFrame = animation.frames.First.Value;
             ValidateDimensions(firstFrame.width, firstFrame.height);
+            ValidateResourceBudget(firstFrame.width, firstFrame.height,
+                animation.Layers.Count, animation.frames.Count);
 
             string temporaryFilename = filename + ".tmp";
             try
@@ -172,6 +175,7 @@ namespace FrameByFrame.src.Engine.Export
             {
                 throw new InvalidDataException("The FBF project name is invalid.", ex);
             }
+            ValidateResourceBudget(width, height, layerCount, frameCount);
 
             long[] frameOffsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
             var loadedFrames = new List<Frame>(frameCount);
@@ -450,6 +454,17 @@ namespace FrameByFrame.src.Engine.Export
             if (width <= 0 || height <= 0 || width > MaxDimension || height > MaxDimension)
                 throw new InvalidDataException("The project canvas dimensions are invalid or unsupported.");
             _ = checked(width * height);
+        }
+
+        private static void ValidateResourceBudget(int width, int height, int layerCount, int frameCount)
+        {
+            if (layerCount <= 0 || layerCount > MaxLayerCount ||
+                frameCount <= 0 || frameCount > MaxFrameCount)
+                throw new InvalidDataException("The project resource counts are invalid or unsupported.");
+
+            long decodedPixelSlots = (long)width * height * layerCount * frameCount;
+            if (decodedPixelSlots > MaxDecodedPixelSlots)
+                throw new InvalidDataException("The project exceeds the supported decoded pixel budget.");
         }
 
         private static void WriteString(BinaryWriter writer, string value)
