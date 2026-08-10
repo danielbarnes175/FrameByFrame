@@ -30,7 +30,7 @@ namespace FrameByFrame.src.UI.Components
             public const int HelpWidth = 520;
             public const int HelpHeight = 410;
             public const int SettingsWidth = 450;
-            public const int SettingsHeight = 390;
+            public const int SettingsHeight = 450;
             public const int ColorWidth = 236;
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
@@ -62,6 +62,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIActionButton _previousOnionUp;
         private readonly UIActionButton _nextOnionDown;
         private readonly UIActionButton _nextOnionUp;
+        private readonly UISlider _onionOpacity;
         private readonly UIActionButton _fpsDown;
         private readonly UIActionButton _fpsUp;
         private readonly UIActionButton _save;
@@ -112,6 +113,8 @@ namespace FrameByFrame.src.UI.Components
             _previousOnionUp = new UIActionButton("+", () => _animation.PreviousOnionFrames++);
             _nextOnionDown = new UIActionButton("-", () => _animation.NextOnionFrames--);
             _nextOnionUp = new UIActionButton("+", () => _animation.NextOnionFrames++);
+            _onionOpacity = new UISlider(0, 100, (int)Math.Round(_animation.OnionSkinOpacity * 100),
+                value => _animation.OnionSkinOpacity = value / 100f);
             _fpsDown = new UIActionButton("-", () => _animation.fps = Math.Max(1, _animation.fps - 1));
             _fpsUp = new UIActionButton("+", () => _animation.fps = Math.Min(Layout.MaxPlaybackFps, _animation.fps + 1));
             _save = new UIActionButton("SAVE PROJECT", () => SaveService.SaveAnimation(_animation));
@@ -179,12 +182,13 @@ namespace FrameByFrame.src.UI.Components
 
             Rectangle settings = _settingsPopover.Bounds;
             _onionSkin.Arrange(new Rectangle(settings.X + 28, settings.Y + 92, 48, 28));
-            _previousOnionDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 139, 42, 38));
-            _previousOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 139, 42, 38));
-            _nextOnionDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 185, 42, 38));
-            _nextOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 185, 42, 38));
-            _fpsDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 239, 48, 42));
-            _fpsUp.Arrange(new Rectangle(settings.X + 329, settings.Y + 239, 48, 42));
+            _onionOpacity.Arrange(new Rectangle(settings.X + 205, settings.Y + 130, 172, 44));
+            _previousOnionDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 190, 42, 38));
+            _previousOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 190, 42, 38));
+            _nextOnionDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 236, 42, 38));
+            _nextOnionUp.Arrange(new Rectangle(settings.X + 335, settings.Y + 236, 42, 38));
+            _fpsDown.Arrange(new Rectangle(settings.X + 205, settings.Y + 290, 48, 42));
+            _fpsUp.Arrange(new Rectangle(settings.X + 329, settings.Y + 290, 48, 42));
             _save.Arrange(new Rectangle(settings.Center.X - 105, settings.Bottom - 70, 210, 50));
         }
 
@@ -238,6 +242,9 @@ namespace FrameByFrame.src.UI.Components
             _previousOnionUp.Update();
             _nextOnionDown.Update();
             _nextOnionUp.Update();
+            _onionOpacity.SetValue((int)Math.Round(_animation.OnionSkinOpacity * 100));
+            _onionOpacity.IsEnabled = _animation.isOnionSkinEnabled;
+            _onionOpacity.Update();
             _fpsDown.Update();
             _fpsUp.Update();
             _save.Update();
@@ -416,23 +423,28 @@ namespace FrameByFrame.src.UI.Components
             _onionSkin.Draw();
             new UITextContainer { Bounds = new Rectangle(panel.X + 88, panel.Y + 89, panel.Width - 112, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw($"Onion skin: {(_animation.isOnionSkinEnabled ? "On" : "Off")}", UITheme.Text, .6f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 139, 160, 38), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 130, 160, 44), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+                .Draw("Onion opacity", UITheme.Text, .6f);
+            _onionOpacity.Draw();
+            new UITextContainer { Bounds = new Rectangle(panel.X + 205, panel.Y + 164, 172, 24), MaxLines = 1 }
+                .Draw($"{(int)Math.Round(_animation.OnionSkinOpacity * 100)}%", UITheme.TextMuted, .55f);
+            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 190, 160, 38), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Previous frames", UITheme.Text, .6f);
             _previousOnionDown.Draw();
             _previousOnionUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 139, 72, 38), MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 190, 72, 38), MaxLines = 1 }
                 .Draw(_animation.PreviousOnionFrames.ToString(), UITheme.Primary, .65f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 185, 160, 38), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 236, 160, 38), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Next frames", UITheme.Text, .6f);
             _nextOnionDown.Draw();
             _nextOnionUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 185, 72, 38), MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 236, 72, 38), MaxLines = 1 }
                 .Draw(_animation.NextOnionFrames.ToString(), UITheme.Primary, .65f);
-            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 239, 160, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(panel.X + 28, panel.Y + 290, 160, 42), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Playback FPS", UITheme.Text, .6f);
             _fpsDown.Draw();
             _fpsUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 239, 72, 42), MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 290, 72, 42), MaxLines = 1 }
                 .Draw(_animation.fps.ToString(), UITheme.Primary, .65f);
             _save.Draw(true);
         }

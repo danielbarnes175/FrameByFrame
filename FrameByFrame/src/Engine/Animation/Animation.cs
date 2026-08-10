@@ -37,6 +37,11 @@ namespace FrameByFrame.src.Engine.Animation
             set => nextOnionFrames = Math.Clamp(value, 0, 10);
         }
         private float baseOpacity = 0.1f;
+        public float OnionSkinOpacity
+        {
+            get => baseOpacity;
+            set => baseOpacity = Math.Clamp(value, 0f, 1f);
+        }
         private readonly List<AnimationLayer> _layers;
         public IReadOnlyList<AnimationLayer> Layers => _layers;
         public Guid SelectedLayerId { get; private set; }
