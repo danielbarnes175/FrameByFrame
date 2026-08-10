@@ -136,13 +136,8 @@ namespace FrameByFrame.src.Engine.Scenes
                 .Draw("Canvas height", UITheme.Text, .75f);
             new UITextContainer { Bounds = new Rectangle(_heightDown.Bounds.Right, _heightDown.Bounds.Y, S(100), _heightDown.Bounds.Height), MaxLines = 1 }
                 .Draw(_canvasHeight.ToString(), UITheme.Text, .72f);
-            new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(216), dialog.Width - S(56), S(36)), MaxLines = 1 }
-                .Draw($"Frame Limit: {GetInitialFrameCapacity()}", UITheme.TextMuted, .58f);
             _widthDown.Draw(); _widthUp.Draw(); _heightDown.Draw(); _heightUp.Draw();
             _createButton.Draw(true); _cancelButton.Draw();
         }
-
-        private int GetInitialFrameCapacity() => Math.Max(1, (int)Math.Min(int.MaxValue,
-            Animation.Animation.MaxDecodedPixelSlots / ((long)_canvasWidth * _canvasHeight * 3)));
     }
 }

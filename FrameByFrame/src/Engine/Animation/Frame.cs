@@ -15,6 +15,7 @@ namespace FrameByFrame.src.Engine.Animation
         private bool _disposed;
 
         public IReadOnlyList<FrameLayer> Layers => _layers;
+        public long NonTransparentPixelCount => _layers.Sum(layer => (long)layer.Pixels.Count);
         private readonly List<FrameLayer> _layers;
 
         public BasicTexture CombinedTexture;
@@ -102,6 +103,15 @@ namespace FrameByFrame.src.Engine.Animation
             layer.Pixels.Clear();
             for (int i = 0; i < pixels.Length; i++)
                 if (pixels[i] != Color.Transparent) layer.Pixels[i] = pixels[i];
+            _texturesNeedUpdate = true;
+        }
+
+        internal void SetSparseLayerPixels(Guid layerId, IEnumerable<KeyValuePair<int, uint>> pixels)
+        {
+            FrameLayer layer = FindLayer(layerId) ?? throw new ArgumentException("Unknown layer.", nameof(layerId));
+            layer.Pixels.Clear();
+            foreach (KeyValuePair<int, uint> pixel in pixels)
+                if (pixel.Value != 0) layer.Pixels[pixel.Key] = new Color { PackedValue = pixel.Value };
             _texturesNeedUpdate = true;
         }
 
