@@ -12,7 +12,10 @@ namespace FrameByFrame.src.Engine.Animation
         public Matrix transform;
         private readonly Rectangle drawRectangle;
         private bool _texturesNeedUpdate = true;
+        private bool _previewNeedsUpdate = true;
         private bool _disposed;
+        private Texture2D _previewTexture;
+        private int _previewVisibilityHash;
 
         public IReadOnlyList<FrameLayer> Layers => _layers;
         public long NonTransparentPixelCount => _layers.Sum(layer => (long)layer.Pixels.Count);
@@ -47,6 +50,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (index < 0 || index >= _layers.Count) _layers.Add(layer);
             else _layers.Insert(index, layer);
             _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
         }
 
         public void RemoveLayer(Guid layerId)
@@ -56,6 +60,7 @@ namespace FrameByFrame.src.Engine.Animation
             layer.Dispose();
             _layers.Remove(layer);
             _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
         }
 
         public void ReorderLayers(IReadOnlyList<AnimationLayer> order)
@@ -77,6 +82,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (color == Color.Transparent) layer.Pixels.Remove(index);
             else layer.Pixels[index] = color;
             _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
             return !wasOpaque && color != Color.Transparent;
         }
 
@@ -109,6 +115,7 @@ namespace FrameByFrame.src.Engine.Animation
             for (int i = 0; i < pixels.Length; i++)
                 if (pixels[i] != Color.Transparent) layer.Pixels[i] = pixels[i];
             _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
         }
 
         internal void SetSparseLayerPixels(Guid layerId, IEnumerable<KeyValuePair<int, uint>> pixels)
@@ -118,6 +125,7 @@ namespace FrameByFrame.src.Engine.Animation
             foreach (KeyValuePair<int, uint> pixel in pixels)
                 if (pixel.Value != 0) layer.Pixels[pixel.Key] = new Color { PackedValue = pixel.Value };
             _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
         }
 
         public Color GetVisiblePixel(int x, int y)
@@ -176,6 +184,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (layer == null || layer.Definition.IsLocked) return;
             layer.Pixels.Clear();
             _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
         }
 
         private FrameLayer FindLayer(Guid layerId) => _layers.FirstOrDefault(layer => layer.Id == layerId);
@@ -228,12 +237,49 @@ namespace FrameByFrame.src.Engine.Animation
                 GlobalParameters.GlobalSpriteBatch.Draw(CombinedTexture.texture, destination, Color.White * opacity);
                 return;
             }
-            GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
-            DrawLayersCore(destination, opacity);
+
+            int previewWidth = Math.Max(1, destination.Width);
+            int previewHeight = Math.Max(1, destination.Height);
+            int visibilityHash = 17;
+            foreach (FrameLayer layer in _layers)
+                visibilityHash = unchecked(visibilityHash * 31 + (layer.Definition.IsVisible ? layer.Id.GetHashCode() : 0));
+
+            if (_previewTexture == null || _previewTexture.Width != previewWidth || _previewTexture.Height != previewHeight)
+            {
+                _previewTexture?.Dispose();
+                _previewTexture = new Texture2D(GlobalParameters.GlobalGraphics, previewWidth, previewHeight);
+                _previewNeedsUpdate = true;
+            }
+
+            if (_previewNeedsUpdate || visibilityHash != _previewVisibilityHash)
+            {
+                Color[] previewPixels = new Color[previewWidth * previewHeight];
+                for (int y = 0; y < previewHeight; y++)
+                {
+                    int sourceY = Math.Min(height - 1, y * height / previewHeight);
+                    for (int x = 0; x < previewWidth; x++)
+                    {
+                        int sourceX = Math.Min(width - 1, x * width / previewWidth);
+                        previewPixels[x + y * previewWidth] = GetVisiblePixel(sourceX, sourceY);
+                    }
+                }
+                _previewTexture.SetData(previewPixels);
+                _previewVisibilityHash = visibilityHash;
+                _previewNeedsUpdate = false;
+            }
+
+            GlobalParameters.GlobalSpriteBatch.Draw(_previewTexture, destination, Color.White * opacity);
         }
 
         public long GetMemoryUsage() => _layers.Sum(layer =>
             (long)layer.Pixels.Count * (sizeof(int) + 16) + (layer.Texture == null ? 0L : (long)width * height * 4));
+
+        public void ReleasePreviewTexture()
+        {
+            _previewTexture?.Dispose();
+            _previewTexture = null;
+            _previewNeedsUpdate = true;
+        }
 
         public void Dispose()
         {
@@ -241,6 +287,7 @@ namespace FrameByFrame.src.Engine.Animation
             foreach (FrameLayer layer in _layers) layer.Dispose();
             CombinedTexture?.texture?.Dispose();
             CombinedTexture = null;
+            ReleasePreviewTexture();
             _disposed = true;
             GC.SuppressFinalize(this);
         }
