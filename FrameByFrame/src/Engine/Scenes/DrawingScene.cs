@@ -107,7 +107,6 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void BeginPixelEdit()
         {
-            if (_pixelEditActive) return;
             animation.BeginPixelEdit();
             _pixelEditActive = true;
         }

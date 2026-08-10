@@ -150,18 +150,21 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void FirstFrame()
         {
+            CommitPixelEdit();
             currentFrame = frames.First;
             CurrentFrameIndex = 0;
         }
 
         public void LastFrame()
         {
+            CommitPixelEdit();
             currentFrame = frames.Last;
             CurrentFrameIndex = TotalFrames - 1;
         }
 
         public void NextFrame()
         {
+            CommitPixelEdit();
             CurrentFrameIndex += 1;
             if (CurrentFrameIndex > TotalFrames - 1)
             {
@@ -173,6 +176,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void PreviousFrame()
         {
             if (CurrentFrameIndex <= 0) return;
+            CommitPixelEdit();
             if (CurrentFrameIndex > 0)
             {
                 CurrentFrameIndex -= 1;
@@ -244,6 +248,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             // Can't delete the only frame
             if (frames.Count <= 1) return;
+            CommitPixelEdit();
 
             var toRemove = currentFrame;
             currentFrame = currentFrame.Previous ?? currentFrame.Next;
@@ -258,6 +263,7 @@ namespace FrameByFrame.src.Engine.Animation
         
         public void InsertFrame()
         {
+            CommitPixelEdit();
             var newFrame = new Frame(framePosition, frameSize, _layers);
             frames.AddBefore(currentFrame, newFrame);
             currentFrame = currentFrame.Previous;
@@ -266,6 +272,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void TogglePlaying()
         {
+            CommitPixelEdit();
             IsPlaying = !IsPlaying;
         }
 
@@ -295,11 +302,13 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void Stop()
         {
+            CommitPixelEdit();
             IsPlaying = false;
         }
 
         public void Start()
         {
+            CommitPixelEdit();
             IsPlaying = true;
         }
 
@@ -353,6 +362,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void SelectFrame(int index)
         {
             if (index < 0 || index >= TotalFrames) return;
+            CommitPixelEdit();
             currentFrame = frames.First;
             for (int i = 0; i < index; i++) currentFrame = currentFrame.Next;
             CurrentFrameIndex = index;
@@ -413,6 +423,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public AnimationLayer AddLayer(string name, int index = 0)
         {
+            CommitPixelEdit();
             var layer = new AnimationLayer(name);
             index = Math.Clamp(index, 0, _layers.Count);
             _layers.Insert(index, layer);
@@ -426,6 +437,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (_layers.Count <= 1) return false;
             int index = _layers.FindIndex(layer => layer.Id == layerId);
             if (index < 0) return false;
+            CommitPixelEdit();
             _layers.RemoveAt(index);
             foreach (Frame frame in frames) frame.RemoveLayer(layerId);
             if (SelectedLayerId == layerId) SelectedLayerId = _layers[Math.Min(index, _layers.Count - 1)].Id;
@@ -436,6 +448,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             int oldIndex = _layers.FindIndex(layer => layer.Id == layerId);
             if (oldIndex < 0 || newIndex < 0 || newIndex >= _layers.Count || oldIndex == newIndex) return false;
+            CommitPixelEdit();
             AnimationLayer layer = _layers[oldIndex];
             _layers.RemoveAt(oldIndex);
             _layers.Insert(newIndex, layer);
@@ -455,6 +468,7 @@ namespace FrameByFrame.src.Engine.Animation
         public bool SelectLayer(Guid layerId)
         {
             if (_layers.All(layer => layer.Id != layerId)) return false;
+            CommitPixelEdit();
             SelectedLayerId = layerId;
             return true;
         }
