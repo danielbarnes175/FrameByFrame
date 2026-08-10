@@ -241,7 +241,12 @@ namespace FrameByFrame.src.Engine.Scenes
             DisposeAnimations(); _projectFiles.Clear(); _selected = 0; _previewFrame = 0; _previewTimer = 0;
             foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
             {
-                try { _projectFiles.Add(file); _animations.Add(SaveService.LoadAnimation(file)); }
+                try
+                {
+                    Animation.Animation animation = SaveService.LoadAnimation(file);
+                    _projectFiles.Add(file);
+                    _animations.Add(animation);
+                }
                 catch (Exception ex) { Debug.WriteLine($"Skipping invalid save '{file}': {ex.Message}"); }
             }
         }
