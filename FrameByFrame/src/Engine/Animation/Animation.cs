@@ -66,9 +66,10 @@ namespace FrameByFrame.src.Engine.Animation
         public Rectangle DisplayBounds { get; private set; }
         public const int MinCanvasDimension = 64;
         public const int MaxCanvasDimension = 4096;
-        public const long MaxDecodedPixelSlots = 268_435_456;
-        public int MaxSupportedFrames => Math.Max(1, (int)Math.Min(int.MaxValue,
-            MaxDecodedPixelSlots / Math.Max(1L, (long)(int)frameSize.X * (int)frameSize.Y * _layers.Count)));
+        public const long MaxStoredPixels = 268_435_456;
+        public long StoredPixelCount => frames.Sum(frame => frame.NonTransparentPixelCount);
+        public float ResourceBudgetRemaining => Math.Clamp(1f -
+            (float)(StoredPixelCount / (double)MaxStoredPixels), 0f, 1f);
 
         public Animation(string projectName, IEnumerable<AnimationLayer> layers = null)
         {
@@ -175,11 +176,6 @@ namespace FrameByFrame.src.Engine.Animation
             CurrentFrameIndex += 1;
             if (CurrentFrameIndex > TotalFrames - 1)
             {
-                if (!FitsResourceBudget(_layers.Count, frames.Count + 1))
-                {
-                    CurrentFrameIndex = TotalFrames - 1;
-                    return;
-                }
                 frames.AddLast(new Frame(framePosition, frameSize, _layers));
             }
             currentFrame = currentFrame.Next;
@@ -279,7 +275,6 @@ namespace FrameByFrame.src.Engine.Animation
         
         public void InsertFrame()
         {
-            if (!FitsResourceBudget(_layers.Count, frames.Count + 1)) return;
             CommitPixelEdit();
             var newFrame = new Frame(framePosition, frameSize, _layers);
             frames.AddBefore(currentFrame, newFrame);
@@ -440,7 +435,6 @@ namespace FrameByFrame.src.Engine.Animation
 
         public AnimationLayer AddLayer(string name, int index = 0)
         {
-            if (!FitsResourceBudget(_layers.Count + 1, frames.Count)) return null;
             CommitPixelEdit();
             var layer = new AnimationLayer(name);
             index = Math.Clamp(index, 0, _layers.Count);
@@ -450,8 +444,6 @@ namespace FrameByFrame.src.Engine.Animation
             return layer;
         }
 
-        private bool FitsResourceBudget(int layerCount, int frameCount) =>
-            (long)(int)frameSize.X * (int)frameSize.Y * layerCount * frameCount <= MaxDecodedPixelSlots;
 
         public bool RemoveLayer(Guid layerId)
         {

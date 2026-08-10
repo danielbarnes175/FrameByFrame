@@ -49,8 +49,9 @@ namespace FrameByFrame.src.Engine.Export
 
             Frame firstFrame = animation.frames.First.Value;
             ValidateDimensions(firstFrame.width, firstFrame.height);
-            ValidateResourceBudget(firstFrame.width, firstFrame.height,
-                animation.Layers.Count, animation.frames.Count);
+            ValidateResourceCounts(animation.Layers.Count, animation.frames.Count);
+            if (animation.StoredPixelCount > Animation.Animation.MaxStoredPixels)
+                throw new InvalidDataException("The project exceeds the supported stored pixel budget.");
 
             string temporaryFilename = filename + ".tmp";
             try
@@ -174,11 +175,12 @@ namespace FrameByFrame.src.Engine.Export
             {
                 throw new InvalidDataException("The FBF project name is invalid.", ex);
             }
-            ValidateResourceBudget(width, height, layerCount, frameCount);
+            ValidateResourceCounts(layerCount, frameCount);
 
             long[] frameOffsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
             var loadedFrames = new List<Frame>(frameCount);
             Dictionary<int, uint>[] currentLayers = CreateEmptyLayers(layerCount);
+            long storedPixelCount = 0;
 
             try
             {
@@ -190,6 +192,9 @@ namespace FrameByFrame.src.Engine.Export
                     Frame frame = new Frame(framePosition, new Vector2(width, height), layers);
                     RestoreLayers(frame, currentLayers, layers);
                     loadedFrames.Add(frame);
+                    storedPixelCount += frame.NonTransparentPixelCount;
+                    if (storedPixelCount > Animation.Animation.MaxStoredPixels)
+                        throw new InvalidDataException("The project exceeds the supported stored pixel budget.");
                 }
 
                 var animation = new Animation.Animation(projectName, layers) { fps = fps };
@@ -373,14 +378,7 @@ namespace FrameByFrame.src.Engine.Export
         private static void RestoreLayers(Frame frame, Dictionary<int, uint>[] layers, IReadOnlyList<AnimationLayer> definitions)
         {
             for (int layerIndex = 0; layerIndex < definitions.Count; layerIndex++)
-            {
-                Color[] pixels = new Color[frame.width * frame.height];
-                foreach (var pixel in layers[layerIndex])
-                {
-                    pixels[pixel.Key] = new Color { PackedValue = pixel.Value };
-                }
-                frame.SetLayerPixels(definitions[layerIndex].Id, pixels, ignoreLock: true);
-            }
+                frame.SetSparseLayerPixels(definitions[layerIndex].Id, layers[layerIndex]);
         }
 
         private static List<PixelChange> CreateKeyframeChanges(Dictionary<int, uint> current)
@@ -455,15 +453,12 @@ namespace FrameByFrame.src.Engine.Export
             _ = checked(width * height);
         }
 
-        private static void ValidateResourceBudget(int width, int height, int layerCount, int frameCount)
+        private static void ValidateResourceCounts(int layerCount, int frameCount)
         {
             if (layerCount <= 0 || layerCount > MaxLayerCount ||
                 frameCount <= 0 || frameCount > MaxFrameCount)
                 throw new InvalidDataException("The project resource counts are invalid or unsupported.");
 
-            long decodedPixelSlots = (long)width * height * layerCount * frameCount;
-            if (decodedPixelSlots > Animation.Animation.MaxDecodedPixelSlots)
-                throw new InvalidDataException("The project exceeds the supported decoded pixel budget.");
         }
 
         private static void WriteString(BinaryWriter writer, string value)

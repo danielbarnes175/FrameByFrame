@@ -400,8 +400,9 @@ namespace FrameByFrame.src.UI.Components
             {
                 int labelX = _brushSize.Bounds.Right + 8;
                 int labelWidth = Math.Max(1, _tools[0].Bounds.X - labelX - 8);
-                new UITextContainer { Bounds = new Rectangle(labelX, 8, labelWidth, 48), MaxLines = 1 }
+                new UITextContainer { Bounds = new Rectangle(labelX, 4, labelWidth, 28), MaxLines = 1, HorizontalAlignment = UIAlign.Start }
                     .Draw(_animation.projectName, UITheme.TextMuted, .72f);
+                DrawSizeBar(new Rectangle(labelX, 34, labelWidth, 20));
             }
 
             DrawActivePopover();
@@ -461,10 +462,28 @@ namespace FrameByFrame.src.UI.Components
             _fpsUp.Draw();
             new UITextContainer { Bounds = new Rectangle(panel.X + 255, panel.Y + 290, 72, 42), MaxLines = 1 }
                 .Draw(_animation.fps.ToString(), UITheme.Primary, .65f);
+            DrawSizeBar(new Rectangle(panel.X + 28, panel.Y + 342, panel.Width - 56, 28));
             if (!string.IsNullOrEmpty(_saveError))
-                new UITextContainer { Bounds = new Rectangle(panel.X + 24, panel.Y + 340, panel.Width - 48, 48), MaxLines = 2 }
+                new UITextContainer { Bounds = new Rectangle(panel.X + 24, panel.Y + 374, panel.Width - 48, 32), MaxLines = 2 }
                     .Draw(_saveError, Color.IndianRed, .52f);
             _save.Draw(true);
+        }
+
+        private void DrawSizeBar(Rectangle bounds)
+        {
+            int percent = (int)Math.Round(_animation.ResourceBudgetRemaining * 100);
+            const int labelWidth = 58;
+            new UITextContainer { Bounds = new Rectangle(bounds.X, bounds.Y, labelWidth, bounds.Height), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
+                .Draw("Size", UITheme.TextMuted, .55f);
+            Rectangle track = new(bounds.X + labelWidth, bounds.Y + (bounds.Height - 8) / 2,
+                Math.Max(1, bounds.Width - labelWidth - 38), 8);
+            UIRenderer.Fill(track, UITheme.Surface);
+            UIRenderer.Border(track, UITheme.Border);
+            Rectangle remaining = new(track.X + 1, track.Y + 1,
+                (int)Math.Round(Math.Max(0, track.Width - 2) * _animation.ResourceBudgetRemaining), Math.Max(1, track.Height - 2));
+            UIRenderer.Fill(remaining, percent <= 10 ? Color.IndianRed : percent <= 25 ? Color.Orange : UITheme.Primary);
+            new UITextContainer { Bounds = new Rectangle(track.Right + 4, bounds.Y, 34, bounds.Height), MaxLines = 1 }
+                .Draw($"{percent}%", UITheme.TextMuted, .5f);
         }
 
         private void DrawLayers()
