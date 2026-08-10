@@ -52,13 +52,14 @@ namespace FrameByFrame.src.UI.Components
         private enum PopoverKind { None, Help, Settings, Color, Layers }
 
         private readonly Animation _animation;
+        private readonly DrawingTools _drawingTools;
         private readonly UIActionButton _home;
         private readonly UIIconButton _help;
         private readonly UIIconButton _settings;
         private readonly UIIconButton _color;
         private readonly UIIconButton _layers;
         private readonly List<UIIconButton> _tools = new();
-        private readonly List<DrawingTools> _toolKinds = new();
+        private readonly List<DrawingTool> _toolKinds = new();
         private readonly List<UIIconButton> _playback = new();
         private readonly UISlider _brushSize;
         private readonly UIToggle _onionSkin;
@@ -108,9 +109,10 @@ namespace FrameByFrame.src.UI.Components
         public bool HasOpenPopover => _openPopover != PopoverKind.None;
         public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
-        public DrawingNavbarComponent(Animation animation)
+        public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools)
         {
             _animation = animation;
+            _drawingTools = drawingTools;
             _home = new UIActionButton("HOME", GoHome);
             _help = Icon("Static\\DrawingScene/help", () => Toggle(PopoverKind.Help), "Help");
             _settings = Icon("Static\\DrawingScene/gear", () => Toggle(PopoverKind.Settings), "Animation settings");
@@ -120,10 +122,10 @@ namespace FrameByFrame.src.UI.Components
             UpdateColorSwatch();
             _color = new UIIconButton(_swatchTexture, () => Toggle(PopoverKind.Color)) { Tooltip = "Brush color" };
 
-            AddTool(DrawingTools.DRAW, "Static\\DrawingScene/brush", "Paintbrush");
-            AddTool(DrawingTools.ERASER, "Static\\DrawingScene/eraser", "Eraser");
-            AddTool(DrawingTools.FILL, "bucket_tool", "Bucket fill");
-            AddTool(DrawingTools.COLOR_PICKER, "eyedropper_tool", "Color picker");
+            AddTool(DrawingTool.Draw, "Static\\DrawingScene/brush", "Paintbrush");
+            AddTool(DrawingTool.Eraser, "Static\\DrawingScene/eraser", "Eraser");
+            AddTool(DrawingTool.Fill, "bucket_tool", "Bucket fill");
+            AddTool(DrawingTool.ColorPicker, "eyedropper_tool", "Color picker");
 
             _playback.Add(Icon("Static\\DrawingScene/first_frame", _animation.FirstFrame, "First frame"));
             _playback.Add(Icon("Static\\DrawingScene/previous_frame", _animation.PreviousFrame, "Previous frame - N"));
@@ -132,7 +134,7 @@ namespace FrameByFrame.src.UI.Components
             _playback.Add(Icon("Static\\DrawingScene/last_frame", _animation.LastFrame, "Last frame"));
 
             _brushSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
-                _animation.brushSize, value => _animation.brushSize = value);
+                _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
             _onionSkin = new UIToggle(_animation.isOnionSkinEnabled,
                 value => _animation.isOnionSkinEnabled = value);
             _previousOnionDown = new UIActionButton("-", () => _animation.PreviousOnionFrames--);
@@ -164,7 +166,7 @@ namespace FrameByFrame.src.UI.Components
             }
         }
 
-        private void AddTool(DrawingTools tool, string asset, string tooltip)
+        private void AddTool(DrawingTool tool, string asset, string tooltip)
         {
             UIIconButton button = Icon(asset, () => SelectTool(tool), tooltip);
             button.UseToolSelectionStyle = true;
@@ -172,8 +174,7 @@ namespace FrameByFrame.src.UI.Components
             _toolKinds.Add(tool);
         }
 
-        private void SelectTool(DrawingTools tool) =>
-            ((DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE]).drawingTool = tool;
+        private void SelectTool(DrawingTool tool) => _drawingTools.SelectedTool = tool;
 
         private void GoHome()
         {
@@ -300,7 +301,7 @@ namespace FrameByFrame.src.UI.Components
             _layers.Update();
             foreach (UIIconButton button in _tools) button.Update();
             foreach (UIIconButton button in _playback) button.Update();
-            _brushSize.SetValue(_animation.brushSize);
+            _brushSize.SetValue(_drawingTools.BrushSize);
             _brushSize.Update();
 
             _helpPopover.IsOpen = _openPopover == PopoverKind.Help;
@@ -491,7 +492,7 @@ namespace FrameByFrame.src.UI.Components
             _layers.Draw();
             for (int i = 0; i < _tools.Count; i++)
             {
-                _tools[i].IsSelected = ((DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE]).drawingTool == _toolKinds[i];
+                _tools[i].IsSelected = _drawingTools.SelectedTool == _toolKinds[i];
                 _tools[i].Draw();
             }
             foreach (UIIconButton button in _playback) button.Draw();

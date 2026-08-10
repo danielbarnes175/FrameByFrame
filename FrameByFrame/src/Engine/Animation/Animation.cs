@@ -22,7 +22,6 @@ namespace FrameByFrame.src.Engine.Animation
 
         // Tools
         public bool isOnionSkinEnabled;
-        public int brushSize;
         private int previousOnionFrames = 3;
         private int nextOnionFrames;
         public int PreviousOnionFrames
@@ -82,7 +81,6 @@ namespace FrameByFrame.src.Engine.Animation
             _timeline = new Timeline(() => framePosition, () => frameSize, () => _layers,
                 CommitPixelEdit, ClearEditHistory);
             SelectedLayerId = _layers[0].Id;
-            brushSize = 5;
             isOnionSkinEnabled = true;
         }
 
@@ -196,7 +194,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void Stop() => _timeline.Stop();
         public void Start() => _timeline.Start();
 
-        public void DrawOnCurrentLayer(Color selectedColor)
+        public void DrawOnCurrentLayer(Color selectedColor, int brushSize)
         {
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
             Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
@@ -209,7 +207,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (distance < 1f && GlobalParameters.GlobalMouse.LeftClickHold()) 
             {
                 // Still draw a single point for initial click
-                DrawBrushAt(ToFramePosition(mousePositionCur), selectedColor);
+                DrawBrushAt(ToFramePosition(mousePositionCur), selectedColor, brushSize);
                 return;
             }
 
@@ -219,7 +217,7 @@ namespace FrameByFrame.src.Engine.Animation
             {
                 float t = steps > 0 ? i / (float)steps : 0;
                 Vector2 interpolatedPos = ToFramePosition(Vector2.Lerp(mousePositionOld, mousePositionCur, t));
-                DrawBrushAt(interpolatedPos, selectedColor);
+                DrawBrushAt(interpolatedPos, selectedColor, brushSize);
             }
         }
 
@@ -269,7 +267,7 @@ namespace FrameByFrame.src.Engine.Animation
             CurrentFrame?.DrawLayers(destination, 1f);
         }
 
-        private void DrawBrushAt(Vector2 localPos, Color color)
+        private void DrawBrushAt(Vector2 localPos, Color color, int brushSize)
         {
             int centerX = (int)localPos.X;
             int centerY = (int)localPos.Y;

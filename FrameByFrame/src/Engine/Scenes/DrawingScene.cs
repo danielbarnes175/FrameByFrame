@@ -10,18 +10,17 @@ namespace FrameByFrame.src.Engine.Scenes
     public class DrawingScene : BaseScene
     {
         public Animation.Animation animation;
-        public DrawingTools drawingTool;
+        public DrawingTools drawingTools;
         private DrawingNavbarComponent _navbar;
         private TimelineComponent _timeline;
         public bool loadedScene;
-        private bool _pixelEditActive;
 
         public DrawingScene() => InitializeDefaults();
 
         private void InitializeDefaults()
         {
             animation = new Animation.Animation($"Project_{DateTime.Now:yyyyMMdd_HHmmss}");
-            drawingTool = DrawingTools.DRAW;
+            drawingTools = new DrawingTools(animation);
             loadedScene = false;
         }
 
@@ -41,7 +40,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void SetupUI()
         {
             _navbar?.Dispose();
-            _navbar = new DrawingNavbarComponent(animation);
+            _navbar = new DrawingNavbarComponent(animation, drawingTools);
             _timeline = new TimelineComponent(animation);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
@@ -78,43 +77,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void HandleMouseShortcuts()
         {
-            if (!GlobalParameters.GlobalMouse.LeftClickHold())
-            {
-                if (_pixelEditActive) animation.CommitPixelEdit();
-                _pixelEditActive = false;
-                if (!loadedScene) loadedScene = true;
-                return;
-            }
-            if (UIPointerRouter.IsPointerBlocked()) return;
-            if (!GlobalParameters.GlobalMouse.LeftClickHold() || !loadedScene) return;
-
-            Color selectedColor = GetSelectedColorFromColorWheel();
-            switch (drawingTool)
-            {
-                case DrawingTools.DRAW:
-                    BeginPixelEdit();
-                    animation.DrawOnCurrentLayer(selectedColor);
-                    break;
-                case DrawingTools.ERASER:
-                    BeginPixelEdit();
-                    animation.DrawOnCurrentLayer(Color.Transparent);
-                    break;
-                case DrawingTools.FILL when GlobalParameters.GlobalMouse.LeftClick():
-                    animation.BeginPixelEdit();
-                    animation.FillCurrentLayerAt(GlobalParameters.GlobalMouse.newMousePos, selectedColor);
-                    animation.CommitPixelEdit();
-                    break;
-                case DrawingTools.COLOR_PICKER:
-                    Color sampled = animation.SampleVisibleColorAt(GlobalParameters.GlobalMouse.newMousePos);
-                    if (sampled.A > 0) SetSelectedColor(sampled);
-                    break;
-            }
-        }
-
-        private void BeginPixelEdit()
-        {
-            animation.BeginPixelEdit();
-            _pixelEditActive = true;
+            drawingTools.Update(GetSelectedColorFromColorWheel(), SetSelectedColor, loadedScene);
+            if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene) loadedScene = true;
         }
 
         public void BeginNewAnimation(int width, int height)
@@ -130,7 +94,7 @@ namespace FrameByFrame.src.Engine.Scenes
             ArgumentNullException.ThrowIfNull(loadedAnimation);
             animation?.Dispose();
             animation = loadedAnimation;
-            drawingTool = DrawingTools.DRAW;
+            drawingTools = new DrawingTools(animation);
             loadedScene = false;
             SetupUI();
         }
@@ -166,8 +130,8 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("N")) animation.PreviousFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("B")) animation.InsertFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("L")) _navbar.SaveAnimation();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("[") && animation.brushSize > UIConstants.MIN_BRUSH_SIZE) animation.brushSize--;
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("]") && animation.brushSize < UIConstants.MAX_BRUSH_SIZE) animation.brushSize++;
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("[")) drawingTools.BrushSize--;
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("]")) drawingTools.BrushSize++;
         }
     }
 }
