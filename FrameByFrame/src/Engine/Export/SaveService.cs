@@ -61,11 +61,19 @@ namespace FrameByFrame.src.Engine.Export
         public static void ExportAnimation(Animation.Animation animation)
         {
             ArgumentNullException.ThrowIfNull(animation);
+            ExportAnimation(animation, 0, animation.TotalFrames - 1);
+        }
+
+        public static void ExportAnimation(Animation.Animation animation, int startFrameIndex, int endFrameIndex)
+        {
+            ArgumentNullException.ThrowIfNull(animation);
 
             if (animation.fps <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(animation), "Animation FPS must be greater than zero.");
             }
+            if (startFrameIndex < 0 || endFrameIndex < startFrameIndex || endFrameIndex >= animation.TotalFrames)
+                throw new ArgumentOutOfRangeException(nameof(startFrameIndex), "Export frame range is invalid.");
 
             // The editable save is the source of truth. Always update it before
             // producing flattened PNG/GIF output.
@@ -74,15 +82,17 @@ namespace FrameByFrame.src.Engine.Export
             string projectDirectory = Path.Combine(ProjectsDirectory, animation.projectName);
             Directory.CreateDirectory(projectDirectory);
 
-            for (int i = 0; i < animation.frames.Count; i++)
+            int exportedFrameCount = endFrameIndex - startFrameIndex + 1;
+            for (int sourceIndex = startFrameIndex; sourceIndex <= endFrameIndex; sourceIndex++)
             {
-                using RenderTarget2D texture = DrawingService.CombineTextures(animation.GetFrameAtIndex(i));
-                string frameFilename = Path.Combine(projectDirectory, $"Frame_{i}.png");
+                int outputIndex = sourceIndex - startFrameIndex;
+                using RenderTarget2D texture = DrawingService.CombineTextures(animation.GetFrameAtIndex(sourceIndex));
+                string frameFilename = Path.Combine(projectDirectory, $"Frame_{outputIndex}.png");
                 SaveTextureAsPng(frameFilename, texture);
             }
 
-            RemoveObsoleteFrameFiles(projectDirectory, animation.frames.Count);
-            CreateGif(animation, projectDirectory);
+            RemoveObsoleteFrameFiles(projectDirectory, exportedFrameCount);
+            CreateGif(animation, projectDirectory, exportedFrameCount);
         }
 
         private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
@@ -105,13 +115,13 @@ namespace FrameByFrame.src.Engine.Export
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
         }
 
-        private static void CreateGif(Animation.Animation animation, string projectDirectory)
+        private static void CreateGif(Animation.Animation animation, string projectDirectory, int frameCount)
         {
             string filename = Path.Combine(ProjectsDirectory, $"{animation.projectName}.gif");
             uint frameDelay = (uint)Math.Max(1, Math.Round(100d / animation.fps));
 
             using MagickImageCollection collection = new MagickImageCollection();
-            for (int i = 0; i < animation.frames.Count; i++)
+            for (int i = 0; i < frameCount; i++)
             {
                 string frameFilename = Path.Combine(projectDirectory, $"Frame_{i}.png");
                 collection.Add(frameFilename);
