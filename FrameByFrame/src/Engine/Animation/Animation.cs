@@ -399,9 +399,9 @@ namespace FrameByFrame.src.Engine.Animation
             
             // Pre-calculate brush bounds to avoid repeated boundary checks
             int minX = Math.Max(0, centerX - brushSize);
-            int maxX = Math.Min(Frame.staticWidth - 1, centerX + brushSize);
+            int maxX = Math.Min(CurrentFrame.width - 1, centerX + brushSize);
             int minY = Math.Max(0, centerY - brushSize);
-            int maxY = Math.Min(Frame.staticHeight - 1, centerY + brushSize);
+            int maxY = Math.Min(CurrentFrame.height - 1, centerY + brushSize);
             
             int brushSizeSquared = brushSize * brushSize;
             

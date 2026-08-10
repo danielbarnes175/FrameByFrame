@@ -20,19 +20,15 @@ namespace FrameByFrame.src.Engine.Animation
         public BasicTexture CombinedTexture;
         private static Texture2D _sharedBackgroundTexture;
 
-        public static Vector2 position;
-        public static int staticWidth { get; set; }
-        public static int staticHeight { get; set; }
         public int width { get; set; }
         public int height { get; set; }
 
         public Frame(Vector2 givenPosition, Vector2 dimensions, IEnumerable<AnimationLayer> layers = null)
         {
-            staticWidth = width = (int)dimensions.X;
-            staticHeight = height = (int)dimensions.Y;
-            position = givenPosition;
+            width = (int)dimensions.X;
+            height = (int)dimensions.Y;
             transform = Matrix.Identity;
-            drawRectangle = new Rectangle((int)position.X, (int)position.Y, width, height);
+            drawRectangle = new Rectangle((int)givenPosition.X, (int)givenPosition.Y, width, height);
             _layers = (layers ?? CreateDefaultLayers()).Select(layer => new FrameLayer(layer)).ToList();
 
             if (_sharedBackgroundTexture == null)
