@@ -5,6 +5,7 @@ using System.IO;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 
 namespace FrameByFrame.src.Engine.Scenes
 {
@@ -17,11 +18,18 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _next;
         private UIActionButton _edit;
         private UIActionButton _export;
+        private UIActionButton _rename;
+        private UIActionButton _confirmRename;
+        private UIActionButton _cancelRename;
         private UIActionButton _folder;
         private UIActionButton _create;
         private int _selected;
         private int _previewFrame;
         private double _previewTimer;
+        private bool _isRenaming;
+        private string _renameText = string.Empty;
+        private string _renameError = string.Empty;
+        private Rectangle _renameInputBounds;
 
         public override void LoadContent()
         {
@@ -31,6 +39,9 @@ namespace FrameByFrame.src.Engine.Scenes
             _next = new UIActionButton(">", () => SelectRelative(1));
             _edit = new UIActionButton("Edit animation", OpenSelectedProject);
             _export = new UIActionButton("Export GIF", ExportSelectedProject);
+            _rename = new UIActionButton("Rename project", BeginRename);
+            _confirmRename = new UIActionButton("Save name", ConfirmRename);
+            _cancelRename = new UIActionButton("Cancel", CancelRename);
             _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
             _create = new UIActionButton("Create animation", CreateAnimation);
             LoadAnimations();
@@ -47,17 +58,26 @@ namespace FrameByFrame.src.Engine.Scenes
             _next.Bounds = new Rectangle(cx + S(216), cy - S(25), S(54), S(54));
             _edit.Bounds = new Rectangle(cx - S(250), cy + S(225), S(240), S(60));
             _export.Bounds = new Rectangle(cx + S(10), cy + S(225), S(240), S(60));
+            _rename.Bounds = new Rectangle(cx - S(120), cy + S(300), S(240), S(52));
+            _renameInputBounds = new Rectangle(cx - S(220), cy - S(15), S(440), S(54));
+            _confirmRename.Bounds = new Rectangle(cx - S(220), cy + S(60), S(210), S(52));
+            _cancelRename.Bounds = new Rectangle(cx + S(10), cy + S(60), S(210), S(52));
             _create.Bounds = new Rectangle(cx - S(120), cy + S(30), S(240), S(48));
             bool hasProjects = _animations.Count > 0;
-            _previous.IsEnabled = _next.IsEnabled = _edit.IsEnabled = _export.IsEnabled = hasProjects;
+            _previous.IsEnabled = _next.IsEnabled = _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasProjects;
         }
 
         public override void Update(GameTime gameTime)
         {
             Layout(); UIPointerRouter.BeginFrame();
+            if (_isRenaming)
+            {
+                _confirmRename.Update(); _cancelRename.Update(); UpdateRenameText();
+                return;
+            }
             _back.Update(); _folder.Update();
             if (_animations.Count == 0) _create.Update();
-            else { _previous.Update(); _next.Update(); _edit.Update(); _export.Update(); }
+            else { _previous.Update(); _next.Update(); _edit.Update(); _export.Update(); _rename.Update(); }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
             if (_animations.Count > 0)
@@ -87,6 +107,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _back.Draw(); _folder.Draw();
 
             if (_animations.Count == 0) DrawEmptyState(); else DrawSelectedProject();
+            if (_isRenaming) DrawRenameDialog();
         }
 
         private void DrawEmptyState()
@@ -117,7 +138,72 @@ namespace FrameByFrame.src.Engine.Scenes
                 .Draw(name, UITheme.Text, 1f);
             new UITextContainer { Bounds = new Rectangle(card.X + S(20), cy + S(130), card.Width - S(40), S(46)), MaxLines = 1 }
                 .Draw($"{_animations[_selected].TotalFrames} frames  |  {_animations[_selected].fps} fps", UITheme.TextMuted, .9f);
-            _previous.Draw(); _next.Draw(); _edit.Draw(true); _export.Draw();
+            _previous.Draw(); _next.Draw(); _edit.Draw(true); _export.Draw(); _rename.Draw();
+        }
+
+        private void BeginRename()
+        {
+            if (_animations.Count == 0) return;
+            _renameText = _animations[_selected].projectName;
+            _renameError = string.Empty;
+            _isRenaming = true;
+        }
+
+        private void CancelRename() { _isRenaming = false; _renameError = string.Empty; }
+
+        private void ConfirmRename()
+        {
+            try
+            {
+                _projectFiles[_selected] = SaveService.RenameAnimation(
+                    _animations[_selected], _projectFiles[_selected], _renameText);
+                _isRenaming = false;
+                _renameError = string.Empty;
+            }
+            catch (Exception ex) { _renameError = ex.Message; }
+        }
+
+        private void UpdateRenameText()
+        {
+            bool shift = GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.LeftShift) ||
+                GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightShift);
+            foreach (Keys key in GlobalParameters.GlobalKeyboard.GetNewlyPressedKeys())
+            {
+                if (key == Keys.Enter) { ConfirmRename(); return; }
+                if (key == Keys.Escape) { CancelRename(); return; }
+                if (key == Keys.Back && _renameText.Length > 0) { _renameText = _renameText[..^1]; continue; }
+                char? character = KeyToCharacter(key, shift);
+                if (character.HasValue && _renameText.Length < 80) _renameText += character.Value;
+            }
+        }
+
+        private static char? KeyToCharacter(Keys key, bool shift)
+        {
+            if (key >= Keys.A && key <= Keys.Z)
+            {
+                char value = (char)('a' + (int)key - (int)Keys.A);
+                return shift ? char.ToUpperInvariant(value) : value;
+            }
+            if (key >= Keys.D0 && key <= Keys.D9) return (char)('0' + (int)key - (int)Keys.D0);
+            if (key >= Keys.NumPad0 && key <= Keys.NumPad9) return (char)('0' + (int)key - (int)Keys.NumPad0);
+            return key switch { Keys.Space => ' ', Keys.OemMinus => shift ? '_' : '-', _ => null };
+        }
+
+        private void DrawRenameDialog()
+        {
+            int S(int value) => UILayoutEngine.Scale(value);
+            Rectangle dialog = new(GlobalParameters.screenWidth / 2 - S(260), GlobalParameters.screenHeight / 2 - S(120), S(520), S(270));
+            UIRenderer.Fill(dialog, UITheme.SurfaceRaised); UIRenderer.Border(dialog, UITheme.Primary, 3);
+            new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18), dialog.Width - S(48), S(42)), MaxLines = 1 }
+                .Draw("Rename project", UITheme.Primary, .9f);
+            UIRenderer.Fill(_renameInputBounds, UITheme.Surface); UIRenderer.Border(_renameInputBounds, UITheme.Border, 2);
+            string display = string.IsNullOrEmpty(_renameText) ? "Type a project name" : _renameText + "|";
+            new UITextContainer { Bounds = _renameInputBounds, HorizontalAlignment = UIAlign.Start, Padding = S(12), MaxLines = 1 }
+                .Draw(display, string.IsNullOrEmpty(_renameText) ? UITheme.TextMuted : UITheme.Text, .75f);
+            if (!string.IsNullOrEmpty(_renameError))
+                new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), _renameInputBounds.Bottom + S(4), dialog.Width - S(48), S(34)), MaxLines = 1 }
+                    .Draw(_renameError, Color.IndianRed, .55f);
+            _confirmRename.Draw(true); _cancelRename.Draw();
         }
 
         public void LoadAnimations()

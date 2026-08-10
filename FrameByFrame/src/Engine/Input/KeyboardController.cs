@@ -61,6 +61,10 @@ namespace FrameByFrame.src.Engine.Input
             return _currentKeyboard.IsKeyDown(key);
         }
 
+        public Keys[] GetNewlyPressedKeys() => _currentKeyboard.GetPressedKeys()
+            .Where(key => _previousKeyboard.IsKeyUp(key))
+            .ToArray();
+
         public virtual void GetPressedKeys()
         {
 

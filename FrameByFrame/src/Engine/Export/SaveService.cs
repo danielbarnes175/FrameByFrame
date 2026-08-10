@@ -24,6 +24,40 @@ namespace FrameByFrame.src.Engine.Export
             return FbfProjectFile.Load(filename);
         }
 
+        public static string RenameAnimation(Animation.Animation animation, string currentFilename, string newName)
+        {
+            ArgumentNullException.ThrowIfNull(animation);
+            ArgumentException.ThrowIfNullOrWhiteSpace(currentFilename);
+
+            string normalizedName = newName?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedName) || normalizedName is "." or ".." ||
+                normalizedName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                normalizedName.IndexOfAny(['<', '>', ':', '"', '/', '\\', '|', '?', '*']) >= 0)
+                throw new ArgumentException("Project names must contain valid filename characters.", nameof(newName));
+
+            Directory.CreateDirectory(ProjectsDirectory);
+            string destination = Path.Combine(ProjectsDirectory, $"{normalizedName}.fbf");
+            string currentFullPath = Path.GetFullPath(currentFilename);
+            string destinationFullPath = Path.GetFullPath(destination);
+            if (!string.Equals(currentFullPath, destinationFullPath, StringComparison.OrdinalIgnoreCase) && File.Exists(destination))
+                throw new IOException($"A project named '{normalizedName}' already exists.");
+
+            string oldName = animation.projectName;
+            animation.projectName = normalizedName;
+            try
+            {
+                FbfProjectFile.Save(destination, animation);
+                if (!string.Equals(currentFullPath, destinationFullPath, StringComparison.OrdinalIgnoreCase))
+                    File.Delete(currentFilename);
+                return destination;
+            }
+            catch
+            {
+                animation.projectName = oldName;
+                throw;
+            }
+        }
+
         public static void ExportAnimation(Animation.Animation animation)
         {
             ArgumentNullException.ThrowIfNull(animation);
