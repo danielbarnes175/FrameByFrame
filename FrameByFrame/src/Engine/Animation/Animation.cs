@@ -228,9 +228,11 @@ namespace FrameByFrame.src.Engine.Animation
         {
             CommitPixelEdit();
             if (_undoHistory.Count == 0) return false;
-            PixelEdit edit = _undoHistory.Pop();
+            PixelEdit edit = _undoHistory.Peek();
             Frame frame = frames.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
+            if (!CanReplaceLayer(frame, edit.LayerId, edit.Before)) return false;
+            _undoHistory.Pop();
             frame.SetLayerPixels(edit.LayerId, edit.Before, true);
             SelectFrame(frames.ToList().IndexOf(frame));
             SelectLayer(edit.LayerId);
@@ -242,9 +244,11 @@ namespace FrameByFrame.src.Engine.Animation
         {
             CommitPixelEdit();
             if (_redoHistory.Count == 0) return false;
-            PixelEdit edit = _redoHistory.Pop();
+            PixelEdit edit = _redoHistory.Peek();
             Frame frame = frames.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
+            if (!CanReplaceLayer(frame, edit.LayerId, edit.After)) return false;
+            _redoHistory.Pop();
             frame.SetLayerPixels(edit.LayerId, edit.After, true);
             SelectFrame(frames.ToList().IndexOf(frame));
             SelectLayer(edit.LayerId);
@@ -362,7 +366,8 @@ namespace FrameByFrame.src.Engine.Animation
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            currentFrame?.Value.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color);
+            currentFrame?.Value.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color,
+                Math.Max(0, MaxStoredPixels - StoredPixelCount));
         }
 
         public Color SampleVisibleColorAt(Vector2 screenPosition)
@@ -412,6 +417,7 @@ namespace FrameByFrame.src.Engine.Animation
             int maxY = Math.Min(CurrentFrame.height - 1, centerY + brushSize);
             
             int brushSizeSquared = brushSize * brushSize;
+            long availablePixels = Math.Max(0, MaxStoredPixels - StoredPixelCount);
             
             for (int x = minX; x <= maxX; x++)
             {
@@ -422,7 +428,9 @@ namespace FrameByFrame.src.Engine.Animation
                     
                     if (dx * dx + dy * dy <= brushSizeSquared)
                     {
-                        currentFrame.Value.SetPixel(SelectedLayerId, x, y, color);
+                        bool canAddPixel = color == Color.Transparent || availablePixels > 0;
+                        if (currentFrame.Value.SetPixel(SelectedLayerId, x, y, color, canAddPixel))
+                            availablePixels--;
                     }
                 }
             }
@@ -431,6 +439,12 @@ namespace FrameByFrame.src.Engine.Animation
         public Color[] GetLayerPixels(Guid layerId)
         {
             return currentFrame.Value.GetLayerPixels(layerId);
+        }
+
+        private bool CanReplaceLayer(Frame frame, Guid layerId, Color[] replacement)
+        {
+            long replacementCount = replacement.LongCount(pixel => pixel != Color.Transparent);
+            return StoredPixelCount - frame.GetLayerPixelCount(layerId) + replacementCount <= MaxStoredPixels;
         }
 
         public AnimationLayer AddLayer(string name, int index = 0)

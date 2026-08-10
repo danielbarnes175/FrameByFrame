@@ -471,18 +471,19 @@ namespace FrameByFrame.src.UI.Components
 
         private void DrawSizeBar(Rectangle bounds)
         {
-            int percent = (int)Math.Round(_animation.ResourceBudgetRemaining * 100);
+            int percent = (int)Math.Ceiling(_animation.ResourceBudgetRemaining * 100);
             const int labelWidth = 58;
+            const int maxTrackWidth = 140;
             new UITextContainer { Bounds = new Rectangle(bounds.X, bounds.Y, labelWidth, bounds.Height), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Size", UITheme.TextMuted, .55f);
             Rectangle track = new(bounds.X + labelWidth, bounds.Y + (bounds.Height - 8) / 2,
-                Math.Max(1, bounds.Width - labelWidth - 38), 8);
+                Math.Max(1, Math.Min(maxTrackWidth, bounds.Width - labelWidth - 38)), 8);
             UIRenderer.Fill(track, UITheme.Surface);
             UIRenderer.Border(track, UITheme.Border);
             Rectangle remaining = new(track.X + 1, track.Y + 1,
                 (int)Math.Round(Math.Max(0, track.Width - 2) * _animation.ResourceBudgetRemaining), Math.Max(1, track.Height - 2));
             UIRenderer.Fill(remaining, percent <= 10 ? Color.IndianRed : percent <= 25 ? Color.Orange : UITheme.Primary);
-            new UITextContainer { Bounds = new Rectangle(track.Right + 4, bounds.Y, 34, bounds.Height), MaxLines = 1 }
+            new UITextContainer { Bounds = new Rectangle(track.Right + 6, bounds.Y, 52, bounds.Height), Padding = 0, MaxLines = 1 }
                 .Draw($"{percent}%", UITheme.TextMuted, .5f);
         }
 
