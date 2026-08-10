@@ -270,9 +270,9 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void CreateAnimation()
         {
-            DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
-            drawing.BeginNewAnimation();
-            GlobalParameters.CurrentScene = drawing;
+            MenuScene menu = (MenuScene)GlobalParameters.Scenes[UIConstants.MENU_SCENE];
+            menu.BeginNewAnimationConfiguration();
+            GlobalParameters.CurrentScene = menu;
         }
 
         private void BeginExportRange()

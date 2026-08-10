@@ -66,6 +66,9 @@ namespace FrameByFrame.src.Engine.Animation
         public Rectangle DisplayBounds { get; private set; }
         public const int MinCanvasDimension = 64;
         public const int MaxCanvasDimension = 4096;
+        public const long MaxDecodedPixelSlots = 268_435_456;
+        public int MaxSupportedFrames => Math.Max(1, (int)Math.Min(int.MaxValue,
+            MaxDecodedPixelSlots / Math.Max(1L, (long)(int)frameSize.X * (int)frameSize.Y * _layers.Count)));
 
         public Animation(string projectName, IEnumerable<AnimationLayer> layers = null)
         {
@@ -85,9 +88,11 @@ namespace FrameByFrame.src.Engine.Animation
             isOnionSkinEnabled = true;
         }
 
-        public void InitializeFrames()
+        public void InitializeFrames(int width = 1200, int height = 800)
         {
-            frameSize = new Vector2(1200, 800);
+            width = Math.Clamp(width, MinCanvasDimension, MaxCanvasDimension);
+            height = Math.Clamp(height, MinCanvasDimension, MaxCanvasDimension);
+            frameSize = new Vector2(width, height);
             framePosition = new Vector2(
                 GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2,
                 GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
@@ -124,40 +129,6 @@ namespace FrameByFrame.src.Engine.Animation
             playbackTimer = 0;
             IsPlaying = false;
             InvalidateFrameCache();
-        }
-
-        public bool ResizeCanvas(int width, int height)
-        {
-            width = Math.Clamp(width, MinCanvasDimension, MaxCanvasDimension);
-            height = Math.Clamp(height, MinCanvasDimension, MaxCanvasDimension);
-            if ((int)frameSize.X == width && (int)frameSize.Y == height) return false;
-
-            int selectedFrame = CurrentFrameIndex;
-            int oldWidth = (int)frameSize.X;
-            int oldHeight = (int)frameSize.Y;
-            Vector2 newSize = new(width, height);
-            LinkedList<Frame> resized = new();
-            foreach (Frame source in frames)
-            {
-                Frame target = new(framePosition, newSize, _layers);
-                foreach (AnimationLayer layer in _layers)
-                {
-                    Color[] sourcePixels = source.GetLayerPixels(layer.Id);
-                    Color[] targetPixels = new Color[width * height];
-                    int copyWidth = Math.Min(oldWidth, width);
-                    int copyHeight = Math.Min(oldHeight, height);
-                    for (int y = 0; y < copyHeight; y++)
-                        Array.Copy(sourcePixels, y * oldWidth, targetPixels, y * width, copyWidth);
-                    target.SetLayerPixels(layer.Id, targetPixels, true);
-                }
-                resized.AddLast(target);
-            }
-            foreach (Frame source in frames) source.Dispose();
-            frames = resized;
-            frameSize = newSize;
-            InvalidateFrameCache();
-            SelectFrame(Math.Min(selectedFrame, TotalFrames - 1));
-            return true;
         }
 
         // Cache for faster frame access
@@ -204,6 +175,11 @@ namespace FrameByFrame.src.Engine.Animation
             CurrentFrameIndex += 1;
             if (CurrentFrameIndex > TotalFrames - 1)
             {
+                if (!FitsResourceBudget(_layers.Count, frames.Count + 1))
+                {
+                    CurrentFrameIndex = TotalFrames - 1;
+                    return;
+                }
                 frames.AddLast(new Frame(framePosition, frameSize, _layers));
             }
             currentFrame = currentFrame.Next;
@@ -303,6 +279,7 @@ namespace FrameByFrame.src.Engine.Animation
         
         public void InsertFrame()
         {
+            if (!FitsResourceBudget(_layers.Count, frames.Count + 1)) return;
             CommitPixelEdit();
             var newFrame = new Frame(framePosition, frameSize, _layers);
             frames.AddBefore(currentFrame, newFrame);
@@ -463,6 +440,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public AnimationLayer AddLayer(string name, int index = 0)
         {
+            if (!FitsResourceBudget(_layers.Count + 1, frames.Count)) return null;
             CommitPixelEdit();
             var layer = new AnimationLayer(name);
             index = Math.Clamp(index, 0, _layers.Count);
@@ -471,6 +449,9 @@ namespace FrameByFrame.src.Engine.Animation
             SelectedLayerId = layer.Id;
             return layer;
         }
+
+        private bool FitsResourceBudget(int layerCount, int frameCount) =>
+            (long)(int)frameSize.X * (int)frameSize.Y * layerCount * frameCount <= MaxDecodedPixelSlots;
 
         public bool RemoveLayer(Guid layerId)
         {
