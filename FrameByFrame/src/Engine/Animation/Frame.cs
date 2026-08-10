@@ -67,15 +67,20 @@ namespace FrameByFrame.src.Engine.Animation
             _layers.AddRange(order.Select(layer => byId[layer.Id]));
         }
 
-        public void SetPixel(Guid layerId, int x, int y, Color color)
+        public bool SetPixel(Guid layerId, int x, int y, Color color, bool allowNewOpaquePixel = true)
         {
             FrameLayer layer = FindLayer(layerId);
-            if (layer == null || layer.Definition.IsLocked || x < 0 || x >= width || y < 0 || y >= height) return;
+            if (layer == null || layer.Definition.IsLocked || x < 0 || x >= width || y < 0 || y >= height) return false;
             int index = y * width + x;
+            bool wasOpaque = layer.Pixels.ContainsKey(index);
+            if (!wasOpaque && color != Color.Transparent && !allowNewOpaquePixel) return false;
             if (color == Color.Transparent) layer.Pixels.Remove(index);
             else layer.Pixels[index] = color;
             _texturesNeedUpdate = true;
+            return !wasOpaque && color != Color.Transparent;
         }
+
+        public int GetLayerPixelCount(Guid layerId) => FindLayer(layerId)?.Pixels.Count ?? 0;
 
         public Color[] GetLayerPixels(Guid layerId)
         {
@@ -124,13 +129,16 @@ namespace FrameByFrame.src.Engine.Animation
             return Color.White;
         }
 
-        public void FloodFill(Guid layerId, int startX, int startY, Color replacement)
+        public bool FloodFill(Guid layerId, int startX, int startY, Color replacement, long availablePixels = long.MaxValue)
         {
             FrameLayer layer = FindLayer(layerId);
-            if (layer == null || layer.Definition.IsLocked || startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+            if (layer == null || layer.Definition.IsLocked || startX < 0 || startX >= width || startY < 0 || startY >= height) return false;
             Color[] pixels = GetLayerPixels(layerId);
             FloodFillPixels(pixels, width, height, startX, startY, replacement);
+            int newPixelCount = pixels.Count(pixel => pixel != Color.Transparent);
+            if (newPixelCount - layer.Pixels.Count > availablePixels) return false;
             SetLayerPixels(layerId, pixels);
+            return true;
         }
 
         public static void FloodFillPixels(Color[] pixels, int width, int height, int startX, int startY, Color replacement)
