@@ -58,7 +58,7 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
 
-        private sealed record PixelEdit(int FrameIndex, Guid LayerId, Color[] Before, Color[] After);
+        private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
 
         public int TotalFrames => frames.Count;
         public int CurrentFrameIndex { get; private set; }
@@ -194,14 +194,14 @@ namespace FrameByFrame.src.Engine.Animation
         public void BeginPixelEdit()
         {
             if (_pendingPixelEdit != null || CurrentFrame == null || SelectedLayer == null) return;
-            _pendingPixelEdit = new PixelEdit(CurrentFrameIndex, SelectedLayerId,
+            _pendingPixelEdit = new PixelEdit(CurrentFrame, SelectedLayerId,
                 CurrentFrame.GetLayerPixels(SelectedLayerId), null);
         }
 
         public void CommitPixelEdit()
         {
             if (_pendingPixelEdit == null) return;
-            Frame frame = GetFrameAtIndex(_pendingPixelEdit.FrameIndex);
+            Frame frame = frames.Contains(_pendingPixelEdit.Frame) ? _pendingPixelEdit.Frame : null;
             Color[] after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
             PixelEdit completed = _pendingPixelEdit with { After = after };
             _pendingPixelEdit = null;
@@ -221,10 +221,10 @@ namespace FrameByFrame.src.Engine.Animation
             CommitPixelEdit();
             if (_undoHistory.Count == 0) return false;
             PixelEdit edit = _undoHistory.Pop();
-            Frame frame = GetFrameAtIndex(edit.FrameIndex);
+            Frame frame = frames.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
             frame.SetLayerPixels(edit.LayerId, edit.Before, true);
-            SelectFrame(edit.FrameIndex);
+            SelectFrame(frames.ToList().IndexOf(frame));
             SelectLayer(edit.LayerId);
             _redoHistory.Push(edit);
             return true;
@@ -235,10 +235,10 @@ namespace FrameByFrame.src.Engine.Animation
             CommitPixelEdit();
             if (_redoHistory.Count == 0) return false;
             PixelEdit edit = _redoHistory.Pop();
-            Frame frame = GetFrameAtIndex(edit.FrameIndex);
+            Frame frame = frames.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
             frame.SetLayerPixels(edit.LayerId, edit.After, true);
-            SelectFrame(edit.FrameIndex);
+            SelectFrame(frames.ToList().IndexOf(frame));
             SelectLayer(edit.LayerId);
             _undoHistory.Push(edit);
             return true;
@@ -250,6 +250,8 @@ namespace FrameByFrame.src.Engine.Animation
             if (frames.Count <= 1) return;
             CommitPixelEdit();
 
+            CommitPixelEdit();
+
             var toRemove = currentFrame;
             currentFrame = currentFrame.Previous ?? currentFrame.Next;
             
@@ -258,6 +260,8 @@ namespace FrameByFrame.src.Engine.Animation
             
             frames.Remove(toRemove);
             CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
+            _undoHistory.Clear();
+            _redoHistory.Clear();
             InvalidateFrameCache();
         }
         
