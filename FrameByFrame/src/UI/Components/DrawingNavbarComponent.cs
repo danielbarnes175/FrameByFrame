@@ -486,16 +486,16 @@ namespace FrameByFrame.src.UI.Components
             UIRenderer.Fill(Bounds, UITheme.Surface);
             UIRenderer.Fill(new Rectangle(Bounds.X, Bounds.Bottom - 3, Bounds.Width, 3), UITheme.Primary);
             _home.Draw(true);
-            _help.Draw();
-            _settings.Draw();
-            _color.Draw();
-            _layers.Draw();
+            _help.Draw(drawTooltip: false);
+            _settings.Draw(drawTooltip: false);
+            _color.Draw(drawTooltip: false);
+            _layers.Draw(drawTooltip: false);
             for (int i = 0; i < _tools.Count; i++)
             {
                 _tools[i].IsSelected = _drawingTools.SelectedTool == _toolKinds[i];
-                _tools[i].Draw();
+                _tools[i].Draw(drawTooltip: false);
             }
-            foreach (UIIconButton button in _playback) button.Draw();
+            foreach (UIIconButton button in _playback) button.Draw(drawTooltip: false);
             _brushSize.Draw();
 
             UIRenderer.Fill(_frameCounterBounds, UITheme.Primary);
@@ -511,6 +511,14 @@ namespace FrameByFrame.src.UI.Components
             }
 
             DrawActivePopover();
+
+            // All navbar tooltips render last so open popovers cannot cover them.
+            _help.DrawTooltip();
+            _settings.DrawTooltip();
+            _color.DrawTooltip();
+            _layers.DrawTooltip();
+            foreach (UIIconButton tool in _tools) tool.DrawTooltip();
+            foreach (UIIconButton button in _playback) button.DrawTooltip();
         }
 
         private void DrawActivePopover()

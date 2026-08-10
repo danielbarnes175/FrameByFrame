@@ -352,7 +352,7 @@ namespace FrameByFrame.src.UI
             if (IsEnabled && UIPointerRouter.Clicked(Bounds)) OnClick?.Invoke();
         }
 
-        public override void Draw()
+        public void Draw(bool drawTooltip)
         {
             Rectangle visual = Bounds;
             bool hovered = IsEnabled && UIPointerRouter.ContainsPointer(Bounds);
@@ -364,18 +364,21 @@ namespace FrameByFrame.src.UI
                 UIRenderer.Border(visual, UITheme.ToolSelected, 2);
             }
             GlobalParameters.GlobalSpriteBatch.Draw(Icon, visual, hovered && !IsSelected ? Color.White * .72f : Color.White);
-            if (hovered && !string.IsNullOrWhiteSpace(Tooltip)) DrawTooltip(Tooltip, Bounds);
+            if (drawTooltip) DrawTooltip();
         }
 
-        private static void DrawTooltip(string text, Rectangle anchor)
+        public void DrawTooltip()
         {
-            Vector2 size = (GlobalParameters.uiFont ?? GlobalParameters.font).MeasureString(text) * .72f;
-            Rectangle tip = new(anchor.X, anchor.Bottom + 8, (int)size.X + 16, 30);
+            if (!IsEnabled || !UIPointerRouter.ContainsPointer(Bounds) || string.IsNullOrWhiteSpace(Tooltip)) return;
+            Vector2 size = (GlobalParameters.uiFont ?? GlobalParameters.font).MeasureString(Tooltip) * .72f;
+            Rectangle tip = new(Bounds.X, Bounds.Bottom + 8, (int)size.X + 16, 30);
             if (tip.Right > GlobalParameters.screenWidth) tip.X = GlobalParameters.screenWidth - tip.Width - 8;
             UIRenderer.Fill(tip, UITheme.Surface);
             UIRenderer.Border(tip, UITheme.Primary, 2);
-            UIRenderer.Text(text, new Vector2(tip.X + 8, tip.Y + 4), UITheme.Text, .72f);
+            UIRenderer.Text(Tooltip, new Vector2(tip.X + 8, tip.Y + 4), UITheme.Text, .72f);
         }
+
+        public override void Draw() => Draw(true);
     }
 
     public sealed class UIToggle : UIElement
