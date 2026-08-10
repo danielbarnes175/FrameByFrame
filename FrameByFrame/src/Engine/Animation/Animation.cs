@@ -286,6 +286,21 @@ namespace FrameByFrame.src.Engine.Animation
             InvalidateFrameCache();
         }
 
+        public void DuplicateCurrentFrame()
+        {
+            if (currentFrame == null) return;
+
+            var duplicate = new Frame(framePosition, frameSize, _layers);
+            foreach (AnimationLayer layer in _layers)
+            {
+                duplicate.SetLayerPixels(layer.Id, currentFrame.Value.GetLayerPixels(layer.Id), ignoreLock: true);
+            }
+
+            currentFrame = frames.AddAfter(currentFrame, duplicate);
+            CurrentFrameIndex++;
+            InvalidateFrameCache();
+        }
+
         public void TogglePlaying()
         {
             CommitPixelEdit();
