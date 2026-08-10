@@ -57,6 +57,7 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Stack<PixelEdit> _undoHistory = new();
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
+        private Dictionary<Guid, Color[]> _frameClipboard;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
 
@@ -262,16 +263,15 @@ namespace FrameByFrame.src.Engine.Animation
             if (frames.Count <= 1) return;
             CommitPixelEdit();
 
-            CommitPixelEdit();
-
             var toRemove = currentFrame;
-            currentFrame = currentFrame.Previous ?? currentFrame.Next;
+            bool hasNextFrame = currentFrame.Next != null;
+            currentFrame = currentFrame.Next ?? currentFrame.Previous;
             
             // Dispose the frame to free memory
             toRemove.Value?.Dispose();
             
             frames.Remove(toRemove);
-            CurrentFrameIndex = Math.Max(0, CurrentFrameIndex - 1);
+            if (!hasNextFrame) CurrentFrameIndex--;
             _undoHistory.Clear();
             _redoHistory.Clear();
             InvalidateFrameCache();
@@ -299,6 +299,65 @@ namespace FrameByFrame.src.Engine.Animation
             currentFrame = frames.AddAfter(currentFrame, duplicate);
             CurrentFrameIndex++;
             InvalidateFrameCache();
+        }
+
+        public void CopyCurrentFrame()
+        {
+            if (currentFrame == null) return;
+            CommitPixelEdit();
+            _frameClipboard = _layers.ToDictionary(
+                layer => layer.Id,
+                layer => currentFrame.Value.GetLayerPixels(layer.Id));
+        }
+
+        public bool PasteFrame()
+        {
+            if (currentFrame == null || _frameClipboard == null) return false;
+            CommitPixelEdit();
+
+            var pastedFrame = new Frame(framePosition, frameSize, _layers);
+            foreach (AnimationLayer layer in _layers)
+            {
+                if (_frameClipboard.TryGetValue(layer.Id, out Color[] pixels))
+                    pastedFrame.SetLayerPixels(layer.Id, pixels, ignoreLock: true);
+            }
+
+            currentFrame = frames.AddAfter(currentFrame, pastedFrame);
+            CurrentFrameIndex++;
+            InvalidateFrameCache();
+            return true;
+        }
+
+        public bool MoveFrame(int oldIndex, int newIndex)
+        {
+            if (oldIndex < 0 || oldIndex >= TotalFrames ||
+                newIndex < 0 || newIndex >= TotalFrames || oldIndex == newIndex)
+                return false;
+
+            CommitPixelEdit();
+            LinkedListNode<Frame> moving = frames.First;
+            for (int i = 0; i < oldIndex; i++) moving = moving.Next;
+
+            Frame selectedFrame = currentFrame?.Value;
+            frames.Remove(moving);
+            if (newIndex >= frames.Count)
+            {
+                frames.AddLast(moving);
+            }
+            else
+            {
+                LinkedListNode<Frame> destination = frames.First;
+                for (int i = 0; i < newIndex; i++) destination = destination.Next;
+                frames.AddBefore(destination, moving);
+            }
+
+            currentFrame = frames.Find(selectedFrame) ?? moving;
+            CurrentFrameIndex = 0;
+            for (LinkedListNode<Frame> node = frames.First;
+                 node != null && node != currentFrame; node = node.Next)
+                CurrentFrameIndex++;
+            InvalidateFrameCache();
+            return true;
         }
 
         public void TogglePlaying()

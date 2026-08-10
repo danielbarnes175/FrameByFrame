@@ -304,7 +304,7 @@ namespace FrameByFrame.src.UI
             if (IsEnabled && UIPointerRouter.Clicked(Bounds)) OnClick?.Invoke();
         }
 
-        public void Draw(bool primary = false)
+        public void Draw(bool primary = false, bool drawTooltip = true)
         {
             Color color = IsSelected ? UITheme.Secondary
                 : IsHovered ? (primary ? UITheme.PrimaryHover : UITheme.SurfaceRaised)
@@ -313,7 +313,12 @@ namespace FrameByFrame.src.UI
             UIRenderer.Border(Bounds, IsSelected ? UITheme.Secondary : UITheme.Border, IsSelected ? 2 : 1);
             new UITextContainer { Bounds = Bounds, Padding = UILayoutEngine.Scale(10), MaxLines = 2 }.Draw(
                 Text, primary ? Color.White : UITheme.Text, .9f);
-            if (IsHovered && !string.IsNullOrWhiteSpace(Tooltip))
+            if (drawTooltip) DrawTooltip();
+        }
+
+        public void DrawTooltip()
+        {
+            if (UIPointerRouter.ContainsPointer(Bounds) && !string.IsNullOrWhiteSpace(Tooltip))
             {
                 Vector2 size = (GlobalParameters.uiFont ?? GlobalParameters.font).MeasureString(Tooltip) * .9f;
                 Rectangle tip = new(Bounds.Right + 8, Bounds.Y, (int)size.X + 16, 34);

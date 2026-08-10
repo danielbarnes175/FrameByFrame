@@ -495,8 +495,8 @@ namespace FrameByFrame.src.UI.Components
             Rectangle panel = _helpPopover.Bounds;
             new UITextContainer { Bounds = new Rectangle(panel.X + 22, panel.Y + 18, panel.Width - 44, 48), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
                 .Draw("Keyboard shortcuts", UITheme.Primary, 1.05f);
-            const string shortcuts = "Ctrl+Z / Ctrl+Y - Undo or redo\nCtrl+D - Duplicate selected frame\nP - Play or pause\nN / M - Previous or next frame\nB - Insert a frame\nDelete - Remove current frame\nO - Toggle onion skin\n[ / ] - Change brush size\nBackspace - Clear selected layer\nL - Save project\nEsc - Return home";
-            new UITextContainer { Bounds = new Rectangle(panel.X + 22, panel.Y + 72, panel.Width - 44, panel.Height - 92), HorizontalAlignment = UIAlign.Start, VerticalAlignment = UIAlign.Start, Padding = 4, MaxLines = 12 }
+            const string shortcuts = "Ctrl+Z / Ctrl+Y - Undo or redo\nCtrl+D - Duplicate selected frame\nCtrl+C / Ctrl+V - Copy or paste frame\nDrag timeline frames - Reorder frames\nP - Play or pause\nN / M - Previous or next frame\nB - Insert a frame\nDelete - Remove current frame\nO - Toggle onion skin\n[ / ] - Change brush size\nBackspace - Clear selected layer\nL - Save project\nEsc - Return home";
+            new UITextContainer { Bounds = new Rectangle(panel.X + 22, panel.Y + 72, panel.Width - 44, panel.Height - 92), HorizontalAlignment = UIAlign.Start, VerticalAlignment = UIAlign.Start, Padding = 4, MaxLines = 13 }
                 .Draw(shortcuts, UITheme.Text, .85f);
         }
 

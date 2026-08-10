@@ -151,6 +151,8 @@ namespace FrameByFrame.src.Engine.Scenes
             if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Z)) animation.Undo();
             if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Y)) animation.Redo();
             if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.D)) animation.DuplicateCurrentFrame();
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.C)) animation.CopyCurrentFrame();
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.V)) animation.PasteFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
             {
                 animation.Stop();
