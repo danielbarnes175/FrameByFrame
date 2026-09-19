@@ -1,6 +1,8 @@
 using FrameByFrame.src.UI;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Export;
 using Microsoft.Xna.Framework;
+using System.IO;
 
 static void Assert(bool condition, string message)
 {
@@ -31,6 +33,20 @@ TestElement element = new();
 element.Arrange(new Rectangle(12, 18, 140, 44));
 Assert(element.Bounds == new Rectangle(12, 18, 140, 44), "UI elements should retain arranged bounds.");
 Assert(element.Measure(new Point(100, 30)) == new Point(100, 30), "UI measurement should respect available space.");
+
+string autosaveSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-autosave-{Guid.NewGuid():N}.json");
+try
+{
+    var autosave = new AutosaveService(autosaveSettings);
+    Assert(autosave.IsEnabled, "Autosave should be enabled by default.");
+    autosave.SetEnabled(false);
+    var reloadedAutosave = new AutosaveService(autosaveSettings);
+    Assert(!reloadedAutosave.IsEnabled, "The autosave preference should persist.");
+}
+finally
+{
+    File.Delete(autosaveSettings);
+}
 
 using (var animation = new Animation("Layer model test"))
 {

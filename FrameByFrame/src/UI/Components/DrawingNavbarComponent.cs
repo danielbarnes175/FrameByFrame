@@ -30,7 +30,7 @@ namespace FrameByFrame.src.UI.Components
             public const int HelpWidth = 520;
             public const int HelpContentHeight = 410;
             public const int SettingsWidth = 450;
-            public const int SettingsContentHeight = 430;
+            public const int SettingsContentHeight = 478;
             public const int ColorWidth = 236;
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
@@ -53,6 +53,7 @@ namespace FrameByFrame.src.UI.Components
 
         private readonly Animation _animation;
         private readonly DrawingTools _drawingTools;
+        private readonly AutosaveService _autosave;
         private readonly UIActionButton _home;
         private readonly UIIconButton _help;
         private readonly UIIconButton _settings;
@@ -63,6 +64,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly List<UIIconButton> _playback = new();
         private readonly UISlider _brushSize;
         private readonly UIToggle _onionSkin;
+        private readonly UIToggle _autosaveToggle;
         private readonly UIActionButton _previousOnionDown;
         private readonly UIActionButton _previousOnionUp;
         private readonly UIActionButton _nextOnionDown;
@@ -109,10 +111,11 @@ namespace FrameByFrame.src.UI.Components
         public bool HasOpenPopover => _openPopover != PopoverKind.None;
         public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
-        public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools)
+        public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools, AutosaveService autosave)
         {
             _animation = animation;
             _drawingTools = drawingTools;
+            _autosave = autosave ?? throw new ArgumentNullException(nameof(autosave));
             _home = new UIActionButton("HOME", GoHome);
             _help = Icon("Static\\DrawingScene/help", () => Toggle(PopoverKind.Help), "Help");
             _settings = Icon("Static\\DrawingScene/gear", () => Toggle(PopoverKind.Settings), "Animation settings");
@@ -137,6 +140,7 @@ namespace FrameByFrame.src.UI.Components
                 _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
             _onionSkin = new UIToggle(_animation.isOnionSkinEnabled,
                 value => _animation.isOnionSkinEnabled = value);
+            _autosaveToggle = new UIToggle(_autosave.IsEnabled, SetAutosave);
             _previousOnionDown = new UIActionButton("-", () => _animation.PreviousOnionFrames--);
             _previousOnionUp = new UIActionButton("+", () => _animation.PreviousOnionFrames++);
             _nextOnionDown = new UIActionButton("-", () => _animation.NextOnionFrames--);
@@ -277,8 +281,9 @@ namespace FrameByFrame.src.UI.Components
             _nextOnionUp.Arrange(new Rectangle(controlRight - 42, settings.Y + 236 - scroll, 42, 38));
             _fpsDown.Arrange(new Rectangle(controlX, settings.Y + 290 - scroll, 48, 42));
             _fpsUp.Arrange(new Rectangle(controlRight - 48, settings.Y + 290 - scroll, 48, 42));
+            _autosaveToggle.Arrange(new Rectangle(settings.X + 28, settings.Y + 342 - scroll, 48, 28));
             int saveWidth = Math.Min(210, settings.Width - 40);
-            _save.Arrange(new Rectangle(settings.Center.X - saveWidth / 2, settings.Y + 370 - scroll, saveWidth, 50));
+            _save.Arrange(new Rectangle(settings.Center.X - saveWidth / 2, settings.Y + 418 - scroll, saveWidth, 50));
         }
 
         private static Rectangle ClampPopover(Rectangle bounds, int minimumTop = Layout.PopoverTop)
@@ -346,6 +351,7 @@ namespace FrameByFrame.src.UI.Components
                 Arrange(Bounds);
             }
             _onionSkin.Value = _animation.isOnionSkinEnabled;
+            _autosaveToggle.Value = _autosave.IsEnabled;
             Rectangle viewport = SettingsViewport(panel);
             if (FullyVisible(_onionSkin.Bounds, viewport)) _onionSkin.Update();
             if (FullyVisible(_previousOnionDown.Bounds, viewport)) _previousOnionDown.Update();
@@ -357,7 +363,22 @@ namespace FrameByFrame.src.UI.Components
             if (FullyVisible(_onionOpacity.Bounds, viewport)) _onionOpacity.Update();
             if (FullyVisible(_fpsDown.Bounds, viewport)) _fpsDown.Update();
             if (FullyVisible(_fpsUp.Bounds, viewport)) _fpsUp.Update();
+            if (FullyVisible(_autosaveToggle.Bounds, viewport)) _autosaveToggle.Update();
             if (FullyVisible(_save.Bounds, viewport)) _save.Update();
+        }
+
+        private void SetAutosave(bool enabled)
+        {
+            try
+            {
+                _autosave.SetEnabled(enabled);
+                _saveError = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _saveError = $"Could not save autosave preference: {ex.Message}";
+                _autosaveToggle.Value = _autosave.IsEnabled;
+            }
         }
 
         private static Rectangle SettingsViewport(Rectangle panel) => new(
@@ -583,13 +604,17 @@ namespace FrameByFrame.src.UI.Components
             if (FullyVisible(_fpsUp.Bounds, viewport)) _fpsUp.Draw();
             TextIfVisible(new Rectangle(_fpsDown.Bounds.Right, panel.Y + 290 - scroll,
                 Math.Max(1, _fpsUp.Bounds.X - _fpsDown.Bounds.Right), 42), _animation.fps.ToString(), UITheme.Primary, .65f);
-            Rectangle sizeBounds = new(panel.X + 28, panel.Y + 342 - scroll, panel.Width - 56, 28);
+            if (FullyVisible(_autosaveToggle.Bounds, viewport)) _autosaveToggle.Draw();
+            TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 339 - scroll, panel.Width - 112, 42),
+                $"Autosave: {(_autosave.IsEnabled ? "On" : "Off")}", UITheme.Text, .6f, UIAlign.Start);
+            Rectangle sizeBounds = new(panel.X + 28, panel.Y + 382 - scroll, panel.Width - 56, 28);
             if (FullyVisible(sizeBounds, viewport)) DrawSizeBar(sizeBounds);
-            if (!string.IsNullOrEmpty(_saveError))
+            string saveError = string.IsNullOrEmpty(_saveError) ? _autosave.LastError : _saveError;
+            if (!string.IsNullOrEmpty(saveError))
             {
-                Rectangle errorBounds = new(panel.X + 24, panel.Y + 374 - scroll, panel.Width - 48, 32);
+                Rectangle errorBounds = new(panel.X + 24, panel.Y + 414 - scroll, panel.Width - 48, 32);
                 if (FullyVisible(errorBounds, viewport))
-                    new UITextContainer { Bounds = errorBounds, MaxLines = 2 }.Draw(_saveError, Color.IndianRed, .52f);
+                    new UITextContainer { Bounds = errorBounds, MaxLines = 2 }.Draw(saveError, Color.IndianRed, .52f);
             }
             if (FullyVisible(_save.Bounds, viewport)) _save.Draw(true);
         }
