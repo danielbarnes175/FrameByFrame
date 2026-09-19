@@ -228,7 +228,9 @@ namespace FrameByFrame.src.Engine.Scenes
         private void DrawSelectedProject()
         {
             int S(int value) => UILayoutEngine.Scale(value);
-            for (int i = 0; i < _projectCardBounds.Count; i++)
+            int visibleCount = Math.Min(_projectCardBounds.Count,
+                Math.Max(0, _animations.Count - _pageStart));
+            for (int i = 0; i < visibleCount; i++)
             {
                 int projectIndex = _pageStart + i;
                 Animation.Animation animation = _animations[projectIndex];
@@ -362,6 +364,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (nextPageStart == _pageStart) return;
             _pageStart = nextPageStart;
             SelectProject(_pageStart);
+            Layout();
         }
 
         private void OpenSelectedProject()
