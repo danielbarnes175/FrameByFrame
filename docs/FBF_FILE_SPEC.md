@@ -47,6 +47,7 @@ Version 1 does not provide:
 | `i32` | 4 bytes | Signed little-endian integer |
 | `i64` | 8 bytes | Signed little-endian integer |
 | `f32` | 4 bytes | IEEE 754 single-precision, little-endian |
+| `f64` | 8 bytes | IEEE 754 double-precision, little-endian |
 | `varuint` | 1–5 bytes | Unsigned LEB128-style integer |
 | `string` | variable | `i32` byte length followed by UTF-8 bytes |
 
@@ -94,10 +95,27 @@ Frame chunks occur in ascending frame order. The index also records each chunk's
 | Transparent background | `u8` | Boolean; when true the canvas background is transparent |
 | Background color | `u32` | MonoGame packed color used when the background is solid |
 | Thumbnail frame index | `i32` | Zero-based saved gallery thumbnail; invalid values fall back to frame zero |
+| Audio tracks | variable | An `i32` count followed by that many embedded audio records |
 | Layer metadata | repeated | One metadata record per layer, in front-to-back order |
 | Index offset | `i64` | Absolute offset of the `INDX` signature |
 
 Each layer metadata record contains a 16-byte GUID, a non-empty name string, a visibility boolean, and a lock boolean. The GUID is the stable identity used to associate each frame's pixel section with its project-wide layer definition.
+
+Each audio record contains:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| Track ID | 16 bytes | Non-empty GUID unique within the project |
+| Source name | `string` | Original source filename used for display |
+| Source extension | `string` | Extension used when materializing the embedded payload |
+| Start frame | `i32` | Zero-based timeline position |
+| Volume | `f32` | Linear gain from `0` through `1` |
+| Muted | `u8` | Boolean mute state |
+| Duration | `f64` | Decoded audio duration in seconds, greater than zero |
+| Encoded length | `i32` | Number of embedded source bytes that follow |
+| Encoded audio | byte array | Original imported audio payload |
+
+The writer permits at most 64 tracks, 100 MiB per track, and 256 MiB of embedded audio per project. Encoded audio is not Brotli-compressed because supported source formats are already compressed. Runtime PCM used for preview is never stored in the project.
 
 The writer initially reserves the index-offset field, writes all frame chunks and the index, then seeks back and fills in the final offset.
 
@@ -236,7 +254,7 @@ If saving fails, the temporary file is deleted and an existing project file rema
 
 ## Load algorithm
 
-1. Validate the signature, major version, flags, dimensions, FPS, layer count, frame count, and keyframe interval.
+1. Validate the signature, major version, flags, dimensions, FPS, layer count, frame count, keyframe interval, and embedded audio records.
 2. Read and validate the frame index and footer.
 3. Starting with empty layer maps, visit frame chunks in index order.
 4. For a keyframe, clear all maps before applying records.
@@ -265,6 +283,7 @@ A conforming reader should reject a file when any of the following is true:
 - a layer change count is invalid;
 - a pixel index lies outside the canvas;
 - decompressed payload bytes remain after all declared layer sections.
+- audio IDs are empty or duplicated, metadata values are invalid, or an audio payload exceeds its declared or supported bounds.
 
 ## Versioning
 
@@ -272,8 +291,7 @@ Readers use the major version to determine structural compatibility.
 
 - A different major version is incompatible and must be rejected.
 - A greater minor version may only be accepted when its feature flags and added data are explicitly understood.
-- New mandatory behavior requires a new feature flag or major version.
-- New optional metadata should be introduced in a future extensible metadata section rather than silently changing existing records.
+- During the beta period, the application may revise the `1.0` layout without a compatibility reader; files must be written and read by matching builds.
 
 ## Expected scaling
 

@@ -9,7 +9,7 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
   - [ ] Duplicate frames
   - [ ] Copy and paste frames
   - [ ] Reorder frames
-- [ ] Add audio support, allowing a user to add and modify audio tracks from the timeline
+- [x] Add audio support, allowing a user to add and modify audio tracks from the timeline
 - [ ] Add support for renaming projects
 - [ ] Add new brush types for paintbrush and eraser
 - [ ] Add custom brush editor/creator

@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Services;
 using ImageMagick;
@@ -96,7 +99,8 @@ namespace FrameByFrame.src.Engine.Export
                     {
                         ExportFormat.Gif => CreateGif(_animation, _projectName, _exportRoot, _projectDirectory, _frameCount),
                         ExportFormat.Mov or ExportFormat.Mp4 =>
-                            CreateVideo(_animation, _projectName, _exportRoot, _projectDirectory, _format),
+                            CreateVideo(_animation, _projectName, _exportRoot, _projectDirectory, _format,
+                                _startFrameIndex, _frameCount),
                         ExportFormat.PngSequence => _projectDirectory,
                         ExportFormat.SpriteSheet =>
                             CreateSpriteSheet(_animation, _projectName, _exportRoot, _projectDirectory, _frameCount),
@@ -286,49 +290,116 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         private static string CreateVideo(Animation.Animation animation, string projectName,
-            string exportRoot, string projectDirectory, ExportFormat format)
+            string exportRoot, string projectDirectory, ExportFormat format, int startFrameIndex, int frameCount)
         {
             string extension = format == ExportFormat.Mov ? ".mov" : ".mp4";
             string filename = Path.Combine(exportRoot, projectName + extension);
-            var startInfo = new ProcessStartInfo
+            string audioDirectory = Path.Combine(Path.GetTempPath(), $"framebyframe-export-audio-{Guid.NewGuid():N}");
+            try
             {
-                FileName = ResolveFfmpegPath(),
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            startInfo.ArgumentList.Add("-y");
-            startInfo.ArgumentList.Add("-framerate");
-            startInfo.ArgumentList.Add(animation.fps.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            startInfo.ArgumentList.Add("-start_number");
-            startInfo.ArgumentList.Add("0");
-            startInfo.ArgumentList.Add("-i");
-            startInfo.ArgumentList.Add(Path.Combine(projectDirectory, "Frame_%d.png"));
-            startInfo.ArgumentList.Add("-c:v");
-            startInfo.ArgumentList.Add(format == ExportFormat.Mov ? "qtrle" : "libx264");
-            if (format == ExportFormat.Mp4)
-            {
-                startInfo.ArgumentList.Add("-vf");
-                startInfo.ArgumentList.Add("pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p");
-                startInfo.ArgumentList.Add("-movflags");
-                startInfo.ArgumentList.Add("+faststart");
-            }
-            else
-            {
-                // QTRLE can encode ARGB, but alpha handling varies between encoders and players.
-                // Full RGB frames keep MOV playback deterministic and avoid prior-frame carry-over.
-                startInfo.ArgumentList.Add("-pix_fmt");
-                startInfo.ArgumentList.Add("rgb24");
-            }
-            startInfo.ArgumentList.Add(filename);
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = ResolveFfmpegPath(),
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                startInfo.ArgumentList.Add("-y");
+                startInfo.ArgumentList.Add("-framerate");
+                startInfo.ArgumentList.Add(animation.fps.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                startInfo.ArgumentList.Add("-start_number");
+                startInfo.ArgumentList.Add("0");
+                startInfo.ArgumentList.Add("-i");
+                startInfo.ArgumentList.Add(Path.Combine(projectDirectory, "Frame_%d.png"));
 
-            using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("FFmpeg could not be started.");
-            string error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException($"FFmpeg export failed: {LastNonEmptyLine(error)}");
-            return filename;
+                double rangeStart = startFrameIndex / (double)animation.fps;
+                double duration = frameCount / (double)animation.fps;
+                double rangeEnd = rangeStart + duration;
+                var audibleTracks = animation.AudioTracks.Where(track => !track.IsMuted && track.Volume > 0 &&
+                    track.StartFrame / (double)animation.fps < rangeEnd &&
+                    track.StartFrame / (double)animation.fps + track.DurationSeconds > rangeStart).ToList();
+                if (audibleTracks.Count > 0)
+                {
+                    Directory.CreateDirectory(audioDirectory);
+                    for (int i = 0; i < audibleTracks.Count; i++)
+                    {
+                        string input = Path.Combine(audioDirectory, $"track_{i}{audibleTracks[i].SourceExtension}");
+                        File.WriteAllBytes(input, audibleTracks[i].EncodedData);
+                        startInfo.ArgumentList.Add("-i");
+                        startInfo.ArgumentList.Add(input);
+                    }
+                    startInfo.ArgumentList.Add("-filter_complex");
+                    startInfo.ArgumentList.Add(BuildAudioFilter(animation, audibleTracks, rangeStart, rangeEnd, duration));
+                    startInfo.ArgumentList.Add("-map");
+                    startInfo.ArgumentList.Add("0:v:0");
+                    startInfo.ArgumentList.Add("-map");
+                    startInfo.ArgumentList.Add("[aout]");
+                    startInfo.ArgumentList.Add("-c:a");
+                    startInfo.ArgumentList.Add(format == ExportFormat.Mov ? "pcm_s16le" : "aac");
+                }
+                startInfo.ArgumentList.Add("-c:v");
+                startInfo.ArgumentList.Add(format == ExportFormat.Mov ? "qtrle" : "libx264");
+                if (format == ExportFormat.Mp4)
+                {
+                    startInfo.ArgumentList.Add("-vf");
+                    startInfo.ArgumentList.Add("pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p");
+                    startInfo.ArgumentList.Add("-movflags");
+                    startInfo.ArgumentList.Add("+faststart");
+                }
+                else
+                {
+                    // QTRLE can encode ARGB, but alpha handling varies between encoders and players.
+                    // Full RGB frames keep MOV playback deterministic and avoid prior-frame carry-over.
+                    startInfo.ArgumentList.Add("-pix_fmt");
+                    startInfo.ArgumentList.Add("rgb24");
+                }
+                startInfo.ArgumentList.Add("-t");
+                startInfo.ArgumentList.Add(duration.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
+                startInfo.ArgumentList.Add(filename);
+
+                using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("FFmpeg could not be started.");
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                    throw new InvalidOperationException($"FFmpeg export failed: {LastNonEmptyLine(error)}");
+                return filename;
+            }
+            finally
+            {
+                try { if (Directory.Exists(audioDirectory)) Directory.Delete(audioDirectory, recursive: true); }
+                catch { }
+            }
+        }
+
+        internal static string BuildAudioFilter(Animation.Animation animation,
+            System.Collections.Generic.IReadOnlyList<AudioTrack> tracks,
+            double rangeStart, double rangeEnd, double duration)
+        {
+            var filter = new StringBuilder();
+            var labels = new List<string>(tracks.Count);
+            for (int i = 0; i < tracks.Count; i++)
+            {
+                AudioTrack track = tracks[i];
+                string label = $"track{i}";
+                long delayMilliseconds = (long)Math.Round(track.StartFrame * 1000d / animation.fps);
+                filter.Append('[').Append(i + 1).Append(":a]")
+                    .Append("aresample=44100,aformat=sample_fmts=s16:channel_layouts=stereo,volume=")
+                    .Append(track.Volume.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture))
+                    .Append(",adelay=").Append(delayMilliseconds).Append(":all=1[").Append(label).Append("]; ");
+                labels.Add($"[{label}]");
+            }
+            foreach (string label in labels) filter.Append(label);
+            if (labels.Count > 1) filter.Append("amix=inputs=").Append(labels.Count).Append(":normalize=0,");
+            filter.Append("atrim=start=")
+                .Append(rangeStart.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(":end=").Append(rangeEnd.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(",asetpts=PTS-STARTPTS,apad=pad_dur=")
+                .Append(duration.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(",atrim=duration=")
+                .Append(duration.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture))
+                .Append("[aout]");
+            return filter.ToString();
         }
 
         private static string CreateSpriteSheet(Animation.Animation animation, string projectName,
@@ -352,7 +423,7 @@ namespace FrameByFrame.src.Engine.Export
             return filename;
         }
 
-        private static string ResolveFfmpegPath()
+        internal static string ResolveFfmpegPath()
         {
             string executable = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
             string bundledPath = Path.Combine(AppContext.BaseDirectory, executable);

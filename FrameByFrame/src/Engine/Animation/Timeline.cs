@@ -37,6 +37,10 @@ namespace FrameByFrame.src.Engine.Animation
         public int CurrentFrameIndex { get; private set; }
         public Frame CurrentFrame => _currentFrame?.Value;
         public bool IsPlaying { get; private set; }
+        public long PlaybackRevision { get; private set; }
+        public double PlaybackPositionSeconds(int fps) => fps > 0
+            ? CurrentFrameIndex / (double)fps + _playbackTimer
+            : 0;
 
         public void Initialize()
         {
@@ -83,6 +87,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void FirstFrame()
         {
             _beforeSelectionChange();
+            DiscontinuePlayback();
             _currentFrame = _frames.First;
             CurrentFrameIndex = 0;
         }
@@ -90,6 +95,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void LastFrame()
         {
             _beforeSelectionChange();
+            DiscontinuePlayback();
             _currentFrame = _frames.Last;
             CurrentFrameIndex = Math.Max(0, TotalFrames - 1);
         }
@@ -97,6 +103,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void NextFrame()
         {
             _beforeSelectionChange();
+            DiscontinuePlayback();
             CurrentFrameIndex++;
             if (CurrentFrameIndex >= TotalFrames)
             {
@@ -110,6 +117,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (CurrentFrameIndex <= 0) return;
             _beforeSelectionChange();
+            DiscontinuePlayback();
             CurrentFrameIndex--;
             _currentFrame = _currentFrame.Previous;
         }
@@ -118,6 +126,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (index < 0 || index >= TotalFrames) return;
             _beforeSelectionChange();
+            DiscontinuePlayback();
             _currentFrame = _frames.First;
             for (int i = 0; i < index; i++) _currentFrame = _currentFrame.Next;
             CurrentFrameIndex = index;
@@ -127,6 +136,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (_frames.Count <= 1) return;
             _beforeSelectionChange();
+            DiscontinuePlayback();
             LinkedListNode<Frame> removed = _currentFrame;
             bool hasNextFrame = removed.Next != null;
             _currentFrame = removed.Next ?? removed.Previous;
@@ -140,6 +150,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void InsertFrame()
         {
             _beforeSelectionChange();
+            DiscontinuePlayback();
             _frames.AddBefore(_currentFrame, CreateFrame());
             _currentFrame = _currentFrame.Previous;
             InvalidateFrameCache();
@@ -149,6 +160,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (_currentFrame == null) return;
             _beforeSelectionChange();
+            DiscontinuePlayback();
             Frame duplicate = CreateFrame();
             foreach (AnimationLayer layer in _layers())
                 duplicate.SetLayerPixels(layer.Id, CurrentFrame.GetLayerPixels(layer.Id), ignoreLock: true);
@@ -169,6 +181,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (_currentFrame == null || _clipboard == null) return false;
             _beforeSelectionChange();
+            DiscontinuePlayback();
             Frame pastedFrame = CreateFrame();
             foreach (AnimationLayer layer in _layers())
             {
@@ -187,6 +200,7 @@ namespace FrameByFrame.src.Engine.Animation
                 newIndex >= TotalFrames || oldIndex == newIndex) return false;
 
             _beforeSelectionChange();
+            DiscontinuePlayback();
             LinkedListNode<Frame> moving = _frames.First;
             for (int i = 0; i < oldIndex; i++) moving = moving.Next;
             Frame selectedFrame = CurrentFrame;
@@ -211,18 +225,21 @@ namespace FrameByFrame.src.Engine.Animation
         {
             _beforeSelectionChange();
             IsPlaying = !IsPlaying;
+            PlaybackRevision++;
         }
 
         public void Start()
         {
             _beforeSelectionChange();
             IsPlaying = true;
+            PlaybackRevision++;
         }
 
         public void Stop()
         {
             _beforeSelectionChange();
             IsPlaying = false;
+            PlaybackRevision++;
         }
 
         public void Animate(GameTime gameTime, int fps)
@@ -234,6 +251,7 @@ namespace FrameByFrame.src.Engine.Animation
 
             long elapsedFrames = (long)(_playbackTimer / frameDuration);
             _playbackTimer -= elapsedFrames * frameDuration;
+            if (elapsedFrames >= TotalFrames - CurrentFrameIndex) PlaybackRevision++;
             int framesToAdvance = (int)(elapsedFrames % TotalFrames);
             CurrentFrameIndex = (CurrentFrameIndex + framesToAdvance) % TotalFrames;
             for (int i = 0; i < framesToAdvance; i++)
@@ -241,6 +259,12 @@ namespace FrameByFrame.src.Engine.Animation
         }
 
         private Frame CreateFrame() => new(_framePosition(), _frameSize(), _layers());
+
+        private void DiscontinuePlayback()
+        {
+            _playbackTimer = 0;
+            PlaybackRevision++;
+        }
 
         private void EnsureFrameCache()
         {

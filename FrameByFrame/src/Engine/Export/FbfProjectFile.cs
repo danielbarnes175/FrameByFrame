@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Audio;
 using Microsoft.Xna.Framework;
 
 namespace FrameByFrame.src.Engine.Export
@@ -75,6 +76,7 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.IsCanvasBackgroundTransparent);
                     writer.Write(animation.CanvasBackgroundColor.PackedValue);
                     writer.Write(animation.ThumbnailFrameIndex);
+                    WriteAudioTracks(writer, animation.AudioTracks, animation.TotalFrames);
                     foreach (AnimationLayer layer in animation.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
@@ -180,6 +182,7 @@ namespace FrameByFrame.src.Engine.Export
             bool isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
             Color canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
             int thumbnailFrameIndex = reader.ReadInt32();
+            List<AudioTrack> audioTracks = ReadAudioTracks(reader, frameCount);
             List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
             long indexOffset = reader.ReadInt64();
 
@@ -208,6 +211,7 @@ namespace FrameByFrame.src.Engine.Export
                 animation.SetCanvasBackgroundTransparent(isCanvasBackgroundTransparent);
                 animation.LoadFrames(loadedFrames, framePosition, new Vector2(width, height));
                 animation.RestoreThumbnailFrame(thumbnailFrameIndex);
+                foreach (AudioTrack track in audioTracks) animation.AddAudioTrack(track);
                 return animation;
             }
             catch
@@ -455,6 +459,74 @@ namespace FrameByFrame.src.Engine.Export
             return layers;
         }
 
+        internal static void WriteAudioTracks(BinaryWriter writer, IReadOnlyList<AudioTrack> tracks, int frameCount)
+        {
+            if (tracks.Count > AudioService.MaxAudioTrackCount)
+                throw new InvalidDataException("The project contains too many audio tracks.");
+            long totalBytes = 0;
+            var ids = new HashSet<Guid>();
+            writer.Write(tracks.Count);
+            foreach (AudioTrack track in tracks)
+            {
+                if (track.Id == Guid.Empty || !ids.Add(track.Id) ||
+                    !AudioService.IsSupportedExtension(track.SourceExtension) ||
+                    track.StartFrame < 0 || track.StartFrame >= frameCount ||
+                    !float.IsFinite(track.Volume) || track.Volume < 0 || track.Volume > 1 ||
+                    !double.IsFinite(track.DurationSeconds) || track.DurationSeconds <= 0 ||
+                    track.EncodedData.Length <= 0 || track.EncodedData.Length > AudioService.MaxTrackBytes)
+                    throw new InvalidDataException("An embedded audio track has invalid metadata.");
+                totalBytes = checked(totalBytes + track.EncodedData.Length);
+                if (totalBytes > AudioService.MaxProjectAudioBytes)
+                    throw new InvalidDataException("The project exceeds the embedded audio limit.");
+                writer.Write(track.Id.ToByteArray());
+                WriteString(writer, track.SourceName);
+                WriteString(writer, track.SourceExtension);
+                writer.Write(track.StartFrame);
+                writer.Write(track.Volume);
+                writer.Write(track.IsMuted);
+                writer.Write(track.DurationSeconds);
+                writer.Write(track.EncodedData.Length);
+                writer.Write(track.EncodedData);
+            }
+        }
+
+        internal static List<AudioTrack> ReadAudioTracks(BinaryReader reader, int frameCount)
+        {
+            int count = reader.ReadInt32();
+            if (count < 0 || count > AudioService.MaxAudioTrackCount)
+                throw new InvalidDataException("The FBF audio track count is invalid.");
+            var tracks = new List<AudioTrack>(count);
+            var ids = new HashSet<Guid>();
+            long totalBytes = 0;
+            for (int i = 0; i < count; i++)
+            {
+                byte[] idBytes = reader.ReadBytes(16);
+                if (idBytes.Length != 16) throw new EndOfStreamException("The FBF audio track ID is incomplete.");
+                Guid id = new(idBytes);
+                string sourceName = ReadString(reader);
+                string extension = ReadString(reader);
+                int startFrame = reader.ReadInt32();
+                float volume = reader.ReadSingle();
+                bool isMuted = ReadBoolean(reader, "audio mute");
+                double durationSeconds = reader.ReadDouble();
+                int length = reader.ReadInt32();
+                if (id == Guid.Empty || !ids.Add(id) || string.IsNullOrWhiteSpace(sourceName) ||
+                    !AudioService.IsSupportedExtension(extension) || startFrame < 0 || startFrame >= frameCount || !float.IsFinite(volume) ||
+                    volume < 0 || volume > 1 || !double.IsFinite(durationSeconds) || durationSeconds <= 0 ||
+                    length <= 0 || length > AudioService.MaxTrackBytes ||
+                    length > reader.BaseStream.Length - reader.BaseStream.Position)
+                    throw new InvalidDataException("The FBF audio track metadata is invalid.");
+                totalBytes = checked(totalBytes + length);
+                if (totalBytes > AudioService.MaxProjectAudioBytes)
+                    throw new InvalidDataException("The FBF project exceeds the embedded audio limit.");
+                byte[] data = reader.ReadBytes(length);
+                if (data.Length != length) throw new EndOfStreamException("The FBF audio payload is incomplete.");
+                tracks.Add(new AudioTrack(sourceName, extension, data, startFrame, durationSeconds,
+                    id: id, volume: volume, isMuted: isMuted));
+            }
+            return tracks;
+        }
+
         private static bool ReadBoolean(BinaryReader reader, string field)
         {
             byte value = reader.ReadByte();
@@ -481,7 +553,7 @@ namespace FrameByFrame.src.Engine.Export
         {
             byte[] bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
             if (bytes.Length > MaxStringBytes)
-                throw new InvalidDataException("The project name is too long for the FBF format.");
+                throw new InvalidDataException("A string is too long for the FBF format.");
             writer.Write(bytes.Length);
             writer.Write(bytes);
         }
