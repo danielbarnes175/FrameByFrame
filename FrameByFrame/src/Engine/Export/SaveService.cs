@@ -79,7 +79,15 @@ namespace FrameByFrame.src.Engine.Export
         public static void ExportAnimation(Animation.Animation animation, int startFrameIndex, int endFrameIndex,
             ExportFormat format)
         {
+            ExportAnimationTo(animation, startFrameIndex, endFrameIndex,
+                Path.GetFullPath(ProjectsDirectory), format);
+        }
+
+        public static string ExportAnimationTo(Animation.Animation animation, int startFrameIndex, int endFrameIndex,
+            string outputDirectory, ExportFormat format = ExportFormat.Gif)
+        {
             ArgumentNullException.ThrowIfNull(animation);
+            ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
 
             if (animation.fps <= 0)
             {
@@ -93,7 +101,9 @@ namespace FrameByFrame.src.Engine.Export
             SaveAnimation(animation);
 
             string projectName = ValidateProjectName(animation.projectName);
-            string projectDirectory = GetProjectPath(projectName);
+            string exportRoot = Path.GetFullPath(outputDirectory);
+            Directory.CreateDirectory(exportRoot);
+            string projectDirectory = Path.Combine(exportRoot, projectName);
             Directory.CreateDirectory(projectDirectory);
 
             int exportedFrameCount = endFrameIndex - startFrameIndex + 1;
@@ -106,23 +116,16 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             RemoveObsoleteFrameFiles(projectDirectory, exportedFrameCount);
-            switch (format)
+            return format switch
             {
-                case ExportFormat.Gif:
-                    CreateGif(animation, projectName, projectDirectory, exportedFrameCount);
-                    break;
-                case ExportFormat.Mov:
-                case ExportFormat.Mp4:
-                    CreateVideo(animation, projectName, projectDirectory, format);
-                    break;
-                case ExportFormat.PngSequence:
-                    break;
-                case ExportFormat.SpriteSheet:
-                    CreateSpriteSheet(animation, projectName, projectDirectory, exportedFrameCount);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.");
-            }
+                ExportFormat.Gif => CreateGif(animation, projectName, exportRoot, projectDirectory, exportedFrameCount),
+                ExportFormat.Mov or ExportFormat.Mp4 =>
+                    CreateVideo(animation, projectName, exportRoot, projectDirectory, format),
+                ExportFormat.PngSequence => projectDirectory,
+                ExportFormat.SpriteSheet =>
+                    CreateSpriteSheet(animation, projectName, exportRoot, projectDirectory, exportedFrameCount),
+                _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.")
+            };
         }
 
         private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
@@ -145,10 +148,10 @@ namespace FrameByFrame.src.Engine.Export
             texture.SaveAsPng(setStream, texture.Width, texture.Height);
         }
 
-        private static void CreateGif(Animation.Animation animation, string projectName,
-            string projectDirectory, int frameCount)
+        private static string CreateGif(Animation.Animation animation, string projectName,
+            string exportRoot, string projectDirectory, int frameCount)
         {
-            string filename = GetProjectPath($"{projectName}.gif");
+            string filename = Path.Combine(exportRoot, $"{projectName}.gif");
             uint frameDelay = (uint)Math.Max(1, Math.Round(100d / animation.fps));
 
             using MagickImageCollection collection = new MagickImageCollection();
@@ -160,13 +163,14 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             collection.Write(filename);
+            return filename;
         }
 
-        private static void CreateVideo(Animation.Animation animation, string projectName,
-            string projectDirectory, ExportFormat format)
+        private static string CreateVideo(Animation.Animation animation, string projectName,
+            string exportRoot, string projectDirectory, ExportFormat format)
         {
             string extension = format == ExportFormat.Mov ? ".mov" : ".mp4";
-            string filename = GetProjectPath(projectName + extension);
+            string filename = Path.Combine(exportRoot, projectName + extension);
             var startInfo = new ProcessStartInfo
             {
                 FileName = ResolveFfmpegPath(),
@@ -198,10 +202,11 @@ namespace FrameByFrame.src.Engine.Export
             process.WaitForExit();
             if (process.ExitCode != 0)
                 throw new InvalidOperationException($"FFmpeg export failed: {LastNonEmptyLine(error)}");
+            return filename;
         }
 
-        private static void CreateSpriteSheet(Animation.Animation animation, string projectName,
-            string projectDirectory, int frameCount)
+        private static string CreateSpriteSheet(Animation.Animation animation, string projectName,
+            string exportRoot, string projectDirectory, int frameCount)
         {
             Frame firstFrame = animation.GetFrameAtIndex(0);
             int columns = (int)Math.Ceiling(Math.Sqrt(frameCount));
@@ -216,7 +221,9 @@ namespace FrameByFrame.src.Engine.Export
                 int y = i / columns * firstFrame.height;
                 sheet.Composite(frame, x, y, CompositeOperator.Over);
             }
-            sheet.Write(GetProjectPath($"{projectName}_spritesheet.png"));
+            string filename = Path.Combine(exportRoot, $"{projectName}_spritesheet.png");
+            sheet.Write(filename);
+            return filename;
         }
 
         private static string ResolveFfmpegPath()
