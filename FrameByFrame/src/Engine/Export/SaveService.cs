@@ -241,8 +241,8 @@ namespace FrameByFrame.src.Engine.Export
 
         public static bool FormatSupportsTransparency(ExportFormat format) => format switch
         {
-            ExportFormat.Gif or ExportFormat.Mov or ExportFormat.PngSequence or ExportFormat.SpriteSheet => true,
-            ExportFormat.Mp4 => false,
+            ExportFormat.Gif or ExportFormat.PngSequence or ExportFormat.SpriteSheet => true,
+            ExportFormat.Mov or ExportFormat.Mp4 => false,
             _ => false
         };
 
@@ -313,6 +313,13 @@ namespace FrameByFrame.src.Engine.Export
                 startInfo.ArgumentList.Add("pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p");
                 startInfo.ArgumentList.Add("-movflags");
                 startInfo.ArgumentList.Add("+faststart");
+            }
+            else
+            {
+                // QTRLE can encode ARGB, but alpha handling varies between encoders and players.
+                // Full RGB frames keep MOV playback deterministic and avoid prior-frame carry-over.
+                startInfo.ArgumentList.Add("-pix_fmt");
+                startInfo.ArgumentList.Add("rgb24");
             }
             startInfo.ArgumentList.Add(filename);
 
