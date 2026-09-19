@@ -37,5 +37,5 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 - [ ] All text should be nice to look at
 - [x] All UI elements should be resizable
 - [ ] Drawing canvas can be rotated and resized (strictly for drawing, not for final export)
-- [ ] Projects view should display projects in a flex-style grid allowing up to 6 projects visible at once in a 2x3 grid
+- [x] Projects view should display projects in a flex-style grid allowing up to 6 projects visible at once in a 2x3 grid
 - [ ] Add loading animations / error messages

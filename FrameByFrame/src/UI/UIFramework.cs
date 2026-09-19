@@ -121,6 +121,28 @@ namespace FrameByFrame.src.UI
             return result;
         }
 
+        public static IReadOnlyList<Rectangle> Grid(Rectangle bounds, int count, int columns,
+            int spacing = UITheme.SpaceMd)
+        {
+            List<Rectangle> result = new(Math.Max(0, count));
+            if (count <= 0 || columns <= 0) return result;
+            columns = Math.Min(columns, count);
+            int rows = (count + columns - 1) / columns;
+            int cellWidth = Math.Max(1, (bounds.Width - spacing * (columns - 1)) / columns);
+            int cellHeight = Math.Max(1, (bounds.Height - spacing * (rows - 1)) / rows);
+            for (int i = 0; i < count; i++)
+            {
+                int row = i / columns;
+                int column = i % columns;
+                result.Add(new Rectangle(
+                    bounds.X + column * (cellWidth + spacing),
+                    bounds.Y + row * (cellHeight + spacing),
+                    cellWidth,
+                    cellHeight));
+            }
+            return result;
+        }
+
         public static Rectangle FitAspect(Rectangle bounds, float aspect)
         {
             int width = bounds.Width;
