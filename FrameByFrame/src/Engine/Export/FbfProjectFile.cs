@@ -74,6 +74,7 @@ namespace FrameByFrame.src.Engine.Export
                     WriteString(writer, animation.projectName);
                     writer.Write(animation.IsCanvasBackgroundTransparent);
                     writer.Write(animation.CanvasBackgroundColor.PackedValue);
+                    writer.Write(animation.ThumbnailFrameIndex);
                     foreach (AnimationLayer layer in animation.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
@@ -178,6 +179,7 @@ namespace FrameByFrame.src.Engine.Export
 
             bool isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
             Color canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
+            int thumbnailFrameIndex = reader.ReadInt32();
             List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
             long indexOffset = reader.ReadInt64();
 
@@ -205,6 +207,7 @@ namespace FrameByFrame.src.Engine.Export
                 animation.SetCanvasBackgroundColor(canvasBackgroundColor);
                 animation.SetCanvasBackgroundTransparent(isCanvasBackgroundTransparent);
                 animation.LoadFrames(loadedFrames, framePosition, new Vector2(width, height));
+                animation.RestoreThumbnailFrame(thumbnailFrameIndex);
                 return animation;
             }
             catch
