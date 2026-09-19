@@ -72,6 +72,8 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.TotalFrames);
                     writer.Write(KeyframeInterval);
                     WriteString(writer, animation.projectName);
+                    writer.Write(animation.IsCanvasBackgroundTransparent);
+                    writer.Write(animation.CanvasBackgroundColor.PackedValue);
                     foreach (AnimationLayer layer in animation.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
@@ -159,9 +161,6 @@ namespace FrameByFrame.src.Engine.Export
             int frameCount = reader.ReadInt32();
             int keyframeInterval = reader.ReadInt32();
             string projectName = ReadString(reader);
-            List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
-            long indexOffset = reader.ReadInt64();
-
             if (fps <= 0 || layerCount <= 0 || layerCount > MaxLayerCount ||
                 frameCount <= 0 || frameCount > MaxFrameCount || keyframeInterval <= 0)
                 throw new InvalidDataException("The FBF project header contains invalid values.");
@@ -176,6 +175,11 @@ namespace FrameByFrame.src.Engine.Export
                 throw new InvalidDataException("The FBF project name is invalid.", ex);
             }
             ValidateResourceCounts(layerCount, frameCount);
+
+            bool isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
+            Color canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
+            List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
+            long indexOffset = reader.ReadInt64();
 
             long[] frameOffsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
             var loadedFrames = new List<Frame>(frameCount);
@@ -198,6 +202,8 @@ namespace FrameByFrame.src.Engine.Export
                 }
 
                 var animation = new Animation.Animation(projectName, layers) { fps = fps };
+                animation.SetCanvasBackgroundColor(canvasBackgroundColor);
+                animation.SetCanvasBackgroundTransparent(isCanvasBackgroundTransparent);
                 animation.LoadFrames(loadedFrames, framePosition, new Vector2(width, height));
                 return animation;
             }
@@ -444,6 +450,13 @@ namespace FrameByFrame.src.Engine.Export
                 layers.Add(new AnimationLayer(name, id, isVisible, isLocked));
             }
             return layers;
+        }
+
+        private static bool ReadBoolean(BinaryReader reader, string field)
+        {
+            byte value = reader.ReadByte();
+            if (value > 1) throw new InvalidDataException($"The FBF {field} value is invalid.");
+            return value == 1;
         }
 
         private static void ValidateDimensions(int width, int height)

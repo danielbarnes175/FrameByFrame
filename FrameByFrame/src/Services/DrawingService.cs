@@ -9,6 +9,35 @@ namespace FrameByFrame.src.Engine.Services
 {
     public static class DrawingService
     {
+        private static readonly Color CheckerLight = new(238, 238, 238);
+        private static readonly Color CheckerDark = new(204, 204, 204);
+
+        public static Color CheckerboardColor(int x, int y, int tileSize = 8) =>
+            ((x / Math.Max(1, tileSize)) + (y / Math.Max(1, tileSize))) % 2 == 0
+                ? CheckerLight
+                : CheckerDark;
+
+        public static void DrawCanvasBackground(Rectangle bounds, bool isTransparent, Color backgroundColor)
+        {
+            Texture2D pixel = TextureManager.GetOrCreateColorTexture(
+                GlobalParameters.GlobalGraphics, Color.White, 1);
+            if (!isTransparent)
+            {
+                GlobalParameters.GlobalSpriteBatch.Draw(pixel, bounds, backgroundColor);
+                return;
+            }
+
+            const int tileSize = 12;
+            for (int y = bounds.Y; y < bounds.Bottom; y += tileSize)
+            for (int x = bounds.X; x < bounds.Right; x += tileSize)
+            {
+                Rectangle tile = new(x, y, Math.Min(tileSize, bounds.Right - x),
+                    Math.Min(tileSize, bounds.Bottom - y));
+                GlobalParameters.GlobalSpriteBatch.Draw(pixel, tile,
+                    CheckerboardColor((x - bounds.X) / tileSize, (y - bounds.Y) / tileSize, 1));
+            }
+        }
+
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint, Shapes shape)
         {
             //initialize a texture
@@ -78,8 +107,10 @@ namespace FrameByFrame.src.Engine.Services
             texture.SetData(layerPixels);
         }
 
-        public static RenderTarget2D CombineTextures(Frame givenFrame)
+        public static RenderTarget2D CombineTextures(Animation.Animation animation, Frame givenFrame,
+            Color? backgroundOverride = null)
         {
+            ArgumentNullException.ThrowIfNull(animation);
             ArgumentNullException.ThrowIfNull(givenFrame);
 
             RenderTarget2D renderTarget = new RenderTarget2D(
@@ -90,13 +121,13 @@ namespace FrameByFrame.src.Engine.Services
             try
             {
                 GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget);
-                GlobalParameters.GlobalGraphics.Clear(Color.White);
+                GlobalParameters.GlobalGraphics.Clear(backgroundOverride ??
+                    (animation.IsCanvasBackgroundTransparent ? Color.Transparent : animation.CanvasBackgroundColor));
                 GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend,
                     SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
                 spriteBatchBegun = true;
 
                 Rectangle canvasBounds = new Rectangle(0, 0, givenFrame.width, givenFrame.height);
-                givenFrame.Draw(canvasBounds, 1.0f);
                 givenFrame.DrawLayers(canvasBounds, 1.0f);
 
                 GlobalParameters.GlobalSpriteBatch.End();

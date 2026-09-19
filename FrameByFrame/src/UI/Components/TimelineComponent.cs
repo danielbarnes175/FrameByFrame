@@ -120,7 +120,8 @@ namespace FrameByFrame.src.UI.Components
                 if (frameIndex >= _animation.TotalFrames) break;
                 Rectangle thumbnail = ThumbnailBounds(startX, slot);
                 Rectangle preview = new(thumbnail.X + 4, thumbnail.Y + 4, thumbnail.Width - 8, thumbnail.Height - 28);
-                _animation.GetFrameAtIndex(frameIndex)?.DrawPreview(preview, 1f);
+                _animation.GetFrameAtIndex(frameIndex)?.DrawPreview(preview, 1f,
+                    _animation.IsCanvasBackgroundTransparent, _animation.CanvasBackgroundColor);
                 bool selected = frameIndex == _animation.CurrentFrameIndex;
                 UIRenderer.Border(thumbnail, selected ? UITheme.Primary : UITheme.Border, selected ? 3 : 1);
                 if (_isDragging && frameIndex == _dropTarget)

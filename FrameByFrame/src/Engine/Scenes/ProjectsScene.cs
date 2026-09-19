@@ -194,7 +194,9 @@ namespace FrameByFrame.src.Engine.Scenes
             Rectangle card = new(cx - S(210), cy - S(245), S(420), S(440));
             UIRenderer.Fill(card, UITheme.Surface); UIRenderer.Border(card, UITheme.Border, 2);
             Rectangle preview = new(cx - S(170), cy - S(205), S(340), S(260));
-            _animations[_selected].GetFrameAtIndex(_previewFrame)?.DrawPreview(preview, 1f);
+            _animations[_selected].GetFrameAtIndex(_previewFrame)?.DrawPreview(preview, 1f,
+                _animations[_selected].IsCanvasBackgroundTransparent,
+                _animations[_selected].CanvasBackgroundColor);
             UIRenderer.Border(preview, UITheme.Secondary, 2);
             string name = _animations[_selected].projectName;
             if (name.Length > 34) name = name[..31] + "...";

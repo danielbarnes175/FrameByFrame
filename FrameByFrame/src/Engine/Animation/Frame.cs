@@ -128,13 +128,13 @@ namespace FrameByFrame.src.Engine.Animation
             _previewNeedsUpdate = true;
         }
 
-        public Color GetVisiblePixel(int x, int y)
+        public Color GetVisiblePixel(int x, int y, Color background = default)
         {
             if (x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
             int index = y * width + x;
             foreach (FrameLayer layer in _layers)
                 if (layer.Definition.IsVisible && layer.Pixels.TryGetValue(index, out Color color)) return color;
-            return Color.White;
+            return background;
         }
 
         public bool FloodFill(Guid layerId, int startX, int startY, Color replacement, long availablePixels = long.MaxValue)
@@ -230,7 +230,8 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawCombinedTexture(float opacity) => CombinedTexture?.Draw(Vector2.Zero, opacity);
 
-        public void DrawPreview(Rectangle destination, float opacity)
+        public void DrawPreview(Rectangle destination, float opacity, bool transparentBackground = false,
+            Color backgroundColor = default)
         {
             if (CombinedTexture != null)
             {
@@ -243,6 +244,8 @@ namespace FrameByFrame.src.Engine.Animation
             int visibilityHash = 17;
             foreach (FrameLayer layer in _layers)
                 visibilityHash = unchecked(visibilityHash * 31 + (layer.Definition.IsVisible ? layer.Id.GetHashCode() : 0));
+            visibilityHash = unchecked(visibilityHash * 31 + transparentBackground.GetHashCode());
+            visibilityHash = unchecked(visibilityHash * 31 + backgroundColor.GetHashCode());
 
             if (_previewTexture == null || _previewTexture.Width != previewWidth || _previewTexture.Height != previewHeight)
             {
@@ -260,7 +263,10 @@ namespace FrameByFrame.src.Engine.Animation
                     for (int x = 0; x < previewWidth; x++)
                     {
                         int sourceX = Math.Min(width - 1, x * width / previewWidth);
-                        previewPixels[x + y * previewWidth] = GetVisiblePixel(sourceX, sourceY);
+                        Color background = transparentBackground
+                            ? DrawingService.CheckerboardColor(x, y)
+                            : backgroundColor;
+                        previewPixels[x + y * previewWidth] = GetVisiblePixel(sourceX, sourceY, background);
                     }
                 }
                 _previewTexture.SetData(previewPixels);

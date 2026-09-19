@@ -91,6 +91,8 @@ Frame chunks occur in ascending frame order. The index also records each chunk's
 | Frame count | `i32` | Greater than zero |
 | Keyframe interval | `i32` | Greater than zero; currently `100` |
 | Project name | `string` | Non-empty UTF-8 project name |
+| Transparent background | `u8` | Boolean; when true the canvas background is transparent |
+| Background color | `u32` | MonoGame packed color used when the background is solid |
 | Layer metadata | repeated | One metadata record per layer, in front-to-back order |
 | Index offset | `i64` | Absolute offset of the `INDX` signature |
 

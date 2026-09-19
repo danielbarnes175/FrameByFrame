@@ -50,6 +50,14 @@ finally
 
 using (var animation = new Animation("Layer model test"))
 {
+    Assert(!animation.IsCanvasBackgroundTransparent && animation.CanvasBackgroundColor == Color.White,
+        "Animations should preserve the existing solid white canvas default.");
+    animation.SetCanvasBackgroundTransparent(true);
+    Assert(animation.IsCanvasBackgroundTransparent,
+        "Canvas backgrounds should support transparency.");
+    animation.SetCanvasBackgroundColor(Color.CornflowerBlue);
+    Assert(!animation.IsCanvasBackgroundTransparent && animation.CanvasBackgroundColor == Color.CornflowerBlue,
+        "Choosing a solid canvas color should disable transparency and retain the chosen color.");
     Assert(animation.Layers.Count == 3, "Animations should start with three editable layers.");
     AnimationLayer added = animation.AddLayer("Highlights");
     Assert(animation.Layers[0] == added && animation.SelectedLayerId == added.Id,
@@ -86,6 +94,14 @@ Assert(fillPixels[3] == O && fillPixels[7] == O && fillPixels[11] == O,
     "Flood fill should not cross a separating boundary.");
 Assert(fillPixels[2] == X && fillPixels[5] == X,
     "Flood fill should preserve boundary colors.");
+
+Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
+       !SaveService.FormatSupportsTransparency(ExportFormat.Mov),
+    "Video exports should flatten transparent canvas backgrounds.");
+Assert(SaveService.FormatSupportsTransparency(ExportFormat.Gif) &&
+       SaveService.FormatSupportsTransparency(ExportFormat.PngSequence) &&
+       SaveService.FormatSupportsTransparency(ExportFormat.SpriteSheet),
+    "Alpha-capable export formats should retain canvas transparency.");
 
 Console.WriteLine("FrameByFrame UI contract tests passed.");
 
