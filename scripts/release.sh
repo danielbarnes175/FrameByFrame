@@ -43,42 +43,43 @@ echo "TFM    : ${FRAMEWORK}"
 # Ensure tools exist
 command -v dotnet >/dev/null || { echo "dotnet not found in PATH"; exit 1; }
 command -v zip >/dev/null || { echo "zip not found. Install 'zip' and retry."; exit 1; }
-command -v curl >/dev/null || { echo "curl not found. Install 'curl' and retry."; exit 1; }
 command -v sha256sum >/dev/null || { echo "sha256sum not found. Install 'coreutils' and retry."; exit 1; }
 
 # RIDs to publish
 PUBLISH_ROOT="${REPO_ROOT}/release/publish"
 RIDS=( "linux-x64" "win-x64" "osx-arm64" "osx-x64")
-FFMPEG_VERSION="b6.1.1"
 
-bundle_ffmpeg () {
+verify_bundled_ffmpeg () {
   local rid="$1"
   local publish_dir="$2"
-  local asset license_asset binary_name binary_sha license_sha
+  local binary_name binary_sha license_sha
   case "${rid}" in
     linux-x64)
-      asset="ffmpeg-linux-x64"; license_asset="linux-x64.LICENSE"; binary_name="ffmpeg"
+      binary_name="ffmpeg"
       binary_sha="e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99"
       license_sha="8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903" ;;
     win-x64)
-      asset="ffmpeg-win32-x64"; license_asset="win32-x64.LICENSE"; binary_name="ffmpeg.exe"
+      binary_name="ffmpeg.exe"
       binary_sha="04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00"
       license_sha="8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903" ;;
     osx-arm64)
-      asset="ffmpeg-darwin-arm64"; license_asset="darwin-arm64.LICENSE"; binary_name="ffmpeg"
+      binary_name="ffmpeg"
       binary_sha="a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584"
       license_sha="cb48bf09a11f5fb576cddb0431c8f5ed0a60157a9ec942adffc13907cbe083f2" ;;
     osx-x64)
-      asset="ffmpeg-darwin-x64"; license_asset="darwin-x64.LICENSE"; binary_name="ffmpeg"
+      binary_name="ffmpeg"
       binary_sha="ebdddc936f61e14049a2d4b549a412b8a40deeff6540e58a9f2a2da9e6b18894"
       license_sha="2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af" ;;
     *) echo "Error: Unsupported FFmpeg RID ${rid}"; exit 1 ;;
   esac
 
-  local base_url="https://github.com/eugeneware/ffmpeg-static/releases/download/${FFMPEG_VERSION}"
-  echo "==> Bundling FFmpeg ${FFMPEG_VERSION} for ${rid}"
-  curl -fL --retry 3 "${base_url}/${asset}" -o "${publish_dir}/${binary_name}"
-  curl -fL --retry 3 "${base_url}/${license_asset}" -o "${publish_dir}/FFMPEG-LICENSE.txt"
+  [[ -f "${publish_dir}/${binary_name}" ]] || {
+    echo "Error: Publish is missing bundled FFmpeg for ${rid}"; exit 1;
+  }
+  [[ -f "${publish_dir}/FFMPEG-LICENSE.txt" ]] || {
+    echo "Error: Publish is missing the FFmpeg license for ${rid}"; exit 1;
+  }
+
   echo "${binary_sha}  ${publish_dir}/${binary_name}" | sha256sum --check --status || {
     echo "Error: FFmpeg checksum failed for ${rid}"; exit 1;
   }
@@ -107,7 +108,7 @@ for RID in "${RIDS[@]}"; do
     -p:Version="${VERSION}" \
     -p:ContinuousIntegrationBuild=true \
     -f "${FRAMEWORK}" -o "${PUBLISH_DIR}"
-  bundle_ffmpeg "${RID}" "${PUBLISH_DIR}"
+  verify_bundled_ffmpeg "${RID}" "${PUBLISH_DIR}"
 done
 
 # Stage files for zipping

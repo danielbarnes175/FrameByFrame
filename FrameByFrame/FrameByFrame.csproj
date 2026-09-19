@@ -12,6 +12,40 @@
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <BundleFfmpeg Condition="'$(BundleFfmpeg)' == ''">true</BundleFfmpeg>
+    <FfmpegVersion>b6.1.1</FfmpegVersion>
+    <FfmpegRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</FfmpegRuntimeIdentifier>
+    <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</FfmpegRuntimeIdentifier>
+    <FfmpegBaseUrl>https://github.com/eugeneware/ffmpeg-static/releases/download/$(FfmpegVersion)</FfmpegBaseUrl>
+    <FfmpegCacheDirectory>$(BaseIntermediateOutputPath)ffmpeg/$(FfmpegVersion)/$(FfmpegRuntimeIdentifier)/</FfmpegCacheDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'linux-x64'">
+    <FfmpegAssetName>ffmpeg-linux-x64</FfmpegAssetName>
+    <FfmpegLicenseAssetName>linux-x64.LICENSE</FfmpegLicenseAssetName>
+    <FfmpegBinaryName>ffmpeg</FfmpegBinaryName>
+    <FfmpegBinarySha256>e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99</FfmpegBinarySha256>
+    <FfmpegLicenseSha256>8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903</FfmpegLicenseSha256>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'win-x64'">
+    <FfmpegAssetName>ffmpeg-win32-x64</FfmpegAssetName>
+    <FfmpegLicenseAssetName>win32-x64.LICENSE</FfmpegLicenseAssetName>
+    <FfmpegBinaryName>ffmpeg.exe</FfmpegBinaryName>
+    <FfmpegBinarySha256>04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00</FfmpegBinarySha256>
+    <FfmpegLicenseSha256>8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903</FfmpegLicenseSha256>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'osx-arm64'">
+    <FfmpegAssetName>ffmpeg-darwin-arm64</FfmpegAssetName>
+    <FfmpegLicenseAssetName>darwin-arm64.LICENSE</FfmpegLicenseAssetName>
+    <FfmpegBinaryName>ffmpeg</FfmpegBinaryName>
+    <FfmpegBinarySha256>a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584</FfmpegBinarySha256>
+    <FfmpegLicenseSha256>cb48bf09a11f5fb576cddb0431c8f5ed0a60157a9ec942adffc13907cbe083f2</FfmpegLicenseSha256>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'osx-x64'">
+    <FfmpegAssetName>ffmpeg-darwin-x64</FfmpegAssetName>
+    <FfmpegLicenseAssetName>darwin-x64.LICENSE</FfmpegLicenseAssetName>
+    <FfmpegBinaryName>ffmpeg</FfmpegBinaryName>
+    <FfmpegBinarySha256>ebdddc936f61e14049a2d4b549a412b8a40deeff6540e58a9f2a2da9e6b18894</FfmpegBinarySha256>
+    <FfmpegLicenseSha256>2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af</FfmpegLicenseSha256>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Icon.ico" />
@@ -71,4 +105,58 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <Target Name="PrepareBundledFfmpeg"
+          Condition="'$(BundleFfmpeg)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(FfmpegAssetName)' == ''"
+           Text="Bundled FFmpeg is not available for runtime '$(FfmpegRuntimeIdentifier)'. Set BundleFfmpeg=false to build without it." />
+    <MakeDir Directories="$(FfmpegCacheDirectory)" />
+    <DownloadFile SourceUrl="$(FfmpegBaseUrl)/$(FfmpegAssetName)"
+                  DestinationFolder="$(FfmpegCacheDirectory)"
+                  DestinationFileName="$(FfmpegAssetName)"
+                  Retries="3"
+                  Condition="!Exists('$(FfmpegCacheDirectory)$(FfmpegAssetName)')" />
+    <DownloadFile SourceUrl="$(FfmpegBaseUrl)/$(FfmpegLicenseAssetName)"
+                  DestinationFolder="$(FfmpegCacheDirectory)"
+                  DestinationFileName="$(FfmpegLicenseAssetName)"
+                  Retries="3"
+                  Condition="!Exists('$(FfmpegCacheDirectory)$(FfmpegLicenseAssetName)')" />
+    <GetFileHash Files="$(FfmpegCacheDirectory)$(FfmpegAssetName)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_FfmpegBinaryHash" />
+    </GetFileHash>
+    <GetFileHash Files="$(FfmpegCacheDirectory)$(FfmpegLicenseAssetName)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_FfmpegLicenseHash" />
+    </GetFileHash>
+    <Error Condition="'%(_FfmpegBinaryHash.FileHash)' != '$(FfmpegBinarySha256)'"
+           Text="Bundled FFmpeg checksum validation failed. Delete '$(FfmpegCacheDirectory)' and rebuild." />
+    <Error Condition="'%(_FfmpegLicenseHash.FileHash)' != '$(FfmpegLicenseSha256)'"
+           Text="Bundled FFmpeg license checksum validation failed. Delete '$(FfmpegCacheDirectory)' and rebuild." />
+    <Exec Command="chmod +x &quot;$(FfmpegCacheDirectory)$(FfmpegAssetName)&quot;"
+          Condition="'$(OS)' != 'Windows_NT'" />
+  </Target>
+  <Target Name="CopyBundledFfmpegToOutput"
+          BeforeTargets="CopyFilesToOutputDirectory"
+          DependsOnTargets="PrepareBundledFfmpeg"
+          Condition="'$(BundleFfmpeg)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="$(FfmpegCacheDirectory)$(FfmpegAssetName)"
+          DestinationFiles="$(OutDir)$(FfmpegBinaryName)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(FfmpegCacheDirectory)$(FfmpegLicenseAssetName)"
+          DestinationFiles="$(OutDir)FFMPEG-LICENSE.txt"
+          SkipUnchangedFiles="true" />
+    <Exec Command="chmod +x &quot;$(OutDir)$(FfmpegBinaryName)&quot;"
+          Condition="'$(OS)' != 'Windows_NT'" />
+  </Target>
+  <Target Name="IncludeBundledFfmpegInPublish"
+          BeforeTargets="ComputeFilesToPublish"
+          DependsOnTargets="PrepareBundledFfmpeg"
+          Condition="'$(BundleFfmpeg)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(FfmpegCacheDirectory)$(FfmpegAssetName)"
+                             RelativePath="$(FfmpegBinaryName)"
+                             CopyToPublishDirectory="PreserveNewest" />
+      <ResolvedFileToPublish Include="$(FfmpegCacheDirectory)$(FfmpegLicenseAssetName)"
+                             RelativePath="FFMPEG-LICENSE.txt"
+                             CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 </Project>
