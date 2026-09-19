@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Services;
@@ -7,6 +8,15 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Export
 {
+    public enum ExportFormat
+    {
+        Gif,
+        Mov,
+        Mp4,
+        PngSequence,
+        SpriteSheet
+    }
+
     public class SaveService
     {
         private const string ProjectsDirectory = "Projects";
@@ -58,10 +68,16 @@ namespace FrameByFrame.src.Engine.Export
         public static void ExportAnimation(Animation.Animation animation)
         {
             ArgumentNullException.ThrowIfNull(animation);
-            ExportAnimation(animation, 0, animation.TotalFrames - 1);
+            ExportAnimation(animation, 0, animation.TotalFrames - 1, ExportFormat.Gif);
         }
 
         public static void ExportAnimation(Animation.Animation animation, int startFrameIndex, int endFrameIndex)
+        {
+            ExportAnimation(animation, startFrameIndex, endFrameIndex, ExportFormat.Gif);
+        }
+
+        public static void ExportAnimation(Animation.Animation animation, int startFrameIndex, int endFrameIndex,
+            ExportFormat format)
         {
             ArgumentNullException.ThrowIfNull(animation);
 
@@ -90,7 +106,23 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             RemoveObsoleteFrameFiles(projectDirectory, exportedFrameCount);
-            CreateGif(animation, projectName, projectDirectory, exportedFrameCount);
+            switch (format)
+            {
+                case ExportFormat.Gif:
+                    CreateGif(animation, projectName, projectDirectory, exportedFrameCount);
+                    break;
+                case ExportFormat.Mov:
+                case ExportFormat.Mp4:
+                    CreateVideo(animation, projectName, projectDirectory, format);
+                    break;
+                case ExportFormat.PngSequence:
+                    break;
+                case ExportFormat.SpriteSheet:
+                    CreateSpriteSheet(animation, projectName, projectDirectory, exportedFrameCount);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.");
+            }
         }
 
         private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
@@ -128,6 +160,82 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             collection.Write(filename);
+        }
+
+        private static void CreateVideo(Animation.Animation animation, string projectName,
+            string projectDirectory, ExportFormat format)
+        {
+            string extension = format == ExportFormat.Mov ? ".mov" : ".mp4";
+            string filename = GetProjectPath(projectName + extension);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = ResolveFfmpegPath(),
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("-y");
+            startInfo.ArgumentList.Add("-framerate");
+            startInfo.ArgumentList.Add(animation.fps.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            startInfo.ArgumentList.Add("-start_number");
+            startInfo.ArgumentList.Add("0");
+            startInfo.ArgumentList.Add("-i");
+            startInfo.ArgumentList.Add(Path.Combine(projectDirectory, "Frame_%d.png"));
+            startInfo.ArgumentList.Add("-c:v");
+            startInfo.ArgumentList.Add(format == ExportFormat.Mov ? "qtrle" : "libx264");
+            if (format == ExportFormat.Mp4)
+            {
+                startInfo.ArgumentList.Add("-vf");
+                startInfo.ArgumentList.Add("pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p");
+                startInfo.ArgumentList.Add("-movflags");
+                startInfo.ArgumentList.Add("+faststart");
+            }
+            startInfo.ArgumentList.Add(filename);
+
+            using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("FFmpeg could not be started.");
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException($"FFmpeg export failed: {LastNonEmptyLine(error)}");
+        }
+
+        private static void CreateSpriteSheet(Animation.Animation animation, string projectName,
+            string projectDirectory, int frameCount)
+        {
+            Frame firstFrame = animation.GetFrameAtIndex(0);
+            int columns = (int)Math.Ceiling(Math.Sqrt(frameCount));
+            int rows = (int)Math.Ceiling(frameCount / (double)columns);
+            uint width = checked((uint)(firstFrame.width * columns));
+            uint height = checked((uint)(firstFrame.height * rows));
+            using var sheet = new MagickImage(MagickColors.Transparent, width, height);
+            for (int i = 0; i < frameCount; i++)
+            {
+                using var frame = new MagickImage(Path.Combine(projectDirectory, $"Frame_{i}.png"));
+                int x = i % columns * firstFrame.width;
+                int y = i / columns * firstFrame.height;
+                sheet.Composite(frame, x, y, CompositeOperator.Over);
+            }
+            sheet.Write(GetProjectPath($"{projectName}_spritesheet.png"));
+        }
+
+        private static string ResolveFfmpegPath()
+        {
+            string executable = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+            string bundledPath = Path.Combine(AppContext.BaseDirectory, executable);
+            if (File.Exists(bundledPath)) return bundledPath;
+
+            string developmentPath = Path.GetFullPath(executable);
+            if (File.Exists(developmentPath)) return developmentPath;
+            throw new FileNotFoundException(
+                $"The bundled {executable} executable was not found. Build a release bundle or place it beside FrameByFrame.",
+                bundledPath);
+        }
+
+        private static string LastNonEmptyLine(string value)
+        {
+            string[] lines = (value ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+            return lines.Length == 0 ? "No diagnostic output was provided." : lines[^1];
         }
 
         internal static string ValidateProjectName(string name)
