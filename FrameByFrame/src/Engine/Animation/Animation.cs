@@ -52,7 +52,9 @@ namespace FrameByFrame.src.Engine.Animation
 
         private readonly Timeline _timeline;
         private Frame _thumbnailFrame;
+        private readonly List<AudioTrack> _audioTracks = new();
         public IEnumerable<Frame> Frames => _timeline.Frames;
+        public IReadOnlyList<AudioTrack> AudioTracks => _audioTracks;
         private bool _disposed = false;
         private const int MaxHistoryEntries = 20;
         private readonly Stack<PixelEdit> _undoHistory = new();
@@ -63,6 +65,9 @@ namespace FrameByFrame.src.Engine.Animation
 
         public int TotalFrames => _timeline.TotalFrames;
         public int CurrentFrameIndex => _timeline.CurrentFrameIndex;
+        public double PlaybackPositionSeconds => _timeline.PlaybackPositionSeconds(fps);
+        public long PlaybackRevision => _timeline.PlaybackRevision;
+        public long AudioRevision { get; private set; }
         public int ThumbnailFrameIndex
         {
             get
@@ -121,6 +126,67 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void RestoreThumbnailFrame(int index) =>
             _thumbnailFrame = GetFrameAtIndex(index) ?? GetFrameAtIndex(0);
+
+        public bool AddAudioTrack(AudioTrack track)
+        {
+            ArgumentNullException.ThrowIfNull(track);
+            if (!Audio.AudioService.IsSupportedExtension(track.SourceExtension))
+                throw new InvalidOperationException("The audio track uses an unsupported source format.");
+            if (_audioTracks.Any(candidate => candidate.Id == track.Id)) return false;
+            if (_audioTracks.Count >= Audio.AudioService.MaxAudioTrackCount)
+                throw new InvalidOperationException("The project contains too many audio tracks.");
+            if (_audioTracks.Sum(candidate => (long)candidate.EncodedData.Length) + track.EncodedData.Length >
+                Audio.AudioService.MaxProjectAudioBytes)
+                throw new InvalidOperationException("The project exceeds the supported embedded audio limit.");
+            if (_audioTracks.Sum(candidate => (long)(candidate.PcmData?.Length ?? 0)) +
+                (track.PcmData?.Length ?? 0) > Audio.AudioService.MaxDecodedProjectBytes)
+                throw new InvalidOperationException("The project exceeds the supported decoded audio limit.");
+            track.StartFrame = Math.Clamp(track.StartFrame, 0, Math.Max(0, TotalFrames - 1));
+            _audioTracks.Add(track);
+            AudioRevision++;
+            return true;
+        }
+
+        public bool RemoveAudioTrack(Guid id)
+        {
+            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            if (track == null) return false;
+            _audioTracks.Remove(track);
+            AudioRevision++;
+            return true;
+        }
+
+        public bool SetAudioTrackStart(Guid id, int frame)
+        {
+            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            if (track == null) return false;
+            int clamped = Math.Clamp(frame, 0, Math.Max(0, TotalFrames - 1));
+            if (track.StartFrame == clamped) return true;
+            track.StartFrame = clamped;
+            AudioRevision++;
+            return true;
+        }
+
+        public bool SetAudioTrackVolume(Guid id, float volume)
+        {
+            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            if (track == null) return false;
+            float clamped = Math.Clamp(volume, 0f, 1f);
+            if (Math.Abs(track.Volume - clamped) < .0001f) return true;
+            track.Volume = clamped;
+            AudioRevision++;
+            return true;
+        }
+
+        public bool SetAudioTrackMuted(Guid id, bool isMuted)
+        {
+            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            if (track == null) return false;
+            if (track.IsMuted == isMuted) return true;
+            track.IsMuted = isMuted;
+            AudioRevision++;
+            return true;
+        }
 
         public Frame GetFrameAtIndex(int index) => _timeline.GetFrameAtIndex(index);
         public void FirstFrame() => _timeline.FirstFrame();
@@ -205,6 +271,7 @@ namespace FrameByFrame.src.Engine.Animation
             _timeline.DeleteFrame();
             if (ReferenceEquals(_thumbnailFrame, deletedFrame) && !_timeline.Contains(deletedFrame))
                 _thumbnailFrame = null;
+            ClampAudioTrackStarts();
         }
         public void InsertFrame() => _timeline.InsertFrame();
         public void DuplicateCurrentFrame() => _timeline.DuplicateCurrentFrame();
@@ -467,6 +534,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (disposing)
             {
                 _timeline.Dispose();
+                _audioTracks.Clear();
             }
 
             _disposed = true;
@@ -475,6 +543,20 @@ namespace FrameByFrame.src.Engine.Animation
         ~Animation()
         {
             Dispose(false);
+        }
+
+        private void ClampAudioTrackStarts()
+        {
+            int lastFrame = Math.Max(0, TotalFrames - 1);
+            bool changed = false;
+            foreach (AudioTrack track in _audioTracks)
+            {
+                int clamped = Math.Clamp(track.StartFrame, 0, lastFrame);
+                if (clamped == track.StartFrame) continue;
+                track.StartFrame = clamped;
+                changed = true;
+            }
+            if (changed) AudioRevision++;
         }
     }
 }

@@ -13,6 +13,7 @@ Frame by Frame is a simple animation program for creating frame by frame animati
 - Multiple layers support
 - Basic drawing tools: brush, eraser, color picker
 - Simple timeline navigation (next/previous/first/last frame)
+- Embedded audio tracks with synchronized preview and MOV/MP4 export
 - Export animations to GIF, MOV, MP4, numbered PNG files, or PNG spritesheets
 - Customizable brush sizes
 - Intuitive and minimal UI

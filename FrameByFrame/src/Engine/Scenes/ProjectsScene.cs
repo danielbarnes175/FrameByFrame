@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
@@ -35,10 +36,10 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _dismissExportStatus;
         private UIActionButton _folder;
         private UIActionButton _create;
-        private int _selected;
+        private int _selected = -1;
         private int _pageStart;
         private int _previewFrame;
-        private double _previewTimer;
+        private AudioPlaybackController _previewAudio;
         private bool _isRenaming;
         private string _renameText = string.Empty;
         private string _renameError = string.Empty;
@@ -105,7 +106,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             int columns = GalleryColumnCount(GlobalParameters.screenWidth);
             int pageSize = columns * 2;
-            if (_animations.Count > 0)
+            if (_selected >= 0 && _animations.Count > 0)
                 _pageStart = Math.Clamp((_selected / pageSize) * pageSize, 0,
                     ((_animations.Count - 1) / pageSize) * pageSize);
             else _pageStart = 0;
@@ -130,9 +131,10 @@ namespace FrameByFrame.src.Engine.Scenes
             _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(130), S(210), S(52));
             _dismissExportStatus.Bounds = new Rectangle(cx - S(105), cy + S(90), S(210), S(52));
             bool hasProjects = _animations.Count > 0;
+            bool hasSelection = _selected >= 0 && _selected < _animations.Count;
             _previous.IsEnabled = hasProjects && _pageStart > 0;
             _next.IsEnabled = hasProjects && _pageStart + pageSize < _animations.Count;
-            _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasProjects;
+            _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasSelection;
         }
 
         private static int GalleryColumnCount(int width) => width >= 1000 ? 3 : width >= 600 ? 2 : 1;
@@ -142,6 +144,7 @@ namespace FrameByFrame.src.Engine.Scenes
             Layout(); UIPointerRouter.BeginFrame();
             if (_isShowingExportStatus)
             {
+                _previewAudio?.Stop();
                 if (_exportOperation != null && !_exportOperation.IsComplete && !_exportOperation.IsFailed)
                     _exportOperation.Step();
                 if (_exportOperation == null || _exportOperation.IsComplete || _exportOperation.IsFailed)
@@ -153,11 +156,13 @@ namespace FrameByFrame.src.Engine.Scenes
             }
             if (_isRenaming)
             {
+                _previewAudio?.Stop();
                 _confirmRename.Update(); _cancelRename.Update(); UpdateRenameText();
                 return;
             }
             if (_isSelectingExportRange)
             {
+                _previewAudio?.Stop();
                 _exportFormatPrevious.Update(); _exportFormatNext.Update();
                 _exportStartDown.Update(); _exportStartUp.Update();
                 _exportEndDown.Update(); _exportEndUp.Update();
@@ -172,22 +177,28 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 _previous.Update(); _next.Update();
                 int visibleCount = Math.Min(_projectCardBounds.Count, _animations.Count - _pageStart);
+                bool clickedCard = false;
                 for (int i = 0; i < visibleCount; i++)
-                    if (UIPointerRouter.Clicked(_projectCardBounds[i])) SelectProject(_pageStart + i);
+                {
+                    if (!UIPointerRouter.Clicked(_projectCardBounds[i])) continue;
+                    clickedCard = true;
+                    SelectProject(_pageStart + i);
+                }
                 _edit.Update(); _export.Update(); _rename.Update();
+                if (GlobalParameters.GlobalMouse.LeftClick() && !clickedCard &&
+                    !UIPointerRouter.IsPointerBlocked()) DeselectProject();
             }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
-            if (_animations.Count > 0)
+            if (_selected >= 0 && _selected < _animations.Count)
             {
-                _previewTimer += gameTime.ElapsedGameTime.TotalSeconds;
-                double frameDuration = 1d / Math.Max(1, _animations[_selected].fps);
-                while (_previewTimer >= frameDuration)
-                {
-                    _previewTimer -= frameDuration;
-                    _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
-                    _previewFrame = (_previewFrame + 1) % _animations[_selected].TotalFrames;
-                }
+                Animation.Animation selected = _animations[_selected];
+                int previousFrame = selected.CurrentFrameIndex;
+                selected.Animate(gameTime);
+                _previewFrame = selected.CurrentFrameIndex;
+                if (_previewFrame != previousFrame)
+                    selected.GetFrameAtIndex(previousFrame)?.ReleasePreviewTexture();
+                _previewAudio?.Update();
             }
         }
 
@@ -271,7 +282,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void BeginRename()
         {
-            if (_animations.Count == 0) return;
+            if (_selected < 0 || _selected >= _animations.Count) return;
             _renameText = _animations[_selected].projectName;
             _renameError = string.Empty;
             _isRenaming = true;
@@ -336,7 +347,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void LoadAnimations()
         {
-            DisposeAnimations(); _projectFiles.Clear(); _selected = 0; _pageStart = 0; _previewFrame = 0; _previewTimer = 0;
+            DisposeAnimations(); _projectFiles.Clear(); _selected = -1; _pageStart = 0; _previewFrame = 0;
             foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
             {
                 try
@@ -347,16 +358,43 @@ namespace FrameByFrame.src.Engine.Scenes
                 }
                 catch (Exception ex) { Debug.WriteLine($"Skipping invalid save '{file}': {ex.Message}"); }
             }
-            if (_animations.Count > 0) _previewFrame = _animations[0].ThumbnailFrameIndex;
         }
 
         private void SelectProject(int index)
         {
             if (index < 0 || index >= _animations.Count) return;
-            _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
+            if (_selected >= 0 && _selected < _animations.Count)
+                _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
+            StopPreview();
             _selected = index;
+            BeginSelectedPreview();
+        }
+
+        private void DeselectProject()
+        {
+            if (_selected < 0 || _selected >= _animations.Count) return;
+            _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
+            StopPreview();
+            _selected = -1;
             _previewFrame = 0;
-            _previewTimer = 0;
+        }
+
+        private void BeginSelectedPreview()
+        {
+            if (_selected < 0 || _selected >= _animations.Count) return;
+            Animation.Animation selected = _animations[_selected];
+            selected.SelectFrame(0);
+            selected.Start();
+            _previewFrame = 0;
+            _previewAudio = new AudioPlaybackController(selected);
+        }
+
+        private void StopPreview()
+        {
+            _previewAudio?.Dispose();
+            _previewAudio = null;
+            if (_animations.Count > 0 && _selected >= 0 && _selected < _animations.Count)
+                _animations[_selected].Stop();
         }
 
         private void ChangePage(int delta)
@@ -366,16 +404,17 @@ namespace FrameByFrame.src.Engine.Scenes
             int maxPageStart = ((_animations.Count - 1) / pageSize) * pageSize;
             int nextPageStart = Math.Clamp(_pageStart + delta * pageSize, 0, maxPageStart);
             if (nextPageStart == _pageStart) return;
+            DeselectProject();
             _pageStart = nextPageStart;
-            SelectProject(_pageStart);
             Layout();
         }
 
         private void OpenSelectedProject()
         {
-            if (_animations.Count == 0) return;
+            if (_selected < 0 || _selected >= _animations.Count) return;
             try
             {
+                StopPreview();
                 Animation.Animation loaded = SaveService.LoadAnimation(_projectFiles[_selected]);
                 DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
                 drawing.LoadAnimation(loaded); GlobalParameters.CurrentScene = drawing;
@@ -384,6 +423,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void CreateAnimation()
         {
+            StopPreview();
             MenuScene menu = (MenuScene)GlobalParameters.Scenes[UIConstants.MENU_SCENE];
             menu.BeginNewAnimationConfiguration();
             GlobalParameters.CurrentScene = menu;
@@ -391,7 +431,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void BeginExportRange()
         {
-            if (_animations.Count == 0) return;
+            if (_selected < 0 || _selected >= _animations.Count) return;
             _exportStart = 0;
             _exportEnd = _animations[_selected].TotalFrames - 1;
             _exportMessage = string.Empty;
@@ -406,7 +446,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void ExportSelectedProject()
         {
-            if (_animations.Count == 0) return;
+            if (_selected < 0 || _selected >= _animations.Count) return;
             _isSelectingExportRange = false;
             _exportOperation = null;
             _exportStartupError = string.Empty;
@@ -522,8 +562,17 @@ namespace FrameByFrame.src.Engine.Scenes
             try { Process.Start(new ProcessStartInfo { FileName = Path.GetFullPath("Projects"), UseShellExecute = true, Verb = "open" }); }
             catch (Exception ex) { Debug.WriteLine(ex.Message); }
         }
-        private void GoHome() { GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE]; }
-        private void DisposeAnimations() { foreach (Animation.Animation animation in _animations) animation.Dispose(); _animations.Clear(); }
+        private void GoHome()
+        {
+            StopPreview();
+            GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
+        }
+        private void DisposeAnimations()
+        {
+            StopPreview();
+            foreach (Animation.Animation animation in _animations) animation.Dispose();
+            _animations.Clear();
+        }
         public override void Dispose() => DisposeAnimations();
     }
 }

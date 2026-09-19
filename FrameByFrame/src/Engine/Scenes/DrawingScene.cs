@@ -1,5 +1,6 @@
 using System;
 using FrameByFrame.src.Engine.Export;
+using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.UI;
 using FrameByFrame.src.UI.Components;
 using Microsoft.Xna.Framework;
@@ -13,6 +14,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public DrawingTools drawingTools;
         private DrawingNavbarComponent _navbar;
         private TimelineComponent _timeline;
+        private AudioPlaybackController _audioPlayback;
         private readonly AutosaveService _autosave = new();
         public bool loadedScene;
 
@@ -41,8 +43,10 @@ namespace FrameByFrame.src.Engine.Scenes
         private void SetupUI()
         {
             _navbar?.Dispose();
+            _audioPlayback?.Dispose();
             _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave);
-            _timeline = new TimelineComponent(animation);
+            _audioPlayback = new AudioPlaybackController(animation);
+            _timeline = new TimelineComponent(animation, _audioPlayback);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
 
@@ -60,6 +64,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _navbar.Update();
             HandleMouseShortcuts();
             animation.Animate(gameTime);
+            _audioPlayback.Update();
             _autosave.Update(gameTime, animation);
         }
 
@@ -104,8 +109,10 @@ namespace FrameByFrame.src.Engine.Scenes
         public override void Dispose()
         {
             _navbar?.Dispose();
+            _audioPlayback?.Dispose();
             _navbar = null;
             _timeline = null;
+            _audioPlayback = null;
             animation?.Dispose();
             animation = null;
         }
