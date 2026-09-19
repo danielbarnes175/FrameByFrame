@@ -15,11 +15,9 @@ namespace FrameByFrame.src.Engine.Export
         private static readonly byte[] FrameMagic = Encoding.ASCII.GetBytes("FRAM");
         private static readonly byte[] IndexMagic = Encoding.ASCII.GetBytes("INDX");
         private static readonly byte[] FooterMagic = Encoding.ASCII.GetBytes("FBFE");
-        private static readonly byte[] BackgroundMagic = Encoding.ASCII.GetBytes("BKGD");
 
         private const ushort MajorVersion = 1;
         private const ushort MinorVersion = 0;
-        private const ushort MaxReadableMinorVersion = 1;
         private const uint BrotliFlag = 1;
         private const int MaxLayerCount = 1024;
         private const int KeyframeInterval = 100;
@@ -74,6 +72,8 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.TotalFrames);
                     writer.Write(KeyframeInterval);
                     WriteString(writer, animation.projectName);
+                    writer.Write(animation.IsCanvasBackgroundTransparent);
+                    writer.Write(animation.CanvasBackgroundColor.PackedValue);
                     foreach (AnimationLayer layer in animation.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
@@ -116,9 +116,6 @@ namespace FrameByFrame.src.Engine.Export
 
                     WriteBytes(writer, FooterMagic);
                     writer.Write(indexOffset);
-                    WriteBytes(writer, BackgroundMagic);
-                    writer.Write(animation.IsCanvasBackgroundTransparent);
-                    writer.Write(animation.CanvasBackgroundColor.PackedValue);
 
                     stream.Position = indexOffsetPosition;
                     writer.Write(indexOffset);
@@ -146,7 +143,7 @@ namespace FrameByFrame.src.Engine.Export
             ExpectBytes(reader, FileMagic, "FBF file signature");
             ushort majorVersion = reader.ReadUInt16();
             ushort minorVersion = reader.ReadUInt16();
-            if (majorVersion != MajorVersion || minorVersion > MaxReadableMinorVersion)
+            if (majorVersion != MajorVersion || minorVersion > MinorVersion)
                 throw new InvalidDataException($"Unsupported FBF version {majorVersion}.{minorVersion}.");
 
             uint flags = reader.ReadUInt32();
@@ -179,30 +176,12 @@ namespace FrameByFrame.src.Engine.Export
             }
             ValidateResourceCounts(layerCount, frameCount);
 
-            bool isCanvasBackgroundTransparent;
-            Color canvasBackgroundColor;
-            List<AnimationLayer> layers;
-            long indexOffset;
-            if (minorVersion >= 1)
-            {
-                isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
-                canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
-                layers = ReadLayerDefinitions(reader, layerCount);
-                indexOffset = reader.ReadInt64();
-            }
-            else if (!TryReadHeaderTail(reader, stream, layerCount, hasCanvasBackground: false,
-                         out isCanvasBackgroundTransparent, out canvasBackgroundColor,
-                         out layers, out indexOffset) &&
-                     !TryReadHeaderTail(reader, stream, layerCount, hasCanvasBackground: true,
-                         out isCanvasBackgroundTransparent, out canvasBackgroundColor,
-                         out layers, out indexOffset))
-            {
-                throw new InvalidDataException("The FBF project metadata is invalid.");
-            }
+            bool isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
+            Color canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
+            List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
+            long indexOffset = reader.ReadInt64();
 
             long[] frameOffsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
-            ReadCanvasBackgroundExtension(reader, stream,
-                ref isCanvasBackgroundTransparent, ref canvasBackgroundColor);
             var loadedFrames = new List<Frame>(frameCount);
             Dictionary<int, uint>[] currentLayers = CreateEmptyLayers(layerCount);
             long storedPixelCount = 0;
@@ -473,74 +452,11 @@ namespace FrameByFrame.src.Engine.Export
             return layers;
         }
 
-        private static bool TryReadHeaderTail(BinaryReader reader, FileStream stream, int layerCount,
-            bool hasCanvasBackground, out bool isCanvasBackgroundTransparent,
-            out Color canvasBackgroundColor, out List<AnimationLayer> layers, out long indexOffset)
-        {
-            long start = stream.Position;
-            isCanvasBackgroundTransparent = false;
-            canvasBackgroundColor = Color.White;
-            layers = null;
-            indexOffset = 0;
-            try
-            {
-                if (hasCanvasBackground)
-                {
-                    isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
-                    canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
-                }
-                layers = ReadLayerDefinitions(reader, layerCount);
-                indexOffset = reader.ReadInt64();
-                if (!HasIndexSignature(reader, stream, indexOffset))
-                    throw new InvalidDataException("The FBF frame index offset is invalid.");
-                return true;
-            }
-            catch (Exception ex) when (ex is EndOfStreamException or InvalidDataException or IOException
-                                       or ArgumentException or OverflowException)
-            {
-                stream.Position = start;
-                layers = null;
-                indexOffset = 0;
-                return false;
-            }
-        }
-
-        private static bool HasIndexSignature(BinaryReader reader, FileStream stream, long indexOffset)
-        {
-            if (indexOffset <= stream.Position || indexOffset > stream.Length - IndexMagic.Length) return false;
-            long position = stream.Position;
-            try
-            {
-                stream.Position = indexOffset;
-                return reader.ReadBytes(IndexMagic.Length).SequenceEqual(IndexMagic);
-            }
-            finally
-            {
-                stream.Position = position;
-            }
-        }
-
         private static bool ReadBoolean(BinaryReader reader, string field)
         {
             byte value = reader.ReadByte();
             if (value > 1) throw new InvalidDataException($"The FBF {field} value is invalid.");
             return value == 1;
-        }
-
-        private static void ReadCanvasBackgroundExtension(BinaryReader reader, Stream stream,
-            ref bool isCanvasBackgroundTransparent, ref Color canvasBackgroundColor)
-        {
-            const int payloadLength = 5;
-            if (stream.Length - stream.Position < BackgroundMagic.Length + payloadLength) return;
-            long position = stream.Position;
-            byte[] magic = reader.ReadBytes(BackgroundMagic.Length);
-            if (!magic.SequenceEqual(BackgroundMagic))
-            {
-                stream.Position = position;
-                return;
-            }
-            isCanvasBackgroundTransparent = ReadBoolean(reader, "canvas background transparency");
-            canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
         }
 
         private static void ValidateDimensions(int width, int height)

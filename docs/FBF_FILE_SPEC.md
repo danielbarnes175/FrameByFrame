@@ -91,6 +91,8 @@ Frame chunks occur in ascending frame order. The index also records each chunk's
 | Frame count | `i32` | Greater than zero |
 | Keyframe interval | `i32` | Greater than zero; currently `100` |
 | Project name | `string` | Non-empty UTF-8 project name |
+| Transparent background | `u8` | Boolean; when true the canvas background is transparent |
+| Background color | `u32` | MonoGame packed color used when the background is solid |
 | Layer metadata | repeated | One metadata record per layer, in front-to-back order |
 | Index offset | `i64` | Absolute offset of the `INDX` signature |
 
@@ -213,18 +215,6 @@ The footer immediately follows the frame index:
 | Index offset | `i64` | Must match the header index offset |
 
 The duplicate offset allows readers and repair utilities to locate or validate the index from either end of the file.
-
-## Optional canvas background extension
-
-Version `1.0` files may append a canvas background extension after the footer. Readers that do not know about the extension can ignore the trailing bytes. Files without the extension load with a solid white background.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| Magic | 4 bytes | ASCII `BKGD` |
-| Transparent background | `u8` | Boolean; when true the canvas background is transparent |
-| Background color | `u32` | MonoGame packed color used when the background is solid |
-
-The reader also recovers transitional files produced during development that placed these background fields in the header.
 
 ## Save algorithm
 
