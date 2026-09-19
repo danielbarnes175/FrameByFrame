@@ -51,6 +51,7 @@ namespace FrameByFrame.src.Engine.Animation
         public Color CanvasBackgroundColor { get; private set; } = Color.White;
 
         private readonly Timeline _timeline;
+        private Frame _thumbnailFrame;
         public IEnumerable<Frame> Frames => _timeline.Frames;
         private bool _disposed = false;
         private const int MaxHistoryEntries = 20;
@@ -62,6 +63,14 @@ namespace FrameByFrame.src.Engine.Animation
 
         public int TotalFrames => _timeline.TotalFrames;
         public int CurrentFrameIndex => _timeline.CurrentFrameIndex;
+        public int ThumbnailFrameIndex
+        {
+            get
+            {
+                int index = _timeline.IndexOf(_thumbnailFrame);
+                return index >= 0 ? index : 0;
+            }
+        }
         public Frame CurrentFrame => _timeline.CurrentFrame;
         public Rectangle DisplayBounds { get; private set; }
         public const int MinCanvasDimension = 64;
@@ -107,6 +116,11 @@ namespace FrameByFrame.src.Engine.Animation
             frameSize = loadedFrameSize;
             ClearEditHistory();
         }
+
+        public void CaptureThumbnailFrame() => _thumbnailFrame = CurrentFrame;
+
+        public void RestoreThumbnailFrame(int index) =>
+            _thumbnailFrame = GetFrameAtIndex(index) ?? GetFrameAtIndex(0);
 
         public Frame GetFrameAtIndex(int index) => _timeline.GetFrameAtIndex(index);
         public void FirstFrame() => _timeline.FirstFrame();
@@ -185,7 +199,13 @@ namespace FrameByFrame.src.Engine.Animation
             return true;
         }
 
-        public void DeleteFrame() => _timeline.DeleteFrame();
+        public void DeleteFrame()
+        {
+            Frame deletedFrame = CurrentFrame;
+            _timeline.DeleteFrame();
+            if (ReferenceEquals(_thumbnailFrame, deletedFrame) && !_timeline.Contains(deletedFrame))
+                _thumbnailFrame = null;
+        }
         public void InsertFrame() => _timeline.InsertFrame();
         public void DuplicateCurrentFrame() => _timeline.DuplicateCurrentFrame();
         public void CopyCurrentFrame() => _timeline.CopyCurrentFrame();

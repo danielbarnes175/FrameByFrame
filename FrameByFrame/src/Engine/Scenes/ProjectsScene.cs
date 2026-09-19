@@ -14,6 +14,7 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         private readonly List<string> _projectFiles = new();
         private readonly List<Animation.Animation> _animations = new();
+        private readonly List<Rectangle> _projectCardBounds = new();
         private UIActionButton _back;
         private UIActionButton _previous;
         private UIActionButton _next;
@@ -35,6 +36,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _folder;
         private UIActionButton _create;
         private int _selected;
+        private int _pageStart;
         private int _previewFrame;
         private double _previewTimer;
         private bool _isRenaming;
@@ -55,8 +57,8 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             Directory.CreateDirectory("Projects");
             _back = new UIActionButton("< Home", GoHome);
-            _previous = new UIActionButton("<", () => SelectRelative(-1));
-            _next = new UIActionButton(">", () => SelectRelative(1));
+            _previous = new UIActionButton("< Page", () => ChangePage(-1));
+            _next = new UIActionButton("Page >", () => ChangePage(1));
             _edit = new UIActionButton("Edit animation", OpenSelectedProject);
             _export = new UIActionButton("Export animation", BeginExportRange);
             _rename = new UIActionButton("Rename project", BeginRename);
@@ -84,11 +86,35 @@ namespace FrameByFrame.src.Engine.Scenes
             int S(int value) => UILayoutEngine.Scale(value);
             _back.Bounds = new Rectangle(S(20), S(16), S(150), S(56));
             _folder.Bounds = new Rectangle(GlobalParameters.screenWidth - S(300), S(16), S(280), S(56));
-            _previous.Bounds = new Rectangle(cx - S(270), cy - S(25), S(54), S(54));
-            _next.Bounds = new Rectangle(cx + S(216), cy - S(25), S(54), S(54));
-            _edit.Bounds = new Rectangle(cx - S(250), cy + S(225), S(240), S(60));
-            _export.Bounds = new Rectangle(cx + S(10), cy + S(225), S(240), S(60));
-            _rename.Bounds = new Rectangle(cx - S(120), cy + S(300), S(240), S(52));
+
+            int margin = S(20);
+            int navigationY = S(96);
+            int navigationWidth = Math.Min(S(110), Math.Max(64, (GlobalParameters.screenWidth - margin * 3) / 2));
+            _previous.Bounds = new Rectangle(margin, navigationY, navigationWidth, S(42));
+            _next.Bounds = new Rectangle(GlobalParameters.screenWidth - margin - navigationWidth,
+                navigationY, navigationWidth, S(42));
+
+            int actionHeight = S(54);
+            int actionY = GlobalParameters.screenHeight - margin - actionHeight;
+            Rectangle actions = new(margin, actionY,
+                Math.Max(1, GlobalParameters.screenWidth - margin * 2), actionHeight);
+            IReadOnlyList<Rectangle> actionBounds = UILayoutEngine.Stack(actions, UIAxis.Horizontal, 3, S(12));
+            _edit.Bounds = actionBounds[0];
+            _export.Bounds = actionBounds[1];
+            _rename.Bounds = actionBounds[2];
+
+            int columns = GalleryColumnCount(GlobalParameters.screenWidth);
+            int pageSize = columns * 2;
+            if (_animations.Count > 0)
+                _pageStart = Math.Clamp((_selected / pageSize) * pageSize, 0,
+                    ((_animations.Count - 1) / pageSize) * pageSize);
+            else _pageStart = 0;
+            Rectangle gallery = new(margin, navigationY + S(50),
+                Math.Max(1, GlobalParameters.screenWidth - margin * 2),
+                Math.Max(1, actionY - S(14) - (navigationY + S(50))));
+            _projectCardBounds.Clear();
+            _projectCardBounds.AddRange(UILayoutEngine.Grid(gallery, pageSize, columns, S(14)));
+
             _renameInputBounds = new Rectangle(cx - S(220), cy - S(15), S(440), S(54));
             _confirmRename.Bounds = new Rectangle(cx - S(220), cy + S(60), S(210), S(52));
             _cancelRename.Bounds = new Rectangle(cx + S(10), cy + S(60), S(210), S(52));
@@ -104,8 +130,12 @@ namespace FrameByFrame.src.Engine.Scenes
             _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(130), S(210), S(52));
             _dismissExportStatus.Bounds = new Rectangle(cx - S(105), cy + S(90), S(210), S(52));
             bool hasProjects = _animations.Count > 0;
-            _previous.IsEnabled = _next.IsEnabled = _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasProjects;
+            _previous.IsEnabled = hasProjects && _pageStart > 0;
+            _next.IsEnabled = hasProjects && _pageStart + pageSize < _animations.Count;
+            _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasProjects;
         }
+
+        private static int GalleryColumnCount(int width) => width >= 1000 ? 3 : width >= 600 ? 2 : 1;
 
         public override void Update(GameTime gameTime)
         {
@@ -138,7 +168,14 @@ namespace FrameByFrame.src.Engine.Scenes
             }
             _back.Update(); _folder.Update();
             if (_animations.Count == 0) _create.Update();
-            else { _previous.Update(); _next.Update(); _edit.Update(); _export.Update(); _rename.Update(); }
+            else
+            {
+                _previous.Update(); _next.Update();
+                int visibleCount = Math.Min(_projectCardBounds.Count, _animations.Count - _pageStart);
+                for (int i = 0; i < visibleCount; i++)
+                    if (UIPointerRouter.Clicked(_projectCardBounds[i])) SelectProject(_pageStart + i);
+                _edit.Update(); _export.Update(); _rename.Update();
+            }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
             if (_animations.Count > 0)
@@ -159,7 +196,9 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
             int S(int value) => UILayoutEngine.Scale(value);
             UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, S(88)), UITheme.Surface);
-            string heading = _animations.Count == 0 ? "Your animations - No saved projects yet" : $"Your animations - {_selected + 1} of {_animations.Count}";
+            string heading = _animations.Count == 0
+                ? "Your animations - No saved projects yet"
+                : $"Your animations - {_pageStart + 1}-{Math.Min(_pageStart + _projectCardBounds.Count, _animations.Count)} of {_animations.Count}";
             new UITextContainer
             {
                 Bounds = new Rectangle(_back.Bounds.Right + S(16), S(10), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(68)),
@@ -188,23 +227,46 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void DrawSelectedProject()
         {
-            int cx = GlobalParameters.screenWidth / 2;
-            int cy = GlobalParameters.screenHeight / 2;
             int S(int value) => UILayoutEngine.Scale(value);
-            Rectangle card = new(cx - S(210), cy - S(245), S(420), S(440));
-            UIRenderer.Fill(card, UITheme.Surface); UIRenderer.Border(card, UITheme.Border, 2);
-            Rectangle preview = new(cx - S(170), cy - S(205), S(340), S(260));
-            _animations[_selected].GetFrameAtIndex(_previewFrame)?.DrawPreview(preview, 1f,
-                _animations[_selected].IsCanvasBackgroundTransparent,
-                _animations[_selected].CanvasBackgroundColor);
-            UIRenderer.Border(preview, UITheme.Secondary, 2);
-            string name = _animations[_selected].projectName;
-            if (name.Length > 34) name = name[..31] + "...";
-            new UITextContainer { Bounds = new Rectangle(card.X + S(20), cy + S(70), card.Width - S(40), S(64)), MaxLines = 2 }
-                .Draw(name, UITheme.Text, 1f);
-            new UITextContainer { Bounds = new Rectangle(card.X + S(20), cy + S(130), card.Width - S(40), S(46)), MaxLines = 1 }
-                .Draw($"{_animations[_selected].TotalFrames} frames  |  {_animations[_selected].fps} fps", UITheme.TextMuted, .9f);
-            _previous.Draw(); _next.Draw(); _edit.Draw(true); _export.Draw(); _rename.Draw();
+            int visibleCount = Math.Min(_projectCardBounds.Count,
+                Math.Max(0, _animations.Count - _pageStart));
+            for (int i = 0; i < visibleCount; i++)
+            {
+                int projectIndex = _pageStart + i;
+                Animation.Animation animation = _animations[projectIndex];
+                Rectangle card = _projectCardBounds[i];
+                bool selected = projectIndex == _selected;
+                UIRenderer.Fill(card, selected ? UITheme.SurfaceRaised : UITheme.Surface);
+                UIRenderer.Border(card, selected ? UITheme.Primary : UITheme.Border, selected ? 3 : 2);
+
+                int padding = Math.Max(4, S(10));
+                int detailsHeight = Math.Min(S(66), Math.Max(S(42), card.Height / 3));
+                Rectangle previewArea = new(card.X + padding, card.Y + padding,
+                    Math.Max(1, card.Width - padding * 2),
+                    Math.Max(1, card.Height - detailsHeight - padding * 2));
+                int frameIndex = selected
+                    ? _previewFrame % animation.TotalFrames
+                    : animation.ThumbnailFrameIndex;
+                var frame = animation.GetFrameAtIndex(frameIndex);
+                Rectangle preview = UILayoutEngine.FitAspect(previewArea,
+                    animation.frameSize.X / animation.frameSize.Y);
+                frame?.DrawPreview(preview, 1f,
+                    animation.IsCanvasBackgroundTransparent, animation.CanvasBackgroundColor);
+                UIRenderer.Border(preview, selected ? UITheme.Secondary : UITheme.Border, 2);
+
+                Rectangle nameBounds = new(card.X + padding, previewArea.Bottom + S(3),
+                    Math.Max(1, card.Width - padding * 2), Math.Max(20, detailsHeight / 2));
+                new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
+                    .Draw(animation.projectName, UITheme.Text, .72f);
+                Rectangle details = new(nameBounds.X, nameBounds.Bottom, nameBounds.Width,
+                    Math.Max(18, card.Bottom - padding - nameBounds.Bottom));
+                new UITextContainer { Bounds = details, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
+                    .Draw($"{animation.TotalFrames} frames | {animation.fps} fps", UITheme.TextMuted, .58f);
+            }
+
+            int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
+            if (_animations.Count > pageSize) { _previous.Draw(); _next.Draw(); }
+            _edit.Draw(true); _export.Draw(); _rename.Draw();
         }
 
         private void BeginRename()
@@ -274,7 +336,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void LoadAnimations()
         {
-            DisposeAnimations(); _projectFiles.Clear(); _selected = 0; _previewFrame = 0; _previewTimer = 0;
+            DisposeAnimations(); _projectFiles.Clear(); _selected = 0; _pageStart = 0; _previewFrame = 0; _previewTimer = 0;
             foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
             {
                 try
@@ -285,13 +347,28 @@ namespace FrameByFrame.src.Engine.Scenes
                 }
                 catch (Exception ex) { Debug.WriteLine($"Skipping invalid save '{file}': {ex.Message}"); }
             }
+            if (_animations.Count > 0) _previewFrame = _animations[0].ThumbnailFrameIndex;
         }
 
-        private void SelectRelative(int delta)
+        private void SelectProject(int index)
+        {
+            if (index < 0 || index >= _animations.Count) return;
+            _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
+            _selected = index;
+            _previewFrame = 0;
+            _previewTimer = 0;
+        }
+
+        private void ChangePage(int delta)
         {
             if (_animations.Count == 0) return;
-            _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
-            _selected = (_selected + delta + _animations.Count) % _animations.Count; _previewFrame = 0; _previewTimer = 0;
+            int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
+            int maxPageStart = ((_animations.Count - 1) / pageSize) * pageSize;
+            int nextPageStart = Math.Clamp(_pageStart + delta * pageSize, 0, maxPageStart);
+            if (nextPageStart == _pageStart) return;
+            _pageStart = nextPageStart;
+            SelectProject(_pageStart);
+            Layout();
         }
 
         private void OpenSelectedProject()

@@ -164,13 +164,16 @@ namespace FrameByFrame.src.UI.Components
 
         public void SaveAnimation()
         {
+            int previousThumbnailFrameIndex = _animation.ThumbnailFrameIndex;
             try
             {
+                _animation.CaptureThumbnailFrame();
                 SaveService.SaveAnimation(_animation);
                 _saveError = string.Empty;
             }
             catch (Exception ex)
             {
+                _animation.RestoreThumbnailFrame(previousThumbnailFrameIndex);
                 _saveError = ex.Message;
                 _openPopover = PopoverKind.Settings;
             }

@@ -93,6 +93,7 @@ Frame chunks occur in ascending frame order. The index also records each chunk's
 | Project name | `string` | Non-empty UTF-8 project name |
 | Transparent background | `u8` | Boolean; when true the canvas background is transparent |
 | Background color | `u32` | MonoGame packed color used when the background is solid |
+| Thumbnail frame index | `i32` | Zero-based saved gallery thumbnail; invalid values fall back to frame zero |
 | Layer metadata | repeated | One metadata record per layer, in front-to-back order |
 | Index offset | `i64` | Absolute offset of the `INDX` signature |
 

@@ -26,6 +26,12 @@ var vertical = UILayoutEngine.Stack(new Rectangle(5, 7, 80, 220), UIAxis.Vertica
 Assert(vertical[0] == new Rectangle(5, 7, 80, 100), "Vertical stack should position its first item.");
 Assert(vertical[1] == new Rectangle(5, 127, 80, 100), "Vertical stack should position its second item.");
 
+var grid = UILayoutEngine.Grid(new Rectangle(0, 0, 620, 420), 6, 3, 10);
+Assert(grid.Count == 6 && grid[0] == new Rectangle(0, 0, 200, 205),
+    "Grid layout should size the first project card consistently.");
+Assert(grid[2].X == 420 && grid[3].Y == 215,
+    "Grid layout should place six project cards in two rows of three.");
+
 UIBox box = new(new Rectangle(10, 20, 100, 80), 8);
 Assert(box.Content == new Rectangle(18, 28, 84, 64), "UIBox padding should produce stable content bounds.");
 
