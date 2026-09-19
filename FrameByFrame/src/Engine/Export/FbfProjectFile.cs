@@ -17,7 +17,7 @@ namespace FrameByFrame.src.Engine.Export
         private static readonly byte[] FooterMagic = Encoding.ASCII.GetBytes("FBFE");
 
         private const ushort MajorVersion = 1;
-        private const ushort MinorVersion = 0;
+        private const ushort MinorVersion = 1;
         private const uint BrotliFlag = 1;
         private const int MaxLayerCount = 1024;
         private const int KeyframeInterval = 100;
@@ -72,6 +72,8 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.TotalFrames);
                     writer.Write(KeyframeInterval);
                     WriteString(writer, animation.projectName);
+                    writer.Write(animation.IsCanvasBackgroundTransparent);
+                    writer.Write(animation.CanvasBackgroundColor.PackedValue);
                     foreach (AnimationLayer layer in animation.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
@@ -159,6 +161,13 @@ namespace FrameByFrame.src.Engine.Export
             int frameCount = reader.ReadInt32();
             int keyframeInterval = reader.ReadInt32();
             string projectName = ReadString(reader);
+            bool isCanvasBackgroundTransparent = false;
+            Color canvasBackgroundColor = Color.White;
+            if (minorVersion >= 1)
+            {
+                isCanvasBackgroundTransparent = reader.ReadBoolean();
+                canvasBackgroundColor = new Color { PackedValue = reader.ReadUInt32() };
+            }
             List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
             long indexOffset = reader.ReadInt64();
 
@@ -198,6 +207,8 @@ namespace FrameByFrame.src.Engine.Export
                 }
 
                 var animation = new Animation.Animation(projectName, layers) { fps = fps };
+                animation.SetCanvasBackgroundColor(canvasBackgroundColor);
+                animation.SetCanvasBackgroundTransparent(isCanvasBackgroundTransparent);
                 animation.LoadFrames(loadedFrames, framePosition, new Vector2(width, height));
                 return animation;
             }

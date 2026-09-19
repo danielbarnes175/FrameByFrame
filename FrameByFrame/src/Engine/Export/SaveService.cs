@@ -61,7 +61,8 @@ namespace FrameByFrame.src.Engine.Export
                     if (_exportedFrameCount < _frameCount)
                     {
                         int sourceIndex = _startFrameIndex + _exportedFrameCount;
-                        using RenderTarget2D texture = DrawingService.CombineTextures(_animation.GetFrameAtIndex(sourceIndex));
+                        using RenderTarget2D texture = DrawingService.CombineTextures(
+                            _animation, _animation.GetFrameAtIndex(sourceIndex));
                         string frameFilename = Path.Combine(_projectDirectory, $"Frame_{_exportedFrameCount}.png");
                         SaveTextureAsPng(frameFilename, texture);
                         _exportedFrameCount++;

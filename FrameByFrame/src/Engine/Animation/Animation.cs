@@ -47,6 +47,8 @@ namespace FrameByFrame.src.Engine.Animation
 
         // Project Settings
         public string projectName;
+        public bool IsCanvasBackgroundTransparent { get; private set; }
+        public Color CanvasBackgroundColor { get; private set; } = Color.White;
 
         private readonly Timeline _timeline;
         public IEnumerable<Frame> Frames => _timeline.Frames;
@@ -239,7 +241,17 @@ namespace FrameByFrame.src.Engine.Animation
         public Color SampleVisibleColorAt(Vector2 screenPosition)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            return CurrentFrame?.GetVisiblePixel((int)local.X, (int)local.Y) ?? Color.Transparent;
+            Color background = IsCanvasBackgroundTransparent ? Color.Transparent : CanvasBackgroundColor;
+            return CurrentFrame?.GetVisiblePixel((int)local.X, (int)local.Y, background) ?? background;
+        }
+
+        public void SetCanvasBackgroundTransparent(bool isTransparent) =>
+            IsCanvasBackgroundTransparent = isTransparent;
+
+        public void SetCanvasBackgroundColor(Color color)
+        {
+            CanvasBackgroundColor = new Color(color.R, color.G, color.B, byte.MaxValue);
+            IsCanvasBackgroundTransparent = false;
         }
 
         public void SelectFrame(int index)
@@ -250,7 +262,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void DrawCurrentFrame(Rectangle destination)
         {
             DisplayBounds = destination;
-            CurrentFrame?.Draw(destination, 1f);
+            DrawingService.DrawCanvasBackground(destination, IsCanvasBackgroundTransparent, CanvasBackgroundColor);
             if (!IsPlaying && isOnionSkinEnabled)
             {
                 for (int i = 1; i <= previousOnionFrames; i++)
@@ -372,7 +384,9 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawCurrentFrame()
         {
-            CurrentFrame?.Draw(1.0f);
+            Rectangle destination = new((int)framePosition.X, (int)framePosition.Y,
+                (int)frameSize.X, (int)frameSize.Y);
+            DrawingService.DrawCanvasBackground(destination, IsCanvasBackgroundTransparent, CanvasBackgroundColor);
 
             if (!IsPlaying && isOnionSkinEnabled)
             {

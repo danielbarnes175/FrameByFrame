@@ -30,7 +30,7 @@ namespace FrameByFrame.src.UI.Components
             public const int HelpWidth = 520;
             public const int HelpContentHeight = 410;
             public const int SettingsWidth = 450;
-            public const int SettingsContentHeight = 478;
+            public const int SettingsContentHeight = 620;
             public const int ColorWidth = 236;
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
@@ -65,6 +65,8 @@ namespace FrameByFrame.src.UI.Components
         private readonly UISlider _brushSize;
         private readonly UIToggle _onionSkin;
         private readonly UIToggle _autosaveToggle;
+        private readonly UIToggle _transparentBackgroundToggle;
+        private readonly UIActionButton _useBrushColorForBackground;
         private readonly UIActionButton _previousOnionDown;
         private readonly UIActionButton _previousOnionUp;
         private readonly UIActionButton _nextOnionDown;
@@ -141,6 +143,10 @@ namespace FrameByFrame.src.UI.Components
             _onionSkin = new UIToggle(_animation.isOnionSkinEnabled,
                 value => _animation.isOnionSkinEnabled = value);
             _autosaveToggle = new UIToggle(_autosave.IsEnabled, SetAutosave);
+            _transparentBackgroundToggle = new UIToggle(_animation.IsCanvasBackgroundTransparent,
+                _animation.SetCanvasBackgroundTransparent);
+            _useBrushColorForBackground = new UIActionButton("Use brush color",
+                () => _animation.SetCanvasBackgroundColor(_selectedColor));
             _previousOnionDown = new UIActionButton("-", () => _animation.PreviousOnionFrames--);
             _previousOnionUp = new UIActionButton("+", () => _animation.PreviousOnionFrames++);
             _nextOnionDown = new UIActionButton("-", () => _animation.NextOnionFrames--);
@@ -282,8 +288,12 @@ namespace FrameByFrame.src.UI.Components
             _fpsDown.Arrange(new Rectangle(controlX, settings.Y + 290 - scroll, 48, 42));
             _fpsUp.Arrange(new Rectangle(controlRight - 48, settings.Y + 290 - scroll, 48, 42));
             _autosaveToggle.Arrange(new Rectangle(settings.X + 28, settings.Y + 342 - scroll, 48, 28));
+            _transparentBackgroundToggle.Arrange(new Rectangle(
+                settings.X + 28, settings.Y + 390 - scroll, 48, 28));
+            _useBrushColorForBackground.Arrange(new Rectangle(
+                controlX, settings.Y + 432 - scroll, Math.Max(120, controlRight - controlX), 42));
             int saveWidth = Math.Min(210, settings.Width - 40);
-            _save.Arrange(new Rectangle(settings.Center.X - saveWidth / 2, settings.Y + 418 - scroll, saveWidth, 50));
+            _save.Arrange(new Rectangle(settings.Center.X - saveWidth / 2, settings.Y + 552 - scroll, saveWidth, 50));
         }
 
         private static Rectangle ClampPopover(Rectangle bounds, int minimumTop = Layout.PopoverTop)
@@ -352,6 +362,7 @@ namespace FrameByFrame.src.UI.Components
             }
             _onionSkin.Value = _animation.isOnionSkinEnabled;
             _autosaveToggle.Value = _autosave.IsEnabled;
+            _transparentBackgroundToggle.Value = _animation.IsCanvasBackgroundTransparent;
             Rectangle viewport = SettingsViewport(panel);
             if (FullyVisible(_onionSkin.Bounds, viewport)) _onionSkin.Update();
             if (FullyVisible(_previousOnionDown.Bounds, viewport)) _previousOnionDown.Update();
@@ -364,6 +375,10 @@ namespace FrameByFrame.src.UI.Components
             if (FullyVisible(_fpsDown.Bounds, viewport)) _fpsDown.Update();
             if (FullyVisible(_fpsUp.Bounds, viewport)) _fpsUp.Update();
             if (FullyVisible(_autosaveToggle.Bounds, viewport)) _autosaveToggle.Update();
+            if (FullyVisible(_transparentBackgroundToggle.Bounds, viewport))
+                _transparentBackgroundToggle.Update();
+            if (FullyVisible(_useBrushColorForBackground.Bounds, viewport))
+                _useBrushColorForBackground.Update();
             if (FullyVisible(_save.Bounds, viewport)) _save.Update();
         }
 
@@ -607,12 +622,24 @@ namespace FrameByFrame.src.UI.Components
             if (FullyVisible(_autosaveToggle.Bounds, viewport)) _autosaveToggle.Draw();
             TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 339 - scroll, panel.Width - 112, 42),
                 $"Autosave: {(_autosave.IsEnabled ? "On" : "Off")}", UITheme.Text, .6f, UIAlign.Start);
-            Rectangle sizeBounds = new(panel.X + 28, panel.Y + 382 - scroll, panel.Width - 56, 28);
+            if (FullyVisible(_transparentBackgroundToggle.Bounds, viewport))
+                _transparentBackgroundToggle.Draw();
+            TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 387 - scroll, panel.Width - 112, 42),
+                $"Canvas background: {(_animation.IsCanvasBackgroundTransparent ? "Transparent" : "Solid")}",
+                UITheme.Text, .6f, UIAlign.Start);
+            if (FullyVisible(_useBrushColorForBackground.Bounds, viewport))
+            {
+                _useBrushColorForBackground.Draw();
+                Rectangle swatch = new(panel.X + 28, panel.Y + 437 - scroll, 32, 32);
+                UIRenderer.Fill(swatch, _animation.CanvasBackgroundColor);
+                UIRenderer.Border(swatch, UITheme.Border, 2);
+            }
+            Rectangle sizeBounds = new(panel.X + 28, panel.Y + 496 - scroll, panel.Width - 56, 28);
             if (FullyVisible(sizeBounds, viewport)) DrawSizeBar(sizeBounds);
             string saveError = string.IsNullOrEmpty(_saveError) ? _autosave.LastError : _saveError;
             if (!string.IsNullOrEmpty(saveError))
             {
-                Rectangle errorBounds = new(panel.X + 24, panel.Y + 414 - scroll, panel.Width - 48, 32);
+                Rectangle errorBounds = new(panel.X + 24, panel.Y + 522 - scroll, panel.Width - 48, 28);
                 if (FullyVisible(errorBounds, viewport))
                     new UITextContainer { Bounds = errorBounds, MaxLines = 2 }.Draw(saveError, Color.IndianRed, .52f);
             }

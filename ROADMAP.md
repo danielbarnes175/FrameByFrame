@@ -22,7 +22,7 @@ This roadmap describes the work planned for FrameByFrame `v1.0.0`.
 - [ ] Add toggleable autosave
 - [ ] Add select tool (move, resize, rotate, copy, delete)
 - [ ] Playing an animation starts from currently selected frame
-- [ ] Support for modifying background layer (transparent or changing color)
+- [x] Support for modifying background layer (transparent or changing color)
 
 ## Export
 
