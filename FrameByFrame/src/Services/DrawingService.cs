@@ -107,7 +107,8 @@ namespace FrameByFrame.src.Engine.Services
             texture.SetData(layerPixels);
         }
 
-        public static RenderTarget2D CombineTextures(Animation.Animation animation, Frame givenFrame)
+        public static RenderTarget2D CombineTextures(Animation.Animation animation, Frame givenFrame,
+            Color? backgroundOverride = null)
         {
             ArgumentNullException.ThrowIfNull(animation);
             ArgumentNullException.ThrowIfNull(givenFrame);
@@ -120,9 +121,8 @@ namespace FrameByFrame.src.Engine.Services
             try
             {
                 GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget);
-                GlobalParameters.GlobalGraphics.Clear(animation.IsCanvasBackgroundTransparent
-                    ? Color.Transparent
-                    : animation.CanvasBackgroundColor);
+                GlobalParameters.GlobalGraphics.Clear(backgroundOverride ??
+                    (animation.IsCanvasBackgroundTransparent ? Color.Transparent : animation.CanvasBackgroundColor));
                 GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend,
                     SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
                 spriteBatchBegun = true;

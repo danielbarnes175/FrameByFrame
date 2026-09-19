@@ -95,6 +95,14 @@ Assert(fillPixels[3] == O && fillPixels[7] == O && fillPixels[11] == O,
 Assert(fillPixels[2] == X && fillPixels[5] == X,
     "Flood fill should preserve boundary colors.");
 
+Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4),
+    "MP4 exports should flatten transparent canvas backgrounds.");
+Assert(SaveService.FormatSupportsTransparency(ExportFormat.Gif) &&
+       SaveService.FormatSupportsTransparency(ExportFormat.Mov) &&
+       SaveService.FormatSupportsTransparency(ExportFormat.PngSequence) &&
+       SaveService.FormatSupportsTransparency(ExportFormat.SpriteSheet),
+    "Alpha-capable export formats should retain canvas transparency.");
+
 Console.WriteLine("FrameByFrame UI contract tests passed.");
 
 sealed class TestElement : UIElement { }

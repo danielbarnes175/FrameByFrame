@@ -4,6 +4,7 @@ using System.IO;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Services;
 using ImageMagick;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Export
@@ -61,8 +62,12 @@ namespace FrameByFrame.src.Engine.Export
                     if (_exportedFrameCount < _frameCount)
                     {
                         int sourceIndex = _startFrameIndex + _exportedFrameCount;
+                        Color? backgroundOverride = _animation.IsCanvasBackgroundTransparent &&
+                            !FormatSupportsTransparency(_format)
+                                ? Color.White
+                                : null;
                         using RenderTarget2D texture = DrawingService.CombineTextures(
-                            _animation, _animation.GetFrameAtIndex(sourceIndex));
+                            _animation, _animation.GetFrameAtIndex(sourceIndex), backgroundOverride);
                         string frameFilename = Path.Combine(_projectDirectory, $"Frame_{_exportedFrameCount}.png");
                         SaveTextureAsPng(frameFilename, texture);
                         _exportedFrameCount++;
@@ -234,6 +239,13 @@ namespace FrameByFrame.src.Engine.Export
                 format, startFrameIndex, exportedFrameCount);
         }
 
+        public static bool FormatSupportsTransparency(ExportFormat format) => format switch
+        {
+            ExportFormat.Gif or ExportFormat.Mov or ExportFormat.PngSequence or ExportFormat.SpriteSheet => true,
+            ExportFormat.Mp4 => false,
+            _ => false
+        };
+
         private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
         {
             foreach (string filename in Directory.EnumerateFiles(projectDirectory, "Frame_*.png"))
@@ -266,6 +278,7 @@ namespace FrameByFrame.src.Engine.Export
                 string frameFilename = Path.Combine(projectDirectory, $"Frame_{i}.png");
                 collection.Add(frameFilename);
                 collection[i].AnimationDelay = frameDelay;
+                collection[i].GifDisposeMethod = GifDisposeMethod.Background;
             }
 
             collection.Write(filename);
