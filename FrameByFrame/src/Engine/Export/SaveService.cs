@@ -20,6 +20,105 @@ namespace FrameByFrame.src.Engine.Export
     public class SaveService
     {
         private const string ProjectsDirectory = "Projects";
+
+        public sealed class ExportOperation
+        {
+            private readonly Animation.Animation _animation;
+            private readonly string _projectName;
+            private readonly string _exportRoot;
+            private readonly string _projectDirectory;
+            private readonly ExportFormat _format;
+            private readonly int _startFrameIndex;
+            private readonly int _frameCount;
+            private int _exportedFrameCount;
+            private bool _isFinalizing;
+
+            internal ExportOperation(Animation.Animation animation, string projectName, string exportRoot,
+                string projectDirectory, ExportFormat format, int startFrameIndex, int frameCount)
+            {
+                _animation = animation;
+                _projectName = projectName;
+                _exportRoot = exportRoot;
+                _projectDirectory = projectDirectory;
+                _format = format;
+                _startFrameIndex = startFrameIndex;
+                _frameCount = frameCount;
+                OutputPath = GetOutputPath(projectName, exportRoot, projectDirectory, format);
+            }
+
+            public bool IsComplete { get; private set; }
+            public bool IsFailed => Failure != null;
+            public float Progress { get; private set; }
+            public string Status { get; private set; } = "Preparing export...";
+            public string OutputPath { get; private set; }
+            public Exception Failure { get; private set; }
+
+            public void Step()
+            {
+                if (IsComplete || IsFailed) return;
+                try
+                {
+                    if (_exportedFrameCount < _frameCount)
+                    {
+                        int sourceIndex = _startFrameIndex + _exportedFrameCount;
+                        using RenderTarget2D texture = DrawingService.CombineTextures(_animation.GetFrameAtIndex(sourceIndex));
+                        string frameFilename = Path.Combine(_projectDirectory, $"Frame_{_exportedFrameCount}.png");
+                        SaveTextureAsPng(frameFilename, texture);
+                        _exportedFrameCount++;
+                        Progress = .9f * _exportedFrameCount / _frameCount;
+                        Status = $"Exporting frame {_exportedFrameCount} of {_frameCount}...";
+                        return;
+                    }
+
+                    if (!_isFinalizing)
+                    {
+                        _isFinalizing = true;
+                        Progress = .95f;
+                        Status = _format switch
+                        {
+                            ExportFormat.Gif => "Creating GIF...",
+                            ExportFormat.Mov => "Encoding MOV...",
+                            ExportFormat.Mp4 => "Encoding MP4...",
+                            ExportFormat.PngSequence => "Finishing PNG export...",
+                            ExportFormat.SpriteSheet => "Creating spritesheet...",
+                            _ => "Finishing export..."
+                        };
+                        return;
+                    }
+                    RemoveObsoleteFrameFiles(_projectDirectory, _frameCount);
+                    OutputPath = _format switch
+                    {
+                        ExportFormat.Gif => CreateGif(_animation, _projectName, _exportRoot, _projectDirectory, _frameCount),
+                        ExportFormat.Mov or ExportFormat.Mp4 =>
+                            CreateVideo(_animation, _projectName, _exportRoot, _projectDirectory, _format),
+                        ExportFormat.PngSequence => _projectDirectory,
+                        ExportFormat.SpriteSheet =>
+                            CreateSpriteSheet(_animation, _projectName, _exportRoot, _projectDirectory, _frameCount),
+                        _ => throw new ArgumentOutOfRangeException(nameof(_format), _format, "Unsupported export format.")
+                    };
+                    Progress = 1f;
+                    Status = $"Export complete: {OutputPath}";
+                    IsComplete = true;
+                }
+                catch (Exception ex)
+                {
+                    Failure = ex;
+                    Status = $"Export failed: {ex.Message}";
+                }
+            }
+
+            private static string GetOutputPath(string projectName, string exportRoot,
+                string projectDirectory, ExportFormat format) => format switch
+            {
+                ExportFormat.Gif => Path.Combine(exportRoot, $"{projectName}.gif"),
+                ExportFormat.Mov => Path.Combine(exportRoot, $"{projectName}.mov"),
+                ExportFormat.Mp4 => Path.Combine(exportRoot, $"{projectName}.mp4"),
+                ExportFormat.PngSequence => projectDirectory,
+                ExportFormat.SpriteSheet => Path.Combine(exportRoot, $"{projectName}_spritesheet.png"),
+                _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.")
+            };
+        }
+
         public static void SaveAnimation(Animation.Animation animation)
         {
             ArgumentNullException.ThrowIfNull(animation);
@@ -79,12 +178,36 @@ namespace FrameByFrame.src.Engine.Export
         public static void ExportAnimation(Animation.Animation animation, int startFrameIndex, int endFrameIndex,
             ExportFormat format)
         {
-            ExportAnimationTo(animation, startFrameIndex, endFrameIndex,
+            ExportOperation operation = BeginExportAnimation(animation, startFrameIndex, endFrameIndex,
                 Path.GetFullPath(ProjectsDirectory), format);
+            RunToCompletion(operation);
         }
 
         public static string ExportAnimationTo(Animation.Animation animation, int startFrameIndex, int endFrameIndex,
             string outputDirectory, ExportFormat format = ExportFormat.Gif)
+        {
+            ExportOperation operation = BeginExportAnimation(
+                animation, startFrameIndex, endFrameIndex, outputDirectory, format);
+            RunToCompletion(operation);
+            return operation.OutputPath;
+        }
+
+        private static void RunToCompletion(ExportOperation operation)
+        {
+            while (!operation.IsComplete && !operation.IsFailed) operation.Step();
+            if (operation.IsFailed)
+                throw new InvalidOperationException(operation.Status, operation.Failure);
+        }
+
+        public static ExportOperation BeginExportAnimation(Animation.Animation animation, int startFrameIndex,
+            int endFrameIndex)
+        {
+            return BeginExportAnimation(animation, startFrameIndex, endFrameIndex,
+                Path.GetFullPath(ProjectsDirectory), ExportFormat.Gif);
+        }
+
+        public static ExportOperation BeginExportAnimation(Animation.Animation animation, int startFrameIndex,
+            int endFrameIndex, string outputDirectory, ExportFormat format = ExportFormat.Gif)
         {
             ArgumentNullException.ThrowIfNull(animation);
             ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
@@ -97,7 +220,7 @@ namespace FrameByFrame.src.Engine.Export
                 throw new ArgumentOutOfRangeException(nameof(startFrameIndex), "Export frame range is invalid.");
 
             // The editable save is the source of truth. Always update it before
-            // producing flattened PNG/GIF output.
+            // producing flattened export output.
             SaveAnimation(animation);
 
             string projectName = ValidateProjectName(animation.projectName);
@@ -105,27 +228,9 @@ namespace FrameByFrame.src.Engine.Export
             Directory.CreateDirectory(exportRoot);
             string projectDirectory = Path.Combine(exportRoot, projectName);
             Directory.CreateDirectory(projectDirectory);
-
             int exportedFrameCount = endFrameIndex - startFrameIndex + 1;
-            for (int sourceIndex = startFrameIndex; sourceIndex <= endFrameIndex; sourceIndex++)
-            {
-                int outputIndex = sourceIndex - startFrameIndex;
-                using RenderTarget2D texture = DrawingService.CombineTextures(animation.GetFrameAtIndex(sourceIndex));
-                string frameFilename = Path.Combine(projectDirectory, $"Frame_{outputIndex}.png");
-                SaveTextureAsPng(frameFilename, texture);
-            }
-
-            RemoveObsoleteFrameFiles(projectDirectory, exportedFrameCount);
-            return format switch
-            {
-                ExportFormat.Gif => CreateGif(animation, projectName, exportRoot, projectDirectory, exportedFrameCount),
-                ExportFormat.Mov or ExportFormat.Mp4 =>
-                    CreateVideo(animation, projectName, exportRoot, projectDirectory, format),
-                ExportFormat.PngSequence => projectDirectory,
-                ExportFormat.SpriteSheet =>
-                    CreateSpriteSheet(animation, projectName, exportRoot, projectDirectory, exportedFrameCount),
-                _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.")
-            };
+            return new ExportOperation(animation, projectName, exportRoot, projectDirectory,
+                format, startFrameIndex, exportedFrameCount);
         }
 
         private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
