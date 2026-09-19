@@ -13,6 +13,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public DrawingTools drawingTools;
         private DrawingNavbarComponent _navbar;
         private TimelineComponent _timeline;
+        private readonly AutosaveService _autosave = new();
         public bool loadedScene;
 
         public DrawingScene() => InitializeDefaults();
@@ -40,7 +41,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void SetupUI()
         {
             _navbar?.Dispose();
-            _navbar = new DrawingNavbarComponent(animation, drawingTools);
+            _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave);
             _timeline = new TimelineComponent(animation);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
@@ -59,6 +60,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _navbar.Update();
             HandleMouseShortcuts();
             animation.Animate(gameTime);
+            _autosave.Update(gameTime, animation);
         }
 
         public override void Draw(Vector2 offset)
