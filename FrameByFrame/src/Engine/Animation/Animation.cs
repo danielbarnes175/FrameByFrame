@@ -539,47 +539,6 @@ namespace FrameByFrame.src.Engine.Animation
             return true;
         }
 
-        public void DrawCurrentFrame()
-        {
-            Rectangle destination = new((int)framePosition.X, (int)framePosition.Y,
-                (int)frameSize.X, (int)frameSize.Y);
-            DrawingService.DrawCanvasBackground(destination, IsCanvasBackgroundTransparent, CanvasBackgroundColor);
-
-            if (!IsPlaying && isOnionSkinEnabled)
-            {
-                DrawOnionSkin();
-            }
-
-            DrawFrameWithOpacity(CurrentFrame, 1.0f);
-        }
-
-        public void DrawOnionSkin()
-        {
-            for (int i = 1; i <= previousOnionFrames; i++)
-            {
-                Frame frame = GetFrameAtIndex(CurrentFrameIndex - i);
-                if (frame != null)
-                {
-                    float opacity = baseOpacity * (previousOnionFrames - i + 1);
-                    frame.DrawLayers(opacity);
-                }
-            }
-            for (int i = 1; i <= nextOnionFrames; i++)
-            {
-                Frame frame = GetFrameAtIndex(CurrentFrameIndex + i);
-                if (frame != null)
-                {
-                    float opacity = baseOpacity * (nextOnionFrames - i + 1);
-                    frame.DrawLayers(opacity);
-                }
-            }
-        }
-
-        private void DrawFrameWithOpacity(Frame frame, float opacity)
-        {
-            frame?.DrawLayers(opacity);
-        }
-
         // Get total memory usage of all frames
         public long GetTotalMemoryUsage()
         {

@@ -21,7 +21,6 @@ namespace FrameByFrame.src.Engine.Animation
         public long NonTransparentPixelCount => _layers.Sum(layer => (long)layer.Pixels.Count);
         private readonly List<FrameLayer> _layers;
 
-        public BasicTexture CombinedTexture;
         private static Texture2D _sharedBackgroundTexture;
 
         public int width { get; set; }
@@ -248,17 +247,9 @@ namespace FrameByFrame.src.Engine.Animation
             }
         }
 
-        public void DrawCombinedTexture(float opacity) => CombinedTexture?.Draw(Vector2.Zero, opacity);
-
         public void DrawPreview(Rectangle destination, float opacity, bool transparentBackground = false,
             Color backgroundColor = default)
         {
-            if (CombinedTexture != null)
-            {
-                GlobalParameters.GlobalSpriteBatch.Draw(CombinedTexture.texture, destination, Color.White * opacity);
-                return;
-            }
-
             int previewWidth = Math.Max(1, destination.Width);
             int previewHeight = Math.Max(1, destination.Height);
             int visibilityHash = 17;
@@ -311,8 +302,6 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (_disposed) return;
             foreach (FrameLayer layer in _layers) layer.Dispose();
-            CombinedTexture?.texture?.Dispose();
-            CombinedTexture = null;
             ReleasePreviewTexture();
             _disposed = true;
             GC.SuppressFinalize(this);

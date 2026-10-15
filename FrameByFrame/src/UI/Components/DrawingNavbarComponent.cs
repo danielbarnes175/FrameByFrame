@@ -142,26 +142,26 @@ namespace FrameByFrame.src.UI.Components
             _autosave = autosave ?? throw new ArgumentNullException(nameof(autosave));
             _feedback = feedback;
             _home = new UIActionButton("HOME", GoHome);
-            _help = Icon("Static\\DrawingScene/help", () => Toggle(PopoverKind.Help), "Help");
-            _settings = Icon("Static\\DrawingScene/gear", () => Toggle(PopoverKind.Settings), "Animation settings");
-            _layers = Icon("Static\\DrawingScene/layers", () => Toggle(PopoverKind.Layers), "Layers");
+            _help = Icon("help", () => Toggle(PopoverKind.Help), "Help");
+            _settings = Icon("gear", () => Toggle(PopoverKind.Settings), "Animation settings");
+            _layers = Icon("layers", () => Toggle(PopoverKind.Layers), "Layers");
 
             _swatchTexture = new Texture2D(GlobalParameters.GlobalGraphics, Layout.SwatchSize, Layout.SwatchSize);
             UpdateColorSwatch();
             _color = new UIIconButton(_swatchTexture, () => Toggle(PopoverKind.Color)) { Tooltip = "Brush color" };
 
-            AddTool(DrawingTool.Draw, "Static\\DrawingScene/brush", "Paintbrush");
-            AddTool(DrawingTool.Eraser, "Static\\DrawingScene/eraser", "Eraser");
+            AddTool(DrawingTool.Draw, "brush", "Paintbrush");
+            AddTool(DrawingTool.Eraser, "eraser", "Eraser");
             AddTool(DrawingTool.Fill, "bucket_tool", "Bucket fill");
             AddTool(DrawingTool.ColorPicker, "eyedropper_tool", "Color picker");
             _selectionIcon = CreateSelectionIcon();
             AddTool(DrawingTool.Selection, _selectionIcon, "Selection tool");
 
-            _playback.Add(Icon("Static\\DrawingScene/first_frame", _animation.FirstFrame, "First frame"));
-            _playback.Add(Icon("Static\\DrawingScene/previous_frame", _animation.PreviousFrame, "Previous frame - N"));
-            _playback.Add(Icon("Static\\DrawingScene/play", _animation.TogglePlaying, "Play / pause - P"));
-            _playback.Add(Icon("Static\\DrawingScene/next_frame", _animation.NextFrame, "Next frame - M"));
-            _playback.Add(Icon("Static\\DrawingScene/last_frame", _animation.LastFrame, "Last frame"));
+            _playback.Add(Icon("first_frame", _animation.FirstFrame, "First frame"));
+            _playback.Add(Icon("previous_frame", _animation.PreviousFrame, "Previous frame - N"));
+            _playback.Add(Icon("play", _animation.TogglePlaying, "Play / pause - P"));
+            _playback.Add(Icon("next_frame", _animation.NextFrame, "Next frame - M"));
+            _playback.Add(Icon("last_frame", _animation.LastFrame, "Last frame"));
 
             _brushSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
                 _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
