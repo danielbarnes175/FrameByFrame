@@ -286,28 +286,33 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawOnCurrentLayer(Color selectedColor, int brushSize)
         {
+            DrawOnCurrentLayer(selectedColor, new BrushPreset { Size = brushSize },
+                selectedColor == Color.Transparent);
+        }
+
+        public void DrawOnCurrentLayer(Color selectedColor, BrushPreset brush, bool erase)
+        {
+            ArgumentNullException.ThrowIfNull(brush);
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
             Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
+            Vector2 current = ToFramePosition(mousePositionCur);
+            Vector2 previous = ToFramePosition(mousePositionOld);
+            float distance = Vector2.Distance(current, previous);
 
-            float xChange = mousePositionCur.X - mousePositionOld.X;
-            float yChange = mousePositionCur.Y - mousePositionOld.Y;
-            float distance = (float)Math.Sqrt(xChange * xChange + yChange * yChange);
-
-            // Only draw if there's movement or it's the first draw
-            if (distance < 1f && GlobalParameters.GlobalMouse.LeftClickHold()) 
+            if (GlobalParameters.GlobalMouse.LeftClick())
             {
-                // Still draw a single point for initial click
-                DrawBrushAt(ToFramePosition(mousePositionCur), selectedColor, brushSize);
+                DrawBrushAt(current, selectedColor, brush, erase);
                 return;
             }
 
-            // Use more efficient line drawing
-            int steps = Math.Max(1, (int)(distance / 2));
+            if (distance < .01f) return;
+
+            float spacing = Math.Max(1f, brush.Size * 2f * brush.SpacingPercent / 100f);
+            int steps = Math.Max(1, (int)Math.Ceiling(distance / spacing));
             for (int i = 0; i <= steps; i++)
             {
                 float t = steps > 0 ? i / (float)steps : 0;
-                Vector2 interpolatedPos = ToFramePosition(Vector2.Lerp(mousePositionOld, mousePositionCur, t));
-                DrawBrushAt(interpolatedPos, selectedColor, brushSize);
+                DrawBrushAt(Vector2.Lerp(previous, current, t), selectedColor, brush, erase);
             }
         }
 
@@ -396,10 +401,11 @@ namespace FrameByFrame.src.Engine.Animation
             DrawingService.DrawCanvasOutline(view, UI.UITheme.Border);
         }
 
-        private void DrawBrushAt(Vector2 localPos, Color color, int brushSize)
+        private void DrawBrushAt(Vector2 localPos, Color color, BrushPreset brush, bool erase)
         {
             int centerX = (int)localPos.X;
             int centerY = (int)localPos.Y;
+            int brushSize = brush.Size;
             
             // Pre-calculate brush bounds to avoid repeated boundary checks
             int minX = Math.Max(0, centerX - brushSize);
@@ -407,7 +413,6 @@ namespace FrameByFrame.src.Engine.Animation
             int minY = Math.Max(0, centerY - brushSize);
             int maxY = Math.Min(CurrentFrame.height - 1, centerY + brushSize);
             
-            int brushSizeSquared = brushSize * brushSize;
             long availablePixels = Math.Max(0, MaxStoredPixels - StoredPixelCount);
             
             for (int x = minX; x <= maxX; x++)
@@ -417,10 +422,12 @@ namespace FrameByFrame.src.Engine.Animation
                     int dx = x - centerX;
                     int dy = y - centerY;
                     
-                    if (dx * dx + dy * dy <= brushSizeSquared)
+                    if (BrushRasterizer.Contains(brush.Shape, dx, dy, brushSize))
                     {
-                        bool canAddPixel = color == Color.Transparent || availablePixels > 0;
-                        if (CurrentFrame.SetPixel(SelectedLayerId, x, y, color, canAddPixel))
+                        Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
+                        Color result = BrushRasterizer.Apply(existing, color, brush.OpacityPercent, erase);
+                        bool canAddPixel = result == Color.Transparent || existing != Color.Transparent || availablePixels > 0;
+                        if (CurrentFrame.SetPixel(SelectedLayerId, x, y, result, canAddPixel))
                             availablePixels--;
                     }
                 }

@@ -35,6 +35,8 @@ namespace FrameByFrame.src.UI.Components
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
             public const int LayersHeight = 300;
+            public const int BrushesWidth = 380;
+            public const int BrushesHeight = 320;
             public const int LayerToolbarHeight = 44;
             public const int LayerRowHeight = 42;
             public const int MaxPlaybackFps = 60;
@@ -49,7 +51,7 @@ namespace FrameByFrame.src.UI.Components
             public const int CompactGap = 6;
         }
 
-        private enum PopoverKind { None, Help, Settings, Color, Layers }
+        private enum PopoverKind { None, Help, Settings, Color, Layers, Brushes }
 
         private readonly Animation _animation;
         private readonly DrawingTools _drawingTools;
@@ -63,6 +65,15 @@ namespace FrameByFrame.src.UI.Components
         private readonly List<DrawingTool> _toolKinds = new();
         private readonly List<UIIconButton> _playback = new();
         private readonly UISlider _brushSize;
+        private readonly UIActionButton _brushEditor;
+        private readonly UIActionButton _previousBrush;
+        private readonly UIActionButton _nextBrush;
+        private readonly UIActionButton _newBrush;
+        private readonly UIActionButton _deleteBrush;
+        private readonly UIActionButton _brushShape;
+        private readonly UISlider _brushEditorSize;
+        private readonly UISlider _brushOpacity;
+        private readonly UISlider _brushSpacing;
         private readonly UIToggle _onionSkin;
         private readonly UIToggle _autosaveToggle;
         private readonly UIToggle _transparentBackgroundToggle;
@@ -79,6 +90,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIPopover _settingsPopover = new();
         private readonly UIPopover _colorPopover = new() { ShowOutline = false };
         private readonly UIPopover _layersPopover = new();
+        private readonly UIPopover _brushesPopover = new();
         private readonly Texture2D _colorWheelTexture;
         private readonly Texture2D _swatchTexture;
         private readonly Texture2D _selectionIcon;
@@ -146,6 +158,19 @@ namespace FrameByFrame.src.UI.Components
 
             _brushSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
                 _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
+            _brushEditor = new UIActionButton("Brush", () => Toggle(PopoverKind.Brushes))
+                { Tooltip = "Custom brush editor" };
+            _previousBrush = new UIActionButton("<", () => SelectBrush(-1));
+            _nextBrush = new UIActionButton(">", () => SelectBrush(1));
+            _newBrush = new UIActionButton("New", _drawingTools.CreateBrush);
+            _deleteBrush = new UIActionButton("Delete", _drawingTools.DeleteSelectedBrush);
+            _brushShape = new UIActionButton("Shape", ToggleBrushShape);
+            _brushEditorSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
+                _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
+            _brushOpacity = new UISlider(1, 100, _drawingTools.SelectedBrush.OpacityPercent,
+                _drawingTools.SetBrushOpacity);
+            _brushSpacing = new UISlider(5, 200, _drawingTools.SelectedBrush.SpacingPercent,
+                _drawingTools.SetBrushSpacing);
             _onionSkin = new UIToggle(_animation.isOnionSkinEnabled,
                 value => _animation.isOnionSkinEnabled = value);
             _autosaveToggle = new UIToggle(_autosave.IsEnabled, SetAutosave);
@@ -218,6 +243,15 @@ namespace FrameByFrame.src.UI.Components
 
         private void SelectTool(DrawingTool tool) => _drawingTools.SelectedTool = tool;
 
+        private void SelectBrush(int delta)
+        {
+            int count = _drawingTools.Brushes.Count;
+            _drawingTools.SelectBrush((_drawingTools.SelectedBrushIndex + delta + count) % count);
+        }
+
+        private void ToggleBrushShape() => _drawingTools.SetBrushShape(
+            _drawingTools.SelectedBrush.Shape == BrushShape.Round ? BrushShape.Square : BrushShape.Round);
+
         private void GoHome()
         {
             _animation.Stop();
@@ -261,6 +295,7 @@ namespace FrameByFrame.src.UI.Components
                 x = _frameCounterBounds.Right + gap;
                 foreach (UIIconButton button in _playback) Place(button);
                 Place(_brushSize, Math.Min(Layout.BrushSliderCompactWidth, Math.Max(72, bounds.Width / 4)));
+                Place(_brushEditor, 68);
                 foreach (UIIconButton tool in _tools) Place(tool);
                 Place(_layers); Place(_color);
                 goto Popovers;
@@ -280,6 +315,8 @@ namespace FrameByFrame.src.UI.Components
                 x += iconStep;
             }
             _brushSize.Arrange(new Rectangle(x + Layout.ItemGap, controlY, brushSliderWidth, Layout.ControlHeight));
+            _brushEditor.Arrange(new Rectangle(_brushSize.Bounds.Right + Layout.ItemGap,
+                controlY, 70, Layout.ControlHeight));
 
             _color.Arrange(new Rectangle(bounds.Right - Layout.OuterPadding - Layout.IconSize, iconY, Layout.IconSize, Layout.IconSize));
             _layers.Arrange(new Rectangle(_color.Bounds.X - Layout.IconSize - trailingGap, iconY, Layout.IconSize, Layout.IconSize));
@@ -303,6 +340,22 @@ namespace FrameByFrame.src.UI.Components
             _colorPopover.Arrange(ClampPopover(new Rectangle(_color.Bounds.Right - Layout.ColorWidth, popoverTop, Layout.ColorWidth, Layout.ColorHeight), popoverTop));
             _layersPopover.Arrange(ClampPopover(new Rectangle(_layers.Bounds.Right - Layout.LayersWidth, popoverTop, Layout.LayersWidth,
                 Math.Min(Layout.LayersHeight, availableHeight)), popoverTop));
+            _brushesPopover.Arrange(ClampPopover(new Rectangle(_brushEditor.Bounds.X, popoverTop,
+                Layout.BrushesWidth, Math.Min(Layout.BrushesHeight, availableHeight)), popoverTop));
+
+            Rectangle brushes = _brushesPopover.Bounds;
+            int brushLeft = brushes.X + 20;
+            int brushWidth = brushes.Width - 40;
+            _previousBrush.Arrange(new Rectangle(brushLeft, brushes.Y + 34, 40, 28));
+            _nextBrush.Arrange(new Rectangle(brushes.Right - 60, brushes.Y + 34, 40, 28));
+            var presetActions = UILayoutEngine.Stack(new Rectangle(brushLeft, brushes.Y + 66,
+                brushWidth, 30), UIAxis.Horizontal, 2, 8);
+            _newBrush.Arrange(presetActions[0]);
+            _deleteBrush.Arrange(presetActions[1]);
+            _brushShape.Arrange(new Rectangle(brushLeft, brushes.Y + 100, brushWidth, 30));
+            _brushEditorSize.Arrange(new Rectangle(brushLeft, brushes.Y + 148, brushWidth, 32));
+            _brushOpacity.Arrange(new Rectangle(brushLeft, brushes.Y + 198, brushWidth, 32));
+            _brushSpacing.Arrange(new Rectangle(brushLeft, brushes.Y + 248, brushWidth, 32));
 
             _helpScroll = Math.Clamp(_helpScroll, 0,
                 Math.Max(0, Layout.HelpContentHeight - _helpPopover.Bounds.Height));
@@ -346,6 +399,7 @@ namespace FrameByFrame.src.UI.Components
             _settings.Update();
             _color.Update();
             _layers.Update();
+            _brushEditor.Update();
             foreach (UIIconButton button in _tools) button.Update();
             foreach (UIIconButton button in _playback) button.Update();
             _brushSize.SetValue(_drawingTools.BrushSize);
@@ -355,12 +409,14 @@ namespace FrameByFrame.src.UI.Components
             _settingsPopover.IsOpen = _openPopover == PopoverKind.Settings;
             _colorPopover.IsOpen = _openPopover == PopoverKind.Color;
             _layersPopover.IsOpen = _openPopover == PopoverKind.Layers;
+            _brushesPopover.IsOpen = _openPopover == PopoverKind.Brushes;
             ActivePopover()?.Update();
 
             if (_helpPopover.IsOpen) UpdateHelp();
             if (_settingsPopover.IsOpen) UpdateSettings();
             if (_layersPopover.IsOpen) UpdateLayers();
             if (_colorPopover.IsOpen) UpdateColorPicker();
+            if (_brushesPopover.IsOpen) UpdateBrushes();
             DismissPopoverOnOutsideClick();
         }
 
@@ -370,8 +426,27 @@ namespace FrameByFrame.src.UI.Components
             PopoverKind.Settings => _settingsPopover,
             PopoverKind.Color => _colorPopover,
             PopoverKind.Layers => _layersPopover,
+            PopoverKind.Brushes => _brushesPopover,
             _ => null
         };
+
+        private void UpdateBrushes()
+        {
+            BrushPreset brush = _drawingTools.SelectedBrush;
+            _deleteBrush.IsEnabled = _drawingTools.Brushes.Count > 1;
+            _brushShape.Text = $"Shape: {brush.Shape}";
+            _brushEditorSize.SetValue(brush.Size);
+            _brushOpacity.SetValue(brush.OpacityPercent);
+            _brushSpacing.SetValue(brush.SpacingPercent);
+            _previousBrush.Update();
+            _nextBrush.Update();
+            _newBrush.Update();
+            _deleteBrush.Update();
+            _brushShape.Update();
+            _brushEditorSize.Update();
+            _brushOpacity.Update();
+            _brushSpacing.Update();
+        }
 
         private void UpdateHelp()
         {
@@ -515,6 +590,7 @@ namespace FrameByFrame.src.UI.Components
                 PopoverKind.Settings => _settings.Bounds,
                 PopoverKind.Color => _color.Bounds,
                 PopoverKind.Layers => _layers.Bounds,
+                PopoverKind.Brushes => _brushEditor.Bounds,
                 _ => Rectangle.Empty
             };
             if (!anchor.Contains(GlobalParameters.GlobalMouse.newMousePos)) _openPopover = PopoverKind.None;
@@ -565,13 +641,15 @@ namespace FrameByFrame.src.UI.Components
             }
             foreach (UIIconButton button in _playback) button.Draw(drawTooltip: false);
             _brushSize.Draw();
+            _brushEditor.IsSelected = _openPopover == PopoverKind.Brushes;
+            _brushEditor.Draw(drawTooltip: false);
 
             UIRenderer.Fill(_frameCounterBounds, UITheme.Primary);
             new UITextContainer { Bounds = _frameCounterBounds, MaxLines = 1 }.Draw($"{_animation.CurrentFrameIndex + 1} / {_animation.TotalFrames}", Color.White, .78f);
 
             if (GlobalParameters.screenWidth >= Layout.ProjectLabelMinScreenWidth)
             {
-                int labelX = _brushSize.Bounds.Right + 8;
+                int labelX = _brushEditor.Bounds.Right + 8;
                 int labelWidth = Math.Max(1, _tools[0].Bounds.X - labelX - 8);
                 new UITextContainer { Bounds = new Rectangle(labelX, 4, labelWidth, 28), MaxLines = 1, HorizontalAlignment = UIAlign.Start }
                     .Draw(_animation.projectName, UITheme.TextMuted, .72f);
@@ -587,6 +665,7 @@ namespace FrameByFrame.src.UI.Components
             _layers.DrawTooltip();
             foreach (UIIconButton tool in _tools) tool.DrawTooltip();
             foreach (UIIconButton button in _playback) button.DrawTooltip();
+            _brushEditor.DrawTooltip();
         }
 
         private void DrawActivePopover()
@@ -597,8 +676,39 @@ namespace FrameByFrame.src.UI.Components
                 case PopoverKind.Settings: DrawSettings(); break;
                 case PopoverKind.Color: DrawColorPicker(); break;
                 case PopoverKind.Layers: DrawLayers(); break;
+                case PopoverKind.Brushes: DrawBrushes(); break;
             }
         }
+
+        private void DrawBrushes()
+        {
+            _brushesPopover.Draw();
+            Rectangle panel = _brushesPopover.Bounds;
+            BrushPreset brush = _drawingTools.SelectedBrush;
+            new UITextContainer { Bounds = new Rectangle(panel.X + 20, panel.Y + 4, panel.Width - 40, 28), MaxLines = 1 }
+                .Draw("Custom brush editor", UITheme.Primary, .85f);
+            new UITextContainer { Bounds = new Rectangle(_previousBrush.Bounds.Right, panel.Y + 34,
+                Math.Max(1, _nextBrush.Bounds.X - _previousBrush.Bounds.Right), 28), MaxLines = 1 }
+                .Draw($"{brush.Name} ({_drawingTools.SelectedBrushIndex + 1}/{_drawingTools.Brushes.Count})", UITheme.Text, .65f);
+            _previousBrush.Draw();
+            _nextBrush.Draw();
+            _newBrush.Draw();
+            _deleteBrush.Draw();
+            _brushShape.Draw();
+            DrawBrushSettingLabel(_brushEditorSize.Bounds, "Size");
+            DrawBrushSettingLabel(_brushOpacity.Bounds, "Opacity %");
+            DrawBrushSettingLabel(_brushSpacing.Bounds, "Spacing %");
+            _brushEditorSize.Draw();
+            _brushOpacity.Draw();
+            _brushSpacing.Draw();
+            if (!string.IsNullOrWhiteSpace(_drawingTools.BrushStoreError))
+                new UITextContainer { Bounds = new Rectangle(panel.X + 16, panel.Bottom - 22, panel.Width - 32, 18), MaxLines = 1 }
+                    .Draw(_drawingTools.BrushStoreError, UITheme.Danger, .52f);
+        }
+
+        private static void DrawBrushSettingLabel(Rectangle slider, string label) =>
+            new UITextContainer { Bounds = new Rectangle(slider.X, slider.Y - 20, slider.Width, 20),
+                Padding = 0, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }.Draw(label, UITheme.TextMuted, .55f);
 
         private void DrawHelp()
         {

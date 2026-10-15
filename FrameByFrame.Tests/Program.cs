@@ -3,6 +3,7 @@ using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Selection;
+using FrameByFrame.src.Engine;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
@@ -172,6 +173,37 @@ slider.SetValue(-20);
 Assert(slider.Value == 1, "Sliders should clamp values to their minimum.");
 slider.SetValue(200);
 Assert(slider.Value == 50, "Sliders should clamp values to their maximum.");
+
+Assert(BrushRasterizer.Contains(BrushShape.Square, 4, 4, 4) &&
+       !BrushRasterizer.Contains(BrushShape.Round, 4, 4, 4),
+    "Custom brush shapes should produce distinct stamp footprints.");
+Color halfPaint = BrushRasterizer.Apply(Color.Transparent, Color.Red, 50, erase: false);
+Assert(halfPaint.R == 255 && halfPaint.A is >= 127 and <= 128,
+    "Brush opacity should blend paint into transparent pixels.");
+Color halfErase = BrushRasterizer.Apply(Color.Blue, Color.Transparent, 50, erase: true);
+Assert(halfErase.B == 255 && halfErase.A is >= 127 and <= 128,
+    "The same custom brush opacity should apply while erasing.");
+
+string brushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-brushes-{Guid.NewGuid():N}.json");
+try
+{
+    var brushes = new BrushPresetStore(brushSettings);
+    BrushPreset custom = brushes.Add(brushes.Presets[0]);
+    custom.Shape = BrushShape.Square;
+    custom.Size = 17;
+    custom.OpacityPercent = 65;
+    custom.SpacingPercent = 80;
+    brushes.Save();
+    var reloadedBrushes = new BrushPresetStore(brushSettings);
+    BrushPreset restored = reloadedBrushes.Presets.Single(preset => preset.Id == custom.Id);
+    Assert(restored.Shape == BrushShape.Square && restored.Size == 17 &&
+           restored.OpacityPercent == 65 && restored.SpacingPercent == 80,
+        "Configured custom brushes should persist and reload with stable identity.");
+}
+finally
+{
+    File.Delete(brushSettings);
+}
 
 Color X = Color.Black;
 Color O = Color.Transparent;
