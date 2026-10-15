@@ -423,12 +423,14 @@ namespace FrameByFrame.src.Engine.Animation
                 for (int i = 1; i <= previousOnionFrames; i++)
                 {
                     Frame? frame = GetFrameAtIndex(CurrentFrameIndex - i);
-                    if (frame != null) frame.DrawLayers(view, baseOpacity * (previousOnionFrames - i + 1));
+                    if (frame != null) frame.DrawLayers(view,
+                        CalculateOnionOpacity(baseOpacity, previousOnionFrames, i));
                 }
                 for (int i = 1; i <= nextOnionFrames; i++)
                 {
                     Frame? frame = GetFrameAtIndex(CurrentFrameIndex + i);
-                    if (frame != null) frame.DrawLayers(view, baseOpacity * (nextOnionFrames - i + 1));
+                    if (frame != null) frame.DrawLayers(view,
+                        CalculateOnionOpacity(baseOpacity, nextOnionFrames, i));
                 }
             }
             CurrentFrame.DrawLayers(view, 1f);
@@ -560,6 +562,14 @@ namespace FrameByFrame.src.Engine.Animation
             if (layer == null) return false;
             layer.IsVisible = isVisible;
             return true;
+        }
+
+        internal static float CalculateOnionOpacity(float baseOpacity, int frameCount, int distance)
+        {
+            if (frameCount <= 0 || distance <= 0 || distance > frameCount) return 0f;
+            float normalizedBase = Math.Clamp(baseOpacity, 0f, 1f);
+            float falloff = (frameCount - distance + 1) / (float)frameCount;
+            return Math.Clamp(normalizedBase * falloff, 0f, 1f);
         }
 
         // Get total memory usage of all frames
