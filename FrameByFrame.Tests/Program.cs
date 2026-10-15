@@ -22,6 +22,61 @@ static void AssertThrows<TException>(Action action, string message) where TExcep
     throw new InvalidOperationException(message);
 }
 
+static bool ReadFbfBoolean(byte value, string field)
+{
+    using var stream = new MemoryStream([value]);
+    using var reader = new BinaryReader(stream);
+    return FbfProjectFile.ReadBoolean(reader, field);
+}
+
+static void AssertInvalidFbfBoolean(string field)
+{
+    try
+    {
+        ReadFbfBoolean(2, field);
+        throw new InvalidOperationException($"The {field} field accepted an invalid boolean byte.");
+    }
+    catch (InvalidDataException ex)
+    {
+        Assert(ex.Message.Contains(field, StringComparison.Ordinal),
+            $"The invalid {field} error should identify its field.");
+    }
+}
+
+Assert(!ReadFbfBoolean(0, "test") && ReadFbfBoolean(1, "test"),
+    "Strict FBF booleans should accept only their canonical zero and one values.");
+AssertInvalidFbfBoolean("canvas background transparency");
+AssertInvalidFbfBoolean("layer visibility");
+AssertInvalidFbfBoolean("layer lock");
+AssertInvalidFbfBoolean("audio mute");
+
+Assert(Animation.CalculateOnionOpacity(1f, 0, 1) == 0f,
+    "An onion-skin range with no frames should have zero opacity.");
+foreach (float setting in new[] { 0f, .25f, .5f, 1f, 2f })
+{
+    Assert(Animation.CalculateOnionOpacity(setting, 1, 1) is >= 0f and <= 1f,
+        "A one-frame onion-skin range should remain within the opacity bounds.");
+    float previousOpacity = float.MaxValue;
+    for (int distance = 1; distance <= 10; distance++)
+    {
+        float opacity = Animation.CalculateOnionOpacity(setting, 10, distance);
+        Assert(opacity is >= 0f and <= 1f && opacity <= previousOpacity,
+            "Onion-skin opacity should stay bounded and never increase with distance.");
+        previousOpacity = opacity;
+    }
+}
+
+string lowerPath = Path.Combine("Projects", "example.fbf");
+string upperPath = Path.Combine("Projects", "Example.fbf");
+Assert(!SaveService.IsCaseOnlyAlias(lowerPath, lowerPath, true, true),
+    "Equal paths should not be classified as case-only aliases.");
+Assert(SaveService.IsCaseOnlyAlias(lowerPath, upperPath, true, false),
+    "Case-insensitive filesystems should classify a differently-cased alias as the same entry.");
+Assert(!SaveService.IsCaseOnlyAlias(lowerPath, upperPath, false, false),
+    "Case-sensitive filesystems should treat an absent differently-cased destination as a new path.");
+Assert(!SaveService.IsCaseOnlyAlias(lowerPath, upperPath, true, true),
+    "An exact differently-cased destination should remain a collision on case-sensitive filesystems.");
+
 Rectangle wide = UILayoutEngine.FitAspect(new Rectangle(0, 0, 800, 800), 1.5f);
 Assert(wide.Width == 800 && wide.Height == 533, "Aspect fitting should constrain height.");
 Assert(wide.X == 0 && wide.Y == 134, "Aspect fitting should center the result.");

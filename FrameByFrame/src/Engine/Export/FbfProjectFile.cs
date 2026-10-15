@@ -452,8 +452,8 @@ namespace FrameByFrame.src.Engine.Export
                 if (idBytes.Length != 16) throw new EndOfStreamException("The FBF layer ID is incomplete.");
                 Guid id = new Guid(idBytes);
                 string name = ReadString(reader);
-                bool isVisible = reader.ReadBoolean();
-                bool isLocked = reader.ReadBoolean();
+                bool isVisible = ReadBoolean(reader, "layer visibility");
+                bool isLocked = ReadBoolean(reader, "layer lock");
                 if (id == Guid.Empty || !ids.Add(id) || string.IsNullOrWhiteSpace(name))
                     throw new InvalidDataException("The FBF layer metadata is invalid.");
                 layers.Add(new AnimationLayer(name, id, isVisible, isLocked));
@@ -529,7 +529,7 @@ namespace FrameByFrame.src.Engine.Export
             return tracks;
         }
 
-        private static bool ReadBoolean(BinaryReader reader, string field)
+        internal static bool ReadBoolean(BinaryReader reader, string field)
         {
             byte value = reader.ReadByte();
             if (value > 1) throw new InvalidDataException($"The FBF {field} value is invalid.");

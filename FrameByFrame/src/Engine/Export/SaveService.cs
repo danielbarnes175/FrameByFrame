@@ -168,16 +168,24 @@ namespace FrameByFrame.src.Engine.Export
             string destination = GetProjectPath($"{normalizedName}.fbf");
             string currentFullPath = Path.GetFullPath(currentFilename);
             string destinationFullPath = Path.GetFullPath(destination);
-            if (!string.Equals(currentFullPath, destinationFullPath, StringComparison.OrdinalIgnoreCase) && File.Exists(destination))
+            bool samePath = string.Equals(currentFullPath, destinationFullPath, StringComparison.Ordinal);
+            bool destinationExists = File.Exists(destinationFullPath);
+            bool caseOnlyAlias = IsCaseOnlyAlias(currentFullPath, destinationFullPath, destinationExists,
+                destinationExists && DirectoryContainsExactPath(destinationFullPath));
+            if (!samePath && destinationExists && !caseOnlyAlias)
                 throw new IOException($"A project named '{normalizedName}' already exists.");
 
             string oldName = animation.projectName;
             animation.projectName = normalizedName;
             try
             {
-                FbfProjectFile.Save(destination, animation);
-                if (!string.Equals(currentFullPath, destinationFullPath, StringComparison.OrdinalIgnoreCase))
-                    File.Delete(currentFilename);
+                if (caseOnlyAlias)
+                    SaveCaseOnlyRename(animation, currentFullPath, destinationFullPath);
+                else
+                {
+                    FbfProjectFile.Save(destinationFullPath, animation);
+                    if (!samePath) File.Delete(currentFullPath);
+                }
                 return destination;
             }
             catch
@@ -546,14 +554,57 @@ namespace FrameByFrame.src.Engine.Export
         internal static string ValidateProjectName(string name) =>
             ProjectModelValidator.ProjectName(name, nameof(name));
 
+        internal static bool IsCaseOnlyAlias(string currentPath, string destinationPath,
+            bool destinationExists, bool destinationExistsAsSpelled) =>
+            destinationExists && !destinationExistsAsSpelled &&
+            !string.Equals(currentPath, destinationPath, StringComparison.Ordinal) &&
+            string.Equals(currentPath, destinationPath, StringComparison.OrdinalIgnoreCase);
+
+        private static bool DirectoryContainsExactPath(string path)
+        {
+            string directory = Path.GetDirectoryName(path) ?? string.Empty;
+            if (!Directory.Exists(directory)) return false;
+            string fullPath = Path.GetFullPath(path);
+            return Directory.EnumerateFiles(directory)
+                .Any(candidate => string.Equals(Path.GetFullPath(candidate), fullPath, StringComparison.Ordinal));
+        }
+
+        private static void SaveCaseOnlyRename(Animation.Animation animation, string currentPath,
+            string destinationPath)
+        {
+            string suffix = Guid.NewGuid().ToString("N");
+            string stagingPath = destinationPath + $".rename-{suffix}";
+            string backupPath = currentPath + $".backup-{suffix}";
+            try
+            {
+                FbfProjectFile.Save(stagingPath, animation);
+                File.Move(currentPath, backupPath);
+                try
+                {
+                    File.Move(stagingPath, destinationPath);
+                    File.Delete(backupPath);
+                }
+                catch
+                {
+                    if (!File.Exists(currentPath) && File.Exists(backupPath))
+                        File.Move(backupPath, currentPath);
+                    throw;
+                }
+            }
+            finally
+            {
+                if (File.Exists(stagingPath)) File.Delete(stagingPath);
+                if (File.Exists(stagingPath + ".tmp")) File.Delete(stagingPath + ".tmp");
+            }
+        }
+
         private static string GetProjectPath(string relativeName)
         {
             string projectsRoot = Path.GetFullPath(ProjectsDirectory);
             string candidate = Path.GetFullPath(Path.Combine(projectsRoot, relativeName));
-            string rootPrefix = projectsRoot.EndsWith(Path.DirectorySeparatorChar)
-                ? projectsRoot
-                : projectsRoot + Path.DirectorySeparatorChar;
-            if (!candidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+            string relative = Path.GetRelativePath(projectsRoot, candidate);
+            if (Path.IsPathRooted(relative) || relative == ".." ||
+                relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                 throw new InvalidOperationException("The project path must remain inside the projects directory.");
             return candidate;
         }
