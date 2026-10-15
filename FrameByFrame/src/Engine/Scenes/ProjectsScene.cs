@@ -33,7 +33,6 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _confirmExport;
         private UIActionButton _cancelExport;
         private UIActionButton _chooseExportDirectory;
-        private UIActionButton _dismissExportStatus;
         private UIActionButton _folder;
         private UIActionButton _create;
         private int _selected = -1;
@@ -51,12 +50,23 @@ namespace FrameByFrame.src.Engine.Scenes
         private string _exportDirectory = Path.GetFullPath("Projects");
         private string _exportMessage = string.Empty;
         private SaveService.ExportOperation _exportOperation;
-        private bool _isShowingExportStatus;
-        private string _exportStartupError = string.Empty;
+        private bool _exportPending;
+        private readonly Queue<string> _pendingProjectFiles = new();
+        private readonly List<string> _projectLoadErrors = new();
+        private readonly UIFeedbackState _feedback = new();
+        private UIFeedbackOverlay _feedbackOverlay;
+        private int _projectLoadTotal;
+        private int _projectLoadProcessed;
+        private string _pendingOpenFile;
 
         public override void LoadContent()
         {
-            Directory.CreateDirectory("Projects");
+            try { Directory.CreateDirectory("Projects"); }
+            catch (Exception ex)
+            {
+                _feedback.ShowError("Projects folder is unavailable", ex.Message,
+                    "Check the application's folder permissions, then restart FrameByFrame.");
+            }
             _back = new UIActionButton("< Home", GoHome);
             _previous = new UIActionButton("< Page", () => ChangePage(-1));
             _next = new UIActionButton("Page >", () => ChangePage(1));
@@ -74,10 +84,9 @@ namespace FrameByFrame.src.Engine.Scenes
             _confirmExport = new UIActionButton("Export range", ExportSelectedProject);
             _cancelExport = new UIActionButton("Cancel", () => _isSelectingExportRange = false);
             _chooseExportDirectory = new UIActionButton("Choose export folder", ChooseExportDirectory);
-            _dismissExportStatus = new UIActionButton("Close", DismissExportStatus);
             _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
             _create = new UIActionButton("Create animation", CreateAnimation);
-            LoadAnimations();
+            _feedbackOverlay = new UIFeedbackOverlay(_feedback);
         }
 
         private void Layout()
@@ -106,10 +115,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             int columns = GalleryColumnCount(GlobalParameters.screenWidth);
             int pageSize = columns * 2;
-            if (_selected >= 0 && _animations.Count > 0)
-                _pageStart = Math.Clamp((_selected / pageSize) * pageSize, 0,
-                    ((_animations.Count - 1) / pageSize) * pageSize);
-            else _pageStart = 0;
+            _pageStart = ResolvePageStart(_pageStart, _selected, _animations.Count, pageSize);
             Rectangle gallery = new(margin, navigationY + S(50),
                 Math.Max(1, GlobalParameters.screenWidth - margin * 2),
                 Math.Max(1, actionY - S(14) - (navigationY + S(50))));
@@ -129,29 +135,56 @@ namespace FrameByFrame.src.Engine.Scenes
             _chooseExportDirectory.Bounds = new Rectangle(cx - S(220), cy + S(72), S(440), S(44));
             _confirmExport.Bounds = new Rectangle(cx - S(220), cy + S(130), S(210), S(52));
             _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(130), S(210), S(52));
-            _dismissExportStatus.Bounds = new Rectangle(cx - S(105), cy + S(90), S(210), S(52));
             bool hasProjects = _animations.Count > 0;
             bool hasSelection = _selected >= 0 && _selected < _animations.Count;
             _previous.IsEnabled = hasProjects && _pageStart > 0;
             _next.IsEnabled = hasProjects && _pageStart + pageSize < _animations.Count;
             _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasSelection;
+            _feedbackOverlay.Arrange(new Rectangle(0, 0,
+                GlobalParameters.screenWidth, GlobalParameters.screenHeight));
         }
 
         private static int GalleryColumnCount(int width) => width >= 1000 ? 3 : width >= 600 ? 2 : 1;
 
+        internal static int ResolvePageStart(int currentPageStart, int selectedIndex,
+            int itemCount, int pageSize)
+        {
+            if (itemCount <= 0) return 0;
+            pageSize = Math.Max(1, pageSize);
+            int maxPageStart = ((itemCount - 1) / pageSize) * pageSize;
+            if (selectedIndex >= 0 && selectedIndex < itemCount)
+                return Math.Clamp(selectedIndex / pageSize * pageSize, 0, maxPageStart);
+            int clamped = Math.Clamp(currentPageStart, 0, maxPageStart);
+            return clamped / pageSize * pageSize;
+        }
+
         public override void Update(GameTime gameTime)
         {
-            Layout(); UIPointerRouter.BeginFrame();
-            if (_isShowingExportStatus)
+            Layout(); UIPointerRouter.BeginFrame(); _feedback.Advance(gameTime);
+            if (_pendingOpenFile != null)
+            {
+                ProcessPendingProjectOpen();
+                return;
+            }
+            if (_pendingProjectFiles.Count > 0)
+            {
+                LoadNextProject();
+                return;
+            }
+            if (_exportPending)
+            {
+                StartPendingExport();
+                return;
+            }
+            if (_exportOperation != null)
+            {
+                AdvanceExport();
+                return;
+            }
+            if (_feedback.IsVisible)
             {
                 _previewAudio?.Stop();
-                if (_exportOperation != null && !_exportOperation.IsComplete && !_exportOperation.IsFailed)
-                    _exportOperation.Step();
-                if (_exportOperation == null || _exportOperation.IsComplete || _exportOperation.IsFailed)
-                {
-                    _dismissExportStatus.Update();
-                    if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) DismissExportStatus();
-                }
+                _feedbackOverlay.Update();
                 return;
             }
             if (_isRenaming)
@@ -204,6 +237,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
+            Layout();
             GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
             int S(int value) => UILayoutEngine.Scale(value);
             UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, S(88)), UITheme.Surface);
@@ -221,7 +255,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (_animations.Count == 0) DrawEmptyState(); else DrawSelectedProject();
             if (_isRenaming) DrawRenameDialog();
             if (_isSelectingExportRange) DrawExportRangeDialog();
-            if (_isShowingExportStatus) DrawExportStatusDialog();
+            _feedbackOverlay.Draw();
         }
 
         private void DrawEmptyState()
@@ -298,8 +332,12 @@ namespace FrameByFrame.src.Engine.Scenes
                     _animations[_selected], _projectFiles[_selected], _renameText);
                 _isRenaming = false;
                 _renameError = string.Empty;
+                _feedback.ShowSuccess("Project renamed", "The new project name was saved successfully.");
             }
-            catch (Exception ex) { _renameError = ex.Message; }
+            catch (Exception ex)
+            {
+                _renameError = $"{ex.Message} Choose a unique name without path characters, then try again.";
+            }
         }
 
         private void UpdateRenameText()
@@ -348,15 +386,52 @@ namespace FrameByFrame.src.Engine.Scenes
         public void LoadAnimations()
         {
             DisposeAnimations(); _projectFiles.Clear(); _selected = -1; _pageStart = 0; _previewFrame = 0;
-            foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
+            _pendingProjectFiles.Clear();
+            _projectLoadErrors.Clear();
+            _projectLoadProcessed = 0;
+            _feedback.Clear();
+            try
             {
-                try
-                {
-                    Animation.Animation animation = SaveService.LoadAnimation(file);
-                    _projectFiles.Add(file);
-                    _animations.Add(animation);
-                }
-                catch (Exception ex) { Debug.WriteLine($"Skipping invalid save '{file}': {ex.Message}"); }
+                foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
+                    _pendingProjectFiles.Enqueue(file);
+                _projectLoadTotal = _pendingProjectFiles.Count;
+                if (_projectLoadTotal > 0)
+                    _feedback.ShowBusy("Loading projects", $"Preparing {_projectLoadTotal} saved project(s)...", 0f);
+            }
+            catch (Exception ex)
+            {
+                _feedback.ShowError("Projects could not be listed", ex.Message,
+                    "Check access to the Projects folder, then reopen this screen to retry.");
+            }
+        }
+
+        private void LoadNextProject()
+        {
+            string file = _pendingProjectFiles.Dequeue();
+            try
+            {
+                Animation.Animation animation = SaveService.LoadAnimation(file);
+                _projectFiles.Add(file);
+                _animations.Add(animation);
+            }
+            catch (Exception ex)
+            {
+                _projectLoadErrors.Add($"{Path.GetFileName(file)}: {ex.Message}");
+            }
+            _projectLoadProcessed++;
+            if (_pendingProjectFiles.Count > 0)
+            {
+                _feedback.ShowBusy("Loading projects",
+                    $"Processed {_projectLoadProcessed} of {_projectLoadTotal} project files...",
+                    _projectLoadProcessed / (float)Math.Max(1, _projectLoadTotal));
+                return;
+            }
+
+            if (_projectLoadErrors.Count == 0) _feedback.Clear();
+            else
+            {
+                _feedback.ShowErrorList($"{_projectLoadErrors.Count} project(s) were skipped", _projectLoadErrors,
+                    "The remaining projects are safe to use. Replace or remove the damaged files before retrying.");
             }
         }
 
@@ -401,8 +476,8 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (_animations.Count == 0) return;
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
-            int maxPageStart = ((_animations.Count - 1) / pageSize) * pageSize;
-            int nextPageStart = Math.Clamp(_pageStart + delta * pageSize, 0, maxPageStart);
+            int nextPageStart = ResolvePageStart(_pageStart + delta * pageSize,
+                -1, _animations.Count, pageSize);
             if (nextPageStart == _pageStart) return;
             DeselectProject();
             _pageStart = nextPageStart;
@@ -412,14 +487,28 @@ namespace FrameByFrame.src.Engine.Scenes
         private void OpenSelectedProject()
         {
             if (_selected < 0 || _selected >= _animations.Count) return;
+            StopPreview();
+            _pendingOpenFile = _projectFiles[_selected];
+            _feedback.ShowBusy("Opening project", $"Loading {Path.GetFileNameWithoutExtension(_pendingOpenFile)}...");
+        }
+
+        private void ProcessPendingProjectOpen()
+        {
+            string file = _pendingOpenFile;
+            _pendingOpenFile = null;
             try
             {
-                StopPreview();
-                Animation.Animation loaded = SaveService.LoadAnimation(_projectFiles[_selected]);
+                Animation.Animation loaded = SaveService.LoadAnimation(file);
                 DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
-                drawing.LoadAnimation(loaded); GlobalParameters.CurrentScene = drawing;
+                drawing.LoadAnimation(loaded);
+                _feedback.Clear();
+                GlobalParameters.CurrentScene = drawing;
             }
-            catch (Exception ex) { Debug.WriteLine($"Unable to open project: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                _feedback.ShowError("Project could not be opened", ex.Message,
+                    "Confirm the file is a valid FrameByFrame project and that it is readable, then try again.");
+            }
         }
         private void CreateAnimation()
         {
@@ -449,17 +538,47 @@ namespace FrameByFrame.src.Engine.Scenes
             if (_selected < 0 || _selected >= _animations.Count) return;
             _isSelectingExportRange = false;
             _exportOperation = null;
-            _exportStartupError = string.Empty;
-            _isShowingExportStatus = true;
+            _exportPending = true;
+            _feedback.ShowBusy("Preparing export", "Saving the project and preparing frames...", 0f);
+        }
+
+        private void StartPendingExport()
+        {
+            _exportPending = false;
+            _previewAudio?.Stop();
             try
             {
                 _exportOperation = SaveService.BeginExportAnimation(
                     _animations[_selected], _exportStart, _exportEnd, _exportDirectory, _exportFormat);
+                _feedback.ShowBusy("Exporting animation", _exportOperation.Status, _exportOperation.Progress);
             }
             catch (Exception ex)
             {
-                _exportStartupError = ex.Message;
+                _exportOperation = null;
+                _feedback.ShowError("Export could not be started", ex.Message,
+                    "Check the destination permissions and available disk space, then try again.");
             }
+        }
+
+        private void AdvanceExport()
+        {
+            _previewAudio?.Stop();
+            if (_exportOperation.IsFailed)
+            {
+                string message = _exportOperation.Failure?.Message ?? _exportOperation.Status;
+                _exportOperation = null;
+                _feedback.ShowError("Export failed", message,
+                    "Check the destination permissions, available disk space, and export dependencies, then try again.");
+                return;
+            }
+            if (_exportOperation.IsComplete)
+            {
+                string outputPath = _exportOperation.OutputPath;
+                _exportOperation = null;
+                _feedback.ShowSuccess("Export complete", $"Animation exported to {outputPath}");
+                return;
+            }
+            _feedback.ShowBusy("Exporting animation", _exportOperation.Status, _exportOperation.Progress);
         }
         private void ChooseExportDirectory()
         {
@@ -476,6 +595,8 @@ namespace FrameByFrame.src.Engine.Scenes
             catch (Exception ex)
             {
                 _exportMessage = $"Could not choose an export folder: {ex.Message}";
+                _feedback.ShowError("Export folder could not be selected", ex.Message,
+                    "Check folder access permissions, then choose another destination.");
             }
         }
         private void DrawExportRangeDialog()
@@ -518,49 +639,14 @@ namespace FrameByFrame.src.Engine.Scenes
             ExportFormat.SpriteSheet => "Spritesheet",
             _ => format.ToString().ToUpperInvariant()
         };
-        private void DismissExportStatus()
-        {
-            if (_exportOperation != null && !_exportOperation.IsComplete && !_exportOperation.IsFailed) return;
-            _isShowingExportStatus = false;
-            _exportOperation = null;
-            _exportStartupError = string.Empty;
-        }
-        private void DrawExportStatusDialog()
-        {
-            int S(int value) => UILayoutEngine.Scale(value);
-            int cx = GlobalParameters.screenWidth / 2;
-            int cy = GlobalParameters.screenHeight / 2;
-            bool failed = _exportOperation?.IsFailed == true || !string.IsNullOrEmpty(_exportStartupError);
-            bool complete = _exportOperation?.IsComplete == true;
-            float progress = _exportOperation?.Progress ?? 0f;
-            string heading = failed ? "Export failed" : complete ? "Export complete" : "Exporting animation";
-            string status = !string.IsNullOrEmpty(_exportStartupError)
-                ? $"{_exportStartupError} Check the destination permissions and available disk space, then try again."
-                : _exportOperation?.Status ?? "Preparing export...";
-            if (_exportOperation?.IsFailed == true)
-                status += " Check the destination permissions and available disk space, then try again.";
-
-            Rectangle dialog = new(cx - S(290), cy - S(150), S(580), S(310));
-            UIRenderer.Fill(dialog, UITheme.SurfaceRaised);
-            UIRenderer.Border(dialog, failed ? UITheme.Danger : UITheme.Primary, 3);
-            new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(20), dialog.Width - S(56), S(46)), MaxLines = 1 }
-                .Draw(heading, failed ? UITheme.Danger : UITheme.Primary, .9f);
-
-            Rectangle track = new(dialog.X + S(36), dialog.Y + S(88), dialog.Width - S(72), S(22));
-            UIRenderer.Fill(track, UITheme.Surface);
-            UIRenderer.Border(track, UITheme.Border, 2);
-            Rectangle fill = new(track.X + 2, track.Y + 2,
-                (int)Math.Round(Math.Max(0, track.Width - 4) * Math.Clamp(progress, 0f, 1f)),
-                Math.Max(1, track.Height - 4));
-            UIRenderer.Fill(fill, failed ? UITheme.Danger : UITheme.Primary);
-            new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(122), dialog.Width - S(56), S(90)), MaxLines = 3 }
-                .Draw(status, failed ? UITheme.Danger : UITheme.Text, .65f);
-            if (failed || complete) _dismissExportStatus.Draw(true);
-        }
         private void OpenProjectFolder()
         {
             try { Process.Start(new ProcessStartInfo { FileName = Path.GetFullPath("Projects"), UseShellExecute = true, Verb = "open" }); }
-            catch (Exception ex) { Debug.WriteLine(ex.Message); }
+            catch (Exception ex)
+            {
+                _feedback.ShowError("Projects folder could not be opened", ex.Message,
+                    $"Open this folder manually: {Path.GetFullPath("Projects")}");
+            }
         }
         private void GoHome()
         {

@@ -4,6 +4,7 @@ using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Selection;
 using FrameByFrame.src.Engine;
+using FrameByFrame.src.Engine.Scenes;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
@@ -36,6 +37,12 @@ Assert(grid.Count == 6 && grid[0] == new Rectangle(0, 0, 200, 205),
     "Grid layout should size the first project card consistently.");
 Assert(grid[2].X == 420 && grid[3].Y == 215,
     "Grid layout should place six project cards in two rows of three.");
+
+Assert(ProjectsScene.ResolvePageStart(6, -1, 14, 6) == 6 &&
+       ProjectsScene.ResolvePageStart(12, -1, 14, 6) == 12,
+    "Project pagination should retain the chosen page when no project is selected.");
+Assert(ProjectsScene.ResolvePageStart(6, 2, 14, 6) == 0,
+    "Project pagination should bring an explicitly selected project into view.");
 
 UIBox box = new(new Rectangle(10, 20, 100, 80), 8);
 Assert(box.Content == new Rectangle(18, 28, 84, 64), "UIBox padding should produce stable content bounds.");
@@ -70,6 +77,29 @@ Assert(Vector2.Distance(zoomAnchor, canvasView.CanvasToScreen(anchoredCanvasPoin
 canvasView.Reset();
 Assert(canvasView.Zoom == 1f && canvasView.RotationDegrees == 0f && canvasView.PanOffset == Vector2.Zero,
     "Reset should restore the default editor-only canvas view.");
+
+var feedback = new UIFeedbackState();
+feedback.ShowBusy("Loading", "Opening a project...", 2f);
+Assert(feedback.IsVisible && feedback.IsBusy && feedback.Progress == 1f,
+    "Busy feedback should be visible and clamp determinate progress.");
+feedback.Dismiss();
+Assert(feedback.IsVisible, "Busy feedback should not be dismissible while work is active.");
+feedback.Advance(new GameTime(TimeSpan.Zero, TimeSpan.FromMilliseconds(250)));
+Assert(feedback.SpinnerPhase > 0f, "Busy feedback should animate as updates advance.");
+feedback.ShowError("Load failed", "The file is damaged.", "Choose another file.");
+Assert(!feedback.IsBusy && feedback.Kind == UIFeedbackKind.Error &&
+       feedback.ActionHint == "Choose another file.",
+    "Error feedback should retain actionable recovery guidance.");
+feedback.ShowErrorList("Projects skipped", ["one.fbf: invalid header", "two.fbf: truncated data"],
+    "Repair or remove these projects.");
+Assert(feedback.Details.Count == 2 && feedback.Details[0].StartsWith("one.fbf") &&
+       string.IsNullOrEmpty(feedback.Message),
+    "List feedback should retain every project-specific error for scrolling.");
+feedback.ShowError("Load failed", "The file is damaged.", "Choose another file.");
+Assert(feedback.Details.Count == 0,
+    "Ordinary feedback should clear details from an earlier list.");
+feedback.Dismiss();
+Assert(!feedback.IsVisible, "Completed feedback should be dismissible.");
 
 string autosaveSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-autosave-{Guid.NewGuid():N}.json");
 try
@@ -346,6 +376,33 @@ Assert(SaveService.FormatSupportsTransparency(ExportFormat.Gif) &&
        SaveService.FormatSupportsTransparency(ExportFormat.PngSequence) &&
        SaveService.FormatSupportsTransparency(ExportFormat.SpriteSheet),
     "Alpha-capable export formats should retain canvas transparency.");
+
+var exportFrame = new SaveService.ExportFrameSnapshot([
+    new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Red)]),
+    new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Blue)])
+]);
+var exportSnapshot = new SaveService.ExportSnapshot(1, 1, 12, 0, Color.White,
+    [exportFrame], Array.Empty<AudioTrack>());
+byte[] exportedPixel = SaveService.ComposeFramePixels(exportSnapshot, exportFrame);
+Assert(exportedPixel.SequenceEqual(new byte[] { 255, 0, 0, 255 }),
+    "Background export compositing should preserve the same top-to-bottom layer order as the canvas.");
+
+string asyncExportRoot = Path.Combine(Path.GetTempPath(), $"framebyframe-worker-export-{Guid.NewGuid():N}");
+string asyncProjectDirectory = Path.Combine(asyncExportRoot, "Worker export test");
+try
+{
+    Directory.CreateDirectory(asyncProjectDirectory);
+    var operation = new SaveService.ExportOperation(exportSnapshot, "Worker export test", asyncExportRoot,
+        asyncProjectDirectory, ExportFormat.PngSequence);
+    operation.WaitForCompletion();
+    Assert(operation.IsComplete && !operation.IsFailed &&
+           File.Exists(Path.Combine(asyncProjectDirectory, "Frame_0.png")),
+        "PNG sequence encoding should complete successfully on the export worker.");
+}
+finally
+{
+    if (Directory.Exists(asyncExportRoot)) Directory.Delete(asyncExportRoot, recursive: true);
+}
 
 Console.WriteLine("FrameByFrame UI contract tests passed.");
 

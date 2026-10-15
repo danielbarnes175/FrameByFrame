@@ -56,6 +56,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly Animation _animation;
         private readonly DrawingTools _drawingTools;
         private readonly AutosaveService _autosave;
+        private readonly UIFeedbackState _feedback;
         private readonly UIActionButton _home;
         private readonly UIIconButton _help;
         private readonly UIIconButton _settings;
@@ -102,6 +103,7 @@ namespace FrameByFrame.src.UI.Components
         private float _selectedSaturation;
         private float _selectedValue;
         private string _saveError = string.Empty;
+        private bool _savePending;
         private int _helpScroll;
         private int _settingsScroll;
         private int _brushTipAlphaPercent = 100;
@@ -129,13 +131,16 @@ namespace FrameByFrame.src.UI.Components
 
         public Color SelectedColor => _selectedColor;
         public bool HasOpenPopover => _openPopover != PopoverKind.None;
+        public bool HasPendingSave => _savePending;
         public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
-        public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools, AutosaveService autosave)
+        public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools, AutosaveService autosave,
+            UIFeedbackState feedback = null)
         {
             _animation = animation;
             _drawingTools = drawingTools;
             _autosave = autosave ?? throw new ArgumentNullException(nameof(autosave));
+            _feedback = feedback;
             _home = new UIActionButton("HOME", GoHome);
             _help = Icon("Static\\DrawingScene/help", () => Toggle(PopoverKind.Help), "Help");
             _settings = Icon("Static\\DrawingScene/gear", () => Toggle(PopoverKind.Settings), "Animation settings");
@@ -196,18 +201,31 @@ namespace FrameByFrame.src.UI.Components
 
         public void SaveAnimation()
         {
+            if (_savePending) return;
+            _savePending = true;
+            _feedback?.ShowBusy("Saving project", $"Saving {_animation.projectName}...");
+            if (_feedback == null) ProcessPendingSave();
+        }
+
+        public void ProcessPendingSave()
+        {
+            if (!_savePending) return;
+            _savePending = false;
             int previousThumbnailFrameIndex = _animation.ThumbnailFrameIndex;
             try
             {
                 _animation.CaptureThumbnailFrame();
                 SaveService.SaveAnimation(_animation);
                 _saveError = string.Empty;
+                _feedback?.ShowSuccess("Project saved", $"{_animation.projectName} was saved successfully.");
             }
             catch (Exception ex)
             {
                 _animation.RestoreThumbnailFrame(previousThumbnailFrameIndex);
                 _saveError = ex.Message;
                 _openPopover = PopoverKind.Settings;
+                _feedback?.ShowError("Project could not be saved", ex.Message,
+                    "Check the project name, available disk space, and Projects folder permissions, then try again.");
             }
         }
 
