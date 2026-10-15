@@ -34,7 +34,7 @@ namespace FrameByFrame.src.Engine
         {
             if (_presets.Count <= 1) return false;
             int index = _presets.FindIndex(candidate => candidate.Id == id);
-            if (index < 0) return false;
+            if (index < 0 || _presets[index].IsBuiltIn) return false;
             _presets.RemoveAt(index);
             Save();
             return true;
@@ -80,6 +80,7 @@ namespace FrameByFrame.src.Engine
                     }
                 }
                 foreach (BrushPreset preset in _presets) preset.Normalize();
+                MarkRecognizedBuiltIns();
                 if (_presets.Count == 0)
                 {
                     _presets.AddRange(BrushPreset.CreateBuiltIns());
@@ -94,6 +95,20 @@ namespace FrameByFrame.src.Engine
                 _presets.AddRange(BrushPreset.CreateBuiltIns());
                 LastError = $"Brush presets could not be loaded: {ex.Message}";
             }
+        }
+
+        private void MarkRecognizedBuiltIns()
+        {
+            foreach (BrushPreset preset in _presets)
+            foreach (BrushPreset builtIn in BrushPreset.CreateBuiltIns())
+                if (string.Equals(preset.Name, builtIn.Name, StringComparison.OrdinalIgnoreCase) &&
+                    preset.TipWidth == builtIn.TipWidth && preset.TipHeight == builtIn.TipHeight &&
+                    preset.TipAlpha.SequenceEqual(builtIn.TipAlpha))
+                {
+                    preset.IsBuiltIn = true;
+                    preset.TileTip = builtIn.TileTip;
+                    break;
+                }
         }
     }
 }

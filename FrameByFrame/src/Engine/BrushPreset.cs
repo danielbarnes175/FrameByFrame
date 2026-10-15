@@ -11,6 +11,8 @@ namespace FrameByFrame.src.Engine
 
         public Guid Id { get; set; } = Guid.NewGuid();
         public string Name { get; set; } = "Solid Pen";
+        public bool IsBuiltIn { get; set; }
+        public bool TileTip { get; set; }
         public int FormatVersion { get; set; } = CurrentFormatVersion;
         public int TipWidth { get; set; } = DefaultTipSize;
         public int TipHeight { get; set; } = DefaultTipSize;
@@ -23,18 +25,28 @@ namespace FrameByFrame.src.Engine
 
         public bool SetAlpha(int x, int y, byte alpha)
         {
+            if (IsBuiltIn) return false;
             if (x < 0 || x >= TipWidth || y < 0 || y >= TipHeight) return false;
             int index = x + y * TipWidth;
             if (TipAlpha[index] == alpha) return false;
             TipAlpha[index] = alpha;
+            TileTip = true;
             return true;
         }
 
-        public void Fill(byte alpha) => Array.Fill(TipAlpha, alpha);
+        public bool Fill(byte alpha)
+        {
+            if (IsBuiltIn) return false;
+            Array.Fill(TipAlpha, alpha);
+            TileTip = true;
+            return true;
+        }
 
         public BrushPreset Clone(string name) => new()
         {
             Name = name,
+            IsBuiltIn = false,
+            TileTip = TileTip,
             FormatVersion = CurrentFormatVersion,
             TipWidth = TipWidth,
             TipHeight = TipHeight,
@@ -52,23 +64,29 @@ namespace FrameByFrame.src.Engine
                 TipAlpha = CreateSolidTip(TipWidth, TipHeight);
         }
 
-        public static BrushPreset CreateSolidPen() => new();
+        public static BrushPreset CreateSolidPen() => new() { IsBuiltIn = true };
 
         public static BrushPreset CreatePencil() => new()
         {
             Name = "Pencil",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreatePencilTip(DefaultTipSize)
         };
 
         public static BrushPreset CreateMarker() => new()
         {
             Name = "Marker",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreateMarkerTip(DefaultTipSize)
         };
 
         public static BrushPreset CreateOil() => new()
         {
             Name = "Oil",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreateOilTip(DefaultTipSize)
         };
 
@@ -77,24 +95,32 @@ namespace FrameByFrame.src.Engine
         public static BrushPreset CreateCheckerDither() => new()
         {
             Name = "Checker 50%",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreatePatternTip(DefaultTipSize, (x, y) => (x + y) % 2 == 0)
         };
 
         public static BrushPreset CreateSparseDither() => new()
         {
             Name = "Sparse 25%",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreatePatternTip(DefaultTipSize, (x, y) => x % 2 == 0 && y % 2 == 0)
         };
 
         public static BrushPreset CreateHorizontalTone() => new()
         {
             Name = "Horizontal Tone",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreatePatternTip(DefaultTipSize, (_, y) => y % 3 != 2)
         };
 
         public static BrushPreset CreateDiagonalHatch() => new()
         {
             Name = "Diagonal Hatch",
+            IsBuiltIn = true,
+            TileTip = true,
             TipAlpha = CreatePatternTip(DefaultTipSize, (x, y) => (x + y) % 4 == 0)
         };
 

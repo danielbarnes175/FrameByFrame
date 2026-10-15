@@ -176,10 +176,17 @@ Assert(slider.Value == 50, "Sliders should clamp values to their maximum.");
 
 BrushPreset solidPen = BrushPreset.CreateSolidPen();
 BrushPreset checker = BrushPreset.CreateCheckerDither();
-Assert(BrushRasterizer.Sample(solidPen, 0, 0, 8) == byte.MaxValue &&
-       BrushRasterizer.Sample(solidPen, -8, -8, 8) == 0 &&
-       BrushRasterizer.Sample(checker, 0, 0, 8) != BrushRasterizer.Sample(checker, 1, 0, 8),
+Assert(BrushRasterizer.Sample(solidPen, 0, 0, 8, 0, 0) == byte.MaxValue &&
+       BrushRasterizer.Sample(solidPen, -8, -8, 8, -8, -8) == 0 &&
+       BrushRasterizer.Sample(checker, 0, 0, 8, 8, 8) !=
+           BrushRasterizer.Sample(checker, 1, 0, 8, 9, 8) &&
+       BrushRasterizer.Sample(checker, 0, 0, 8, 8, 8) ==
+           BrushRasterizer.Sample(checker, -1, 0, 8, 8, 8),
     "Brush-tip masks should control the opacity and footprint of each stamp.");
+byte builtInAlpha = checker.AlphaAt(0, 0);
+Assert(checker.IsBuiltIn && !checker.SetAlpha(0, 0, (byte)(255 - builtInAlpha)) &&
+       checker.AlphaAt(0, 0) == builtInAlpha,
+    "Built-in brush presets should be immutable.");
 Color halfPaint = BrushRasterizer.Apply(Color.Transparent, Color.Red, 128, erase: false);
 Assert(halfPaint.R == 255 && halfPaint.A is >= 127 and <= 128,
     "Brush-tip alpha should blend paint into transparent pixels.");
@@ -193,6 +200,8 @@ try
     var brushes = new BrushPresetStore(brushSettings);
     Assert(brushes.Presets.Count >= 8,
         "The built-in library should expose a useful range of pen, texture, and tone presets.");
+    Assert(!brushes.Remove(brushes.Presets[0].Id),
+        "Built-in brush presets should not be removable.");
     BrushPreset custom = brushes.Add(brushes.Presets[0]);
     custom.Name = "Custom stipple";
     custom.SetAlpha(0, 0, 73);

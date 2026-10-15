@@ -5,11 +5,19 @@ namespace FrameByFrame.src.Engine
 {
     public static class BrushRasterizer
     {
-        public static byte Sample(BrushPreset brush, int x, int y, int radius)
+        public static byte Sample(BrushPreset brush, int x, int y, int radius,
+            int canvasX, int canvasY)
         {
             ArgumentNullException.ThrowIfNull(brush);
             radius = Math.Max(1, radius);
             if (x < -radius || x > radius || y < -radius || y > radius) return 0;
+            if (brush.TileTip)
+            {
+                if (x * x + y * y > radius * radius) return 0;
+                int tiledX = ((canvasX % brush.TipWidth) + brush.TipWidth) % brush.TipWidth;
+                int tiledY = ((canvasY % brush.TipHeight) + brush.TipHeight) % brush.TipHeight;
+                return brush.AlphaAt(tiledX, tiledY);
+            }
             int diameter = radius * 2 + 1;
             int tipX = Math.Clamp((x + radius) * brush.TipWidth / diameter, 0, brush.TipWidth - 1);
             int tipY = Math.Clamp((y + radius) * brush.TipHeight / diameter, 0, brush.TipHeight - 1);

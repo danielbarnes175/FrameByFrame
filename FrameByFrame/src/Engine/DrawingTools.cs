@@ -54,6 +54,7 @@ namespace FrameByFrame.src.Engine
         public IReadOnlyList<BrushPreset> Brushes => _brushStore.Presets;
         public BrushPreset SelectedBrush => Brushes[_selectedBrushIndex];
         public int SelectedBrushIndex => _selectedBrushIndex;
+        public bool CanEditSelectedBrush => !SelectedBrush.IsBuiltIn;
         public string BrushStoreError => _brushStore.LastError;
 
         public void SelectBrush(int index) =>
@@ -79,7 +80,7 @@ namespace FrameByFrame.src.Engine
 
         public void FillBrushTip(byte alpha)
         {
-            SelectedBrush.Fill(alpha);
+            if (!SelectedBrush.Fill(alpha)) return;
             _brushStore.Save();
         }
 

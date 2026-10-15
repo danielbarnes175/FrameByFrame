@@ -432,16 +432,6 @@ namespace FrameByFrame.src.UI.Components
         private void UpdateBrushes()
         {
             BrushPreset brush = _drawingTools.SelectedBrush;
-            _deleteBrush.IsEnabled = _drawingTools.Brushes.Count > 1;
-            _previousBrush.Update();
-            _nextBrush.Update();
-            _newBrush.Update();
-            _deleteBrush.Update();
-            _brushTipAlpha.SetValue(_brushTipAlphaPercent);
-            _brushTipAlpha.Update();
-            _fillBrushTip.Update();
-            _clearBrushTip.Update();
-
             Vector2 pointer = GlobalParameters.GlobalMouse.newMousePos;
             if (GlobalParameters.GlobalMouse.LeftClick())
             {
@@ -454,11 +444,25 @@ namespace FrameByFrame.src.UI.Components
                     }
             }
 
+            bool canEdit = _drawingTools.CanEditSelectedBrush;
+            _deleteBrush.IsEnabled = canEdit && _drawingTools.Brushes.Count > 1;
+            _brushTipAlpha.IsEnabled = canEdit;
+            _fillBrushTip.IsEnabled = canEdit;
+            _clearBrushTip.IsEnabled = canEdit;
+            _previousBrush.Update();
+            _nextBrush.Update();
+            _newBrush.Update();
+            _deleteBrush.Update();
+            _brushTipAlpha.SetValue(_brushTipAlphaPercent);
+            _brushTipAlpha.Update();
+            _fillBrushTip.Update();
+            _clearBrushTip.Update();
+
             int editorSize = Math.Min(220, Math.Max(64, _brushesPopover.Bounds.Height - 250));
             Rectangle editorArea = new(_brushesPopover.Bounds.X + 20, _brushesPopover.Bounds.Y + 220,
                 editorSize, editorSize);
             _brushTipBounds = FitBrushTip(editorArea, brush);
-            if (!_brushTipBounds.Contains(pointer) ||
+            if (!canEdit || !_brushTipBounds.Contains(pointer) ||
                 (!GlobalParameters.GlobalMouse.LeftClickHold() && !GlobalParameters.GlobalMouse.RightClickHold())) return;
             int tipX = Math.Clamp((int)((pointer.X - _brushTipBounds.X) * brush.TipWidth / _brushTipBounds.Width),
                 0, brush.TipWidth - 1);
@@ -751,7 +755,8 @@ namespace FrameByFrame.src.UI.Components
             _clearBrushTip.Draw();
             new UITextContainer { Bounds = new Rectangle(_brushTipAlpha.Bounds.X, _clearBrushTip.Bounds.Bottom + 8,
                 _brushTipAlpha.Bounds.Width, 58), Padding = 0, HorizontalAlignment = UIAlign.Start, MaxLines = 3 }
-                .Draw("Left drag paints\nRight drag erases", UITheme.TextMuted, .52f);
+                .Draw(brush.IsBuiltIn ? "Preset is read-only\nChoose New to edit a copy"
+                    : "Left drag paints\nRight drag erases", UITheme.TextMuted, .52f);
             if (!string.IsNullOrWhiteSpace(_drawingTools.BrushStoreError))
                 new UITextContainer { Bounds = new Rectangle(panel.X + 16, panel.Bottom - 22, panel.Width - 32, 18), MaxLines = 1 }
                     .Draw(_drawingTools.BrushStoreError, UITheme.Danger, .52f);

@@ -60,6 +60,7 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Stack<PixelEdit> _undoHistory = new();
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
+        private readonly Dictionary<int, byte> _strokeCoverage = new();
         private CanvasView _displayView;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
@@ -207,6 +208,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (_pendingPixelEdit != null || CurrentFrame == null || SelectedLayer == null) return;
             _pendingPixelEdit = new PixelEdit(CurrentFrame, SelectedLayerId,
                 CurrentFrame.GetLayerPixels(SelectedLayerId), null);
+            _strokeCoverage.Clear();
         }
 
         public void CommitPixelEdit()
@@ -216,6 +218,7 @@ namespace FrameByFrame.src.Engine.Animation
             Color[] after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
             PixelEdit completed = _pendingPixelEdit with { After = after };
             _pendingPixelEdit = null;
+            _strokeCoverage.Clear();
             if (after == null || completed.Before.SequenceEqual(after)) return;
             _undoHistory.Push(completed);
             while (_undoHistory.Count > MaxHistoryEntries)
@@ -230,6 +233,7 @@ namespace FrameByFrame.src.Engine.Animation
         private void ClearEditHistory()
         {
             _pendingPixelEdit = null;
+            _strokeCoverage.Clear();
             _undoHistory.Clear();
             _redoHistory.Clear();
         }
@@ -414,14 +418,21 @@ namespace FrameByFrame.src.Engine.Animation
                     int dx = x - centerX;
                     int dy = y - centerY;
                     
-                    byte tipAlpha = BrushRasterizer.Sample(brush, dx, dy, brushSize);
+                    byte tipAlpha = BrushRasterizer.Sample(brush, dx, dy, brushSize, x, y);
                     if (tipAlpha > 0)
                     {
+                        int pixelIndex = x + y * CurrentFrame.width;
+                        if (_strokeCoverage.TryGetValue(pixelIndex, out byte appliedAlpha) &&
+                            appliedAlpha >= tipAlpha) continue;
                         Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
-                        Color result = BrushRasterizer.Apply(existing, color, tipAlpha, erase);
+                        Color baseline = _pendingPixelEdit?.Before?[pixelIndex] ?? existing;
+                        Color result = BrushRasterizer.Apply(baseline, color, tipAlpha, erase);
                         bool canAddPixel = result == Color.Transparent || existing != Color.Transparent || availablePixels > 0;
                         if (CurrentFrame.SetPixel(SelectedLayerId, x, y, result, canAddPixel))
+                        {
+                            _strokeCoverage[pixelIndex] = tipAlpha;
                             availablePixels--;
+                        }
                     }
                 }
             }
