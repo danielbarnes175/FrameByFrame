@@ -71,6 +71,21 @@ canvasView.Reset();
 Assert(canvasView.Zoom == 1f && canvasView.RotationDegrees == 0f && canvasView.PanOffset == Vector2.Zero,
     "Reset should restore the default editor-only canvas view.");
 
+var feedback = new UIFeedbackState();
+feedback.ShowBusy("Loading", "Opening a project...", 2f);
+Assert(feedback.IsVisible && feedback.IsBusy && feedback.Progress == 1f,
+    "Busy feedback should be visible and clamp determinate progress.");
+feedback.Dismiss();
+Assert(feedback.IsVisible, "Busy feedback should not be dismissible while work is active.");
+feedback.Advance(new GameTime(TimeSpan.Zero, TimeSpan.FromMilliseconds(250)));
+Assert(feedback.SpinnerPhase > 0f, "Busy feedback should animate as updates advance.");
+feedback.ShowError("Load failed", "The file is damaged.", "Choose another file.");
+Assert(!feedback.IsBusy && feedback.Kind == UIFeedbackKind.Error &&
+       feedback.ActionHint == "Choose another file.",
+    "Error feedback should retain actionable recovery guidance.");
+feedback.Dismiss();
+Assert(!feedback.IsVisible, "Completed feedback should be dismissible.");
+
 string autosaveSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-autosave-{Guid.NewGuid():N}.json");
 try
 {

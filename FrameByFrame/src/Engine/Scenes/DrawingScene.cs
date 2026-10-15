@@ -22,6 +22,9 @@ namespace FrameByFrame.src.Engine.Scenes
         private readonly CanvasView _canvasView = new();
         private bool _isPanning;
         private bool _isRotating;
+        private readonly UIFeedbackState _feedback = new();
+        private UIFeedbackOverlay _feedbackOverlay;
+        private string _lastAutosaveError = string.Empty;
         public bool loadedScene;
 
         public DrawingScene() => InitializeDefaults();
@@ -50,16 +53,18 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _audioPlayback?.Dispose();
-            _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave);
+            _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave, _feedback);
             _audioPlayback = new AudioPlaybackController(animation);
             _timeline = new TimelineComponent(animation, _audioPlayback);
             _selectionControls = new SelectionControlsComponent(drawingTools);
+            _feedbackOverlay ??= new UIFeedbackOverlay(_feedback);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
 
         public override void Update(GameTime gameTime)
         {
             UIPointerRouter.BeginFrame();
+            _feedback.Advance(gameTime);
             int navbarHeight = DrawingNavbarComponent.PreferredHeight(GlobalParameters.screenWidth);
             int timelineHeight = Math.Min(UITheme.TimelineHeight,
                 Math.Max(72, (GlobalParameters.screenHeight - navbarHeight) / 3));
@@ -71,6 +76,13 @@ namespace FrameByFrame.src.Engine.Scenes
             int selectionWidth = Math.Max(1, Math.Min(500, GlobalParameters.screenWidth - 16));
             _selectionControls.Arrange(new Rectangle(GlobalParameters.screenWidth - selectionWidth - 8,
                 _timeline.Bounds.Y - 70, selectionWidth, 62));
+            _feedbackOverlay.Arrange(new Rectangle(0, 0,
+                GlobalParameters.screenWidth, GlobalParameters.screenHeight));
+            if (_feedback.IsVisible)
+            {
+                _feedbackOverlay.Update();
+                return;
+            }
             HandleKeyboardShortcuts();
             if (!_navbar.HasOpenPopover) _timeline.Update();
             _navbar.Update();
@@ -80,6 +92,10 @@ namespace FrameByFrame.src.Engine.Scenes
             animation.Animate(gameTime);
             _audioPlayback.Update();
             _autosave.Update(gameTime, animation);
+            if (!string.IsNullOrWhiteSpace(_autosave.LastError) && _autosave.LastError != _lastAutosaveError)
+                _feedback.ShowError("Autosave failed", _autosave.LastError,
+                    "Check available disk space and Projects folder permissions. You can retry with Save Project.");
+            _lastAutosaveError = _autosave.LastError;
         }
 
         public override void Draw(Vector2 offset)
@@ -95,6 +111,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _navbar.Draw();
             _selectionControls.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
+            _feedbackOverlay.Draw();
         }
 
         private static Rectangle CanvasStageBounds(int navbarHeight, int timelineHeight)

@@ -299,7 +299,8 @@ namespace FrameByFrame.src.UI.Components
                 !string.IsNullOrWhiteSpace(_audioPlayback?.LastError) ? _audioPlayback.LastError : _audioStatus;
             if (_animation.AudioTracks.Count == 0 && string.IsNullOrWhiteSpace(status)) status = "Import audio to add a timeline track.";
             if (!string.IsNullOrWhiteSpace(status))
-                new UITextContainer { Bounds = rows, MaxLines = 2 }.Draw(status, UITheme.TextMuted, .62f);
+                new UITextContainer { Bounds = rows, MaxLines = 2 }.Draw(status,
+                    status.Contains("failed", StringComparison.OrdinalIgnoreCase) ? UITheme.Danger : UITheme.TextMuted, .62f);
 
             _addAudio.DrawTooltip(); _removeAudio.DrawTooltip(); _muteAudio.DrawTooltip();
             _startDown.DrawTooltip(); _startUp.DrawTooltip(); _volumeDown.DrawTooltip(); _volumeUp.DrawTooltip();
@@ -320,7 +321,10 @@ namespace FrameByFrame.src.UI.Components
                 _audioStatus = string.Empty;
                 _importTask = AudioService.ImportAsync(output, _animation.CurrentFrameIndex);
             }
-            catch (Exception ex) { _audioStatus = $"Audio import failed: {ex.Message}"; }
+            catch (Exception ex)
+            {
+                _audioStatus = $"Audio import failed: {ex.Message} Check file access and choose a supported audio format, then try again.";
+            }
         }
 
         private void PollAudioImport()
@@ -331,9 +335,12 @@ namespace FrameByFrame.src.UI.Components
                 AudioTrack track = _importTask.GetAwaiter().GetResult();
                 _animation.AddAudioTrack(track);
                 _selectedAudioTrack = track.Id;
-                _audioStatus = string.Empty;
+                _audioStatus = $"Imported {track.SourceName}.";
             }
-            catch (Exception ex) { _audioStatus = $"Audio import failed: {ex.Message}"; }
+            catch (Exception ex)
+            {
+                _audioStatus = $"Audio import failed: {ex.Message} Check the file format and available project space, then try again.";
+            }
             finally { _importTask = null; }
         }
 
