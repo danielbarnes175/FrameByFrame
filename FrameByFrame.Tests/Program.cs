@@ -15,6 +15,13 @@ static void Assert(bool condition, string message)
     if (!condition) throw new InvalidOperationException(message);
 }
 
+static void AssertThrows<TException>(Action action, string message) where TException : Exception
+{
+    try { action(); }
+    catch (TException) { return; }
+    throw new InvalidOperationException(message);
+}
+
 Rectangle wide = UILayoutEngine.FitAspect(new Rectangle(0, 0, 800, 800), 1.5f);
 Assert(wide.Width == 800 && wide.Height == 533, "Aspect fitting should constrain height.");
 Assert(wide.X == 0 && wide.Y == 134, "Aspect fitting should center the result.");
@@ -151,6 +158,21 @@ finally
 
 using (var animation = new Animation("Layer model test"))
 {
+    AssertThrows<ArgumentOutOfRangeException>(() => animation.fps = 0,
+        "Animations should reject invalid FPS values at mutation time.");
+    AssertThrows<ArgumentException>(() => animation.projectName = "../invalid",
+        "Animations should reject invalid project names at mutation time.");
+    AssertThrows<ArgumentOutOfRangeException>(() => animation.InitializeFrames(0, 800),
+        "Animations should reject invalid canvas dimensions at mutation time.");
+    AssertThrows<ArgumentOutOfRangeException>(() =>
+            ProjectModelValidator.Position(new Vector2(float.NaN, 0), "position"),
+        "Animations should reject non-finite positions at mutation time.");
+    AssertThrows<ArgumentOutOfRangeException>(() =>
+            new AudioTrack("beat.mp3", ".mp3", [1], -1, 1),
+        "Audio tracks should reject negative start frames at construction time.");
+    AssertThrows<ArgumentOutOfRangeException>(() =>
+            new AudioTrack("beat.mp3", ".mp3", [1], 0, 1, volume: float.NaN),
+        "Audio tracks should reject non-finite volume at construction time.");
     Assert(!animation.IsCanvasBackgroundTransparent && animation.CanvasBackgroundColor == Color.White,
         "Animations should preserve the existing solid white canvas default.");
     animation.SetCanvasBackgroundTransparent(true);
@@ -172,15 +194,19 @@ using (var animation = new Animation("Layer model test"))
     Assert(animation.RemoveLayer(added.Id) && animation.Layers.Count == 3,
         "Removing a layer should update the project layer collection.");
 
-    var audio = new AudioTrack("beat.MP3", ".MP3", [1, 2, 3], 12, 2.5, new byte[4]);
+    var audio = new AudioTrack("beat.MP3", ".MP3", [1, 2, 3], 0, 2.5, new byte[4]);
     Assert(animation.AddAudioTrack(audio) && animation.AudioTracks.Count == 1,
         "Animations should accept embedded audio tracks.");
     Assert(audio.StartFrame == 0,
         "Audio placement should clamp to the available animation timeline.");
-    Assert(animation.SetAudioTrackVolume(audio.Id, -.5f) && audio.Volume == 0,
-        "Audio volume should clamp to silence.");
-    Assert(animation.SetAudioTrackVolume(audio.Id, 2f) && audio.Volume == 1,
-        "Audio volume should clamp to full volume.");
+    AssertThrows<ArgumentOutOfRangeException>(() => animation.SetAudioTrackVolume(audio.Id, -.5f),
+        "Audio controls should reject volume below zero.");
+    AssertThrows<ArgumentOutOfRangeException>(() => animation.SetAudioTrackVolume(audio.Id, 2f),
+        "Audio controls should reject volume above one.");
+    AssertThrows<ArgumentOutOfRangeException>(() => animation.SetAudioTrackStart(audio.Id, -1),
+        "Audio controls should reject negative start frames.");
+    Assert(animation.SetAudioTrackVolume(audio.Id, .5f) && Math.Abs(audio.Volume - .5f) < .001f,
+        "Audio controls should accept valid volume changes.");
     Assert(animation.SetAudioTrackMuted(audio.Id, true) && audio.IsMuted,
         "Audio tracks should support mute state changes.");
     Assert(animation.RemoveAudioTrack(audio.Id) && animation.AudioTracks.Count == 0,
@@ -331,7 +357,7 @@ Vector2[] lasso =
 {
     new(0, 0), new(2, 0), new(2, 1), new(1, 1), new(1, 3), new(0, 3)
 };
-PixelSelection selection = SelectionOperations.ExtractFreeform(selectionCanvas, 4, 3, lasso);
+PixelSelection selection = SelectionOperations.ExtractFreeform(selectionCanvas, 4, 3, lasso)!;
 Assert(selection.Width == 2 && selection.Height == 3 &&
        selection.Pixels[0] == Color.Red && selection.Pixels[1] == Color.Green &&
        selection.Pixels[2] == Color.Blue && selection.Pixels[4] == Color.Purple &&

@@ -37,7 +37,7 @@ namespace FrameByFrame.src.Engine.Export
             private float _progress;
             private string _status = "Preparing export...";
             private string _outputPath;
-            private Exception _failure;
+            private Exception? _failure;
 
             internal ExportOperation(ExportSnapshot snapshot, string projectName, string exportRoot,
                 string projectDirectory, ExportFormat format)
@@ -57,7 +57,7 @@ namespace FrameByFrame.src.Engine.Export
             public float Progress { get { lock (_stateLock) return _progress; } }
             public string Status { get { lock (_stateLock) return _status; } }
             public string OutputPath { get { lock (_stateLock) return _outputPath; } }
-            public Exception Failure { get { lock (_stateLock) return _failure; } }
+            public Exception? Failure { get { lock (_stateLock) return _failure; } }
 
             internal void WaitForCompletion() => _worker.GetAwaiter().GetResult();
 
@@ -286,7 +286,8 @@ namespace FrameByFrame.src.Engine.Export
             var frames = new List<ExportFrameSnapshot>(endFrameIndex - startFrameIndex + 1);
             for (int frameIndex = startFrameIndex; frameIndex <= endFrameIndex; frameIndex++)
             {
-                Frame frame = animation.GetFrameAtIndex(frameIndex);
+                Frame frame = animation.GetFrameAtIndex(frameIndex) ??
+                    throw new InvalidOperationException("The requested export frame does not exist.");
                 var layers = new List<ExportLayerSnapshot>(visibleLayerIds.Length);
                 foreach (Guid layerId in visibleLayerIds)
                     layers.Add(new ExportLayerSnapshot(frame.GetSparseLayerPixels(layerId).ToArray()));
@@ -298,7 +299,8 @@ namespace FrameByFrame.src.Engine.Export
                     track.EncodedData.ToArray(), track.StartFrame, track.DurationSeconds,
                     id: track.Id, volume: track.Volume, isMuted: track.IsMuted)).ToArray()
                 : Array.Empty<AudioTrack>();
-            Frame firstFrame = animation.GetFrameAtIndex(startFrameIndex);
+            Frame firstFrame = animation.GetFrameAtIndex(startFrameIndex) ??
+                throw new InvalidOperationException("The requested first export frame does not exist.");
             return new ExportSnapshot(firstFrame.width, firstFrame.height, animation.fps, startFrameIndex,
                 background, frames, audioTracks);
         }
@@ -535,22 +537,14 @@ namespace FrameByFrame.src.Engine.Export
                 bundledPath);
         }
 
-        private static string LastNonEmptyLine(string value)
+        private static string LastNonEmptyLine(string? value)
         {
             string[] lines = (value ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
             return lines.Length == 0 ? "No diagnostic output was provided." : lines[^1];
         }
 
-        internal static string ValidateProjectName(string name)
-        {
-            string normalizedName = name?.Trim();
-            if (string.IsNullOrWhiteSpace(normalizedName) || normalizedName is "." or ".." ||
-                Path.IsPathRooted(normalizedName) ||
-                normalizedName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
-                normalizedName.IndexOfAny(['<', '>', ':', '"', '/', '\\', '|', '?', '*']) >= 0)
-                throw new ArgumentException("Project names must contain valid filename characters.", nameof(name));
-            return normalizedName;
-        }
+        internal static string ValidateProjectName(string name) =>
+            ProjectModelValidator.ProjectName(name, nameof(name));
 
         private static string GetProjectPath(string relativeName)
         {

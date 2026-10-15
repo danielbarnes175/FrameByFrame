@@ -48,7 +48,8 @@ namespace FrameByFrame.src.Engine.Export
             if (animation.Layers.Count == 0 || animation.Layers.Count > MaxLayerCount)
                 throw new InvalidDataException("Animation layer count is invalid or unsupported.");
 
-            Frame firstFrame = animation.GetFrameAtIndex(0);
+            Frame firstFrame = animation.GetFrameAtIndex(0) ??
+                throw new InvalidDataException("Cannot save an animation without frames.");
             ValidateDimensions(firstFrame.width, firstFrame.height);
             ValidateResourceCounts(animation.Layers.Count, animation.TotalFrames);
             if (animation.StoredPixelCount > Animation.Animation.MaxStoredPixels)
@@ -164,7 +165,8 @@ namespace FrameByFrame.src.Engine.Export
             int frameCount = reader.ReadInt32();
             int keyframeInterval = reader.ReadInt32();
             string projectName = ReadString(reader);
-            if (fps <= 0 || layerCount <= 0 || layerCount > MaxLayerCount ||
+            if (fps <= 0 || fps > Animation.Animation.MaxFramesPerSecond ||
+                layerCount <= 0 || layerCount > MaxLayerCount ||
                 frameCount <= 0 || frameCount > MaxFrameCount || keyframeInterval <= 0)
                 throw new InvalidDataException("The FBF project header contains invalid values.");
             if (string.IsNullOrWhiteSpace(projectName))

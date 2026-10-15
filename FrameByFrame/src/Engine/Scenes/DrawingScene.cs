@@ -12,18 +12,18 @@ namespace FrameByFrame.src.Engine.Scenes
     {
         private const float RotationDegreesPerPixel = .5f;
 
-        public Animation.Animation animation;
-        public DrawingTools drawingTools;
-        private DrawingNavbarComponent _navbar;
-        private TimelineComponent _timeline;
-        private SelectionControlsComponent _selectionControls;
-        private AudioPlaybackController _audioPlayback;
+        public Animation.Animation animation = null!;
+        public DrawingTools drawingTools = null!;
+        private DrawingNavbarComponent _navbar = null!;
+        private TimelineComponent _timeline = null!;
+        private SelectionControlsComponent _selectionControls = null!;
+        private AudioPlaybackController _audioPlayback = null!;
         private readonly AutosaveService _autosave = new();
         private readonly CanvasView _canvasView = new();
         private bool _isPanning;
         private bool _isRotating;
         private readonly UIFeedbackState _feedback = new();
-        private UIFeedbackOverlay _feedbackOverlay;
+        private UIFeedbackOverlay _feedbackOverlay = null!;
         private string _lastAutosaveError = string.Empty;
         public bool loadedScene;
 
@@ -170,7 +170,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             animation?.Dispose();
             InitializeDefaults();
-            animation.InitializeFrames(width, height);
+            animation!.InitializeFrames(width, height);
             _canvasView.Reset();
             SetupUI();
         }
@@ -190,11 +190,11 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _audioPlayback?.Dispose();
-            _navbar = null;
-            _timeline = null;
-            _audioPlayback = null;
+            _navbar = null!;
+            _timeline = null!;
+            _audioPlayback = null!;
             animation?.Dispose();
-            animation = null;
+            animation = null!;
         }
 
         private void HandleKeyboardShortcuts()

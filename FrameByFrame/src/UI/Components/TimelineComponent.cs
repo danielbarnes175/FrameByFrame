@@ -20,7 +20,7 @@ namespace FrameByFrame.src.UI.Components
         private const int AudioRowHeight = 34;
         private int ThumbnailWidth => Math.Clamp(Bounds.Width / 4, 64, 112);
         private readonly Animation _animation;
-        private readonly AudioPlaybackController _audioPlayback;
+        private readonly AudioPlaybackController? _audioPlayback;
         private readonly UIActionButton _previousPage;
         private readonly UIActionButton _nextPage;
         private readonly UIActionButton _duplicate;
@@ -43,14 +43,14 @@ namespace FrameByFrame.src.UI.Components
         private int _audioDragStartFrame;
         private float _audioDragStartX;
         private bool _showAudio;
-        private Task<AudioTrack> _importTask;
+        private Task<AudioTrack>? _importTask;
         private string _audioStatus = string.Empty;
         private int _dragSource = -1;
         private int _dropTarget = -1;
         private Vector2 _dragStart;
         private bool _isDragging;
 
-        public TimelineComponent(Animation animation, AudioPlaybackController audioPlayback = null)
+        public TimelineComponent(Animation animation, AudioPlaybackController? audioPlayback = null)
         {
             _animation = animation;
             _audioPlayback = audioPlayback;
@@ -221,7 +221,7 @@ namespace FrameByFrame.src.UI.Components
         {
             _previousPage.Update();
             _nextPage.Update();
-            AudioTrack selected = SelectedAudioTrack;
+            AudioTrack? selected = SelectedAudioTrack;
             bool hasSelection = selected != null;
             _addAudio.IsEnabled = _importTask == null;
             _removeAudio.IsEnabled = _muteAudio.IsEnabled = _startDown.IsEnabled =
@@ -307,7 +307,7 @@ namespace FrameByFrame.src.UI.Components
             _startDown.DrawTooltip(); _startUp.DrawTooltip(); _volumeDown.DrawTooltip(); _volumeUp.DrawTooltip();
         }
 
-        private AudioTrack SelectedAudioTrack => _selectedAudioTrack.HasValue
+        private AudioTrack? SelectedAudioTrack => _selectedAudioTrack.HasValue
             ? _animation.AudioTracks.FirstOrDefault(track => track.Id == _selectedAudioTrack.Value)
             : null;
 
@@ -317,7 +317,7 @@ namespace FrameByFrame.src.UI.Components
             {
                 using var dialog = new NativeFileDialog().SelectFile()
                     .AddFilter("Audio files", "*.wav,*.mp3,*.m4a,*.aac,*.ogg,*.opus,*.flac");
-                DialogResult result = dialog.Open(out string output, Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
+                DialogResult result = dialog.Open(out string? output, Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
                 if (result != DialogResult.Okay || string.IsNullOrWhiteSpace(output)) return;
                 _audioStatus = string.Empty;
                 _importTask = AudioService.ImportAsync(output, _animation.CurrentFrameIndex);
@@ -354,25 +354,25 @@ namespace FrameByFrame.src.UI.Components
 
         private void ToggleSelectedAudioMute()
         {
-            AudioTrack track = SelectedAudioTrack;
+            AudioTrack? track = SelectedAudioTrack;
             if (track != null) _animation.SetAudioTrackMuted(track.Id, !track.IsMuted);
         }
 
         private void MoveSelectedAudio(int delta)
         {
-            AudioTrack track = SelectedAudioTrack;
+            AudioTrack? track = SelectedAudioTrack;
             if (track != null) _animation.SetAudioTrackStart(track.Id, track.StartFrame + delta);
         }
 
         private void ChangeSelectedAudioVolume(float delta)
         {
-            AudioTrack track = SelectedAudioTrack;
+            AudioTrack? track = SelectedAudioTrack;
             if (track != null) _animation.SetAudioTrackVolume(track.Id, track.Volume + delta);
         }
 
         private void EnsureSelectedAudioVisible()
         {
-            AudioTrack selected = SelectedAudioTrack;
+            AudioTrack? selected = SelectedAudioTrack;
             if (selected == null) return;
             int index = _animation.AudioTracks.ToList().FindIndex(track => track.Id == selected.Id);
             if (index < _firstVisibleAudioTrack) _firstVisibleAudioTrack = index;

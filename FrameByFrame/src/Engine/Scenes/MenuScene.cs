@@ -6,14 +6,14 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class MenuScene : BaseScene
     {
-        private UIActionButton _newButton;
-        private UIActionButton _projectsButton;
-        private UIActionButton _widthDown;
-        private UIActionButton _widthUp;
-        private UIActionButton _heightDown;
-        private UIActionButton _heightUp;
-        private UIActionButton _createButton;
-        private UIActionButton _cancelButton;
+        private UIActionButton _newButton = null!;
+        private UIActionButton _projectsButton = null!;
+        private UIActionButton _widthDown = null!;
+        private UIActionButton _widthUp = null!;
+        private UIActionButton _heightDown = null!;
+        private UIActionButton _heightUp = null!;
+        private UIActionButton _createButton = null!;
+        private UIActionButton _cancelButton = null!;
         private bool _isConfiguringNewAnimation;
         private Rectangle _cardBounds;
         private Rectangle _dialogBounds;

@@ -15,8 +15,8 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Action _clearEditHistory;
         private readonly LinkedList<Frame> _frames = new();
         private readonly List<Frame> _frameCache = new();
-        private LinkedListNode<Frame> _currentFrame;
-        private Dictionary<Guid, Color[]> _clipboard;
+        private LinkedListNode<Frame>? _currentFrame;
+        private Dictionary<Guid, Color[]>? _clipboard;
         private bool _frameCacheValid = true;
         private double _playbackTimer;
         private bool _disposed;
@@ -35,7 +35,8 @@ namespace FrameByFrame.src.Engine.Animation
         public IEnumerable<Frame> Frames => _frames;
         public int TotalFrames => _frames.Count;
         public int CurrentFrameIndex { get; private set; }
-        public Frame CurrentFrame => _currentFrame?.Value;
+        public Frame CurrentFrame => _currentFrame?.Value ??
+            throw new InvalidOperationException("The timeline has not been initialized.");
         public bool IsPlaying { get; private set; }
         public long PlaybackRevision { get; private set; }
         public double PlaybackPositionSeconds(int fps) => fps > 0
@@ -68,16 +69,16 @@ namespace FrameByFrame.src.Engine.Animation
             InvalidateFrameCache();
         }
 
-        public Frame GetFrameAtIndex(int index)
+        public Frame? GetFrameAtIndex(int index)
         {
             if (index < 0 || index >= _frames.Count) return null;
             EnsureFrameCache();
             return _frameCache[index];
         }
 
-        public bool Contains(Frame frame) => frame != null && _frames.Contains(frame);
+        public bool Contains(Frame? frame) => frame != null && _frames.Contains(frame);
 
-        public int IndexOf(Frame frame)
+        public int IndexOf(Frame? frame)
         {
             if (frame == null) return -1;
             EnsureFrameCache();
@@ -119,7 +120,7 @@ namespace FrameByFrame.src.Engine.Animation
             _beforeSelectionChange();
             DiscontinuePlayback();
             CurrentFrameIndex--;
-            _currentFrame = _currentFrame.Previous;
+            _currentFrame = _currentFrame?.Previous ?? _frames.First;
         }
 
         public void SelectFrame(int index)
@@ -128,7 +129,7 @@ namespace FrameByFrame.src.Engine.Animation
             _beforeSelectionChange();
             DiscontinuePlayback();
             _currentFrame = _frames.First;
-            for (int i = 0; i < index; i++) _currentFrame = _currentFrame.Next;
+            for (int i = 0; i < index; i++) _currentFrame = _currentFrame?.Next;
             CurrentFrameIndex = index;
         }
 
@@ -137,7 +138,8 @@ namespace FrameByFrame.src.Engine.Animation
             if (_frames.Count <= 1) return;
             _beforeSelectionChange();
             DiscontinuePlayback();
-            LinkedListNode<Frame> removed = _currentFrame;
+            LinkedListNode<Frame> removed = _currentFrame ??
+                throw new InvalidOperationException("The timeline has not been initialized.");
             bool hasNextFrame = removed.Next != null;
             _currentFrame = removed.Next ?? removed.Previous;
             removed.Value.Dispose();
@@ -151,8 +153,10 @@ namespace FrameByFrame.src.Engine.Animation
         {
             _beforeSelectionChange();
             DiscontinuePlayback();
-            _frames.AddBefore(_currentFrame, CreateFrame());
-            _currentFrame = _currentFrame.Previous;
+            LinkedListNode<Frame> current = _currentFrame ??
+                throw new InvalidOperationException("The timeline has not been initialized.");
+            _frames.AddBefore(current, CreateFrame());
+            _currentFrame = current.Previous;
             InvalidateFrameCache();
         }
 
@@ -185,7 +189,7 @@ namespace FrameByFrame.src.Engine.Animation
             Frame pastedFrame = CreateFrame();
             foreach (AnimationLayer layer in _layers())
             {
-                if (_clipboard.TryGetValue(layer.Id, out Color[] pixels))
+                if (_clipboard.TryGetValue(layer.Id, out Color[]? pixels))
                     pastedFrame.SetLayerPixels(layer.Id, pixels, ignoreLock: true);
             }
             _currentFrame = _frames.AddAfter(_currentFrame, pastedFrame);
@@ -201,21 +205,21 @@ namespace FrameByFrame.src.Engine.Animation
 
             _beforeSelectionChange();
             DiscontinuePlayback();
-            LinkedListNode<Frame> moving = _frames.First;
-            for (int i = 0; i < oldIndex; i++) moving = moving.Next;
+            LinkedListNode<Frame> moving = _frames.First!;
+            for (int i = 0; i < oldIndex; i++) moving = moving.Next!;
             Frame selectedFrame = CurrentFrame;
             _frames.Remove(moving);
             if (newIndex >= _frames.Count) _frames.AddLast(moving);
             else
             {
-                LinkedListNode<Frame> destination = _frames.First;
-                for (int i = 0; i < newIndex; i++) destination = destination.Next;
+                LinkedListNode<Frame> destination = _frames.First!;
+                for (int i = 0; i < newIndex; i++) destination = destination.Next!;
                 _frames.AddBefore(destination, moving);
             }
 
             _currentFrame = _frames.Find(selectedFrame) ?? moving;
             CurrentFrameIndex = 0;
-            for (LinkedListNode<Frame> node = _frames.First;
+            for (LinkedListNode<Frame>? node = _frames.First;
                  node != null && node != _currentFrame; node = node.Next) CurrentFrameIndex++;
             InvalidateFrameCache();
             return true;
@@ -255,7 +259,7 @@ namespace FrameByFrame.src.Engine.Animation
             int framesToAdvance = (int)(elapsedFrames % TotalFrames);
             CurrentFrameIndex = (CurrentFrameIndex + framesToAdvance) % TotalFrames;
             for (int i = 0; i < framesToAdvance; i++)
-                _currentFrame = _currentFrame.Next ?? _frames.First;
+                _currentFrame = _currentFrame?.Next ?? _frames.First;
         }
 
         private Frame CreateFrame() => new(_framePosition(), _frameSize(), _layers());

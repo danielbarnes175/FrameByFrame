@@ -14,14 +14,28 @@ namespace FrameByFrame.src.Engine.Animation
         public string SourceName { get; }
         public string SourceExtension { get; }
         public byte[] EncodedData { get; }
-        public int StartFrame { get; internal set; }
-        public float Volume { get; internal set; }
+        private int _startFrame;
+        private float _volume = 1f;
+        public int StartFrame
+        {
+            get => _startFrame;
+            internal set => _startFrame = value >= 0
+                ? value
+                : throw new ArgumentOutOfRangeException(nameof(value), "Audio start frames cannot be negative.");
+        }
+        public float Volume
+        {
+            get => _volume;
+            internal set => _volume = float.IsFinite(value) && value is >= 0f and <= 1f
+                ? value
+                : throw new ArgumentOutOfRangeException(nameof(value), "Audio volume must be between zero and one.");
+        }
         public bool IsMuted { get; internal set; }
         public double DurationSeconds { get; }
-        internal byte[] PcmData { get; private set; }
+        internal byte[]? PcmData { get; private set; }
 
         public AudioTrack(string sourceName, string sourceExtension, byte[] encodedData,
-            int startFrame, double durationSeconds, byte[] pcmData = null,
+            int startFrame, double durationSeconds, byte[]? pcmData = null,
             Guid? id = null, float volume = 1f, bool isMuted = false)
         {
             if (string.IsNullOrWhiteSpace(sourceName))
@@ -38,14 +52,14 @@ namespace FrameByFrame.src.Engine.Animation
                 throw new ArgumentException("The audio source name is invalid.", nameof(sourceName));
             SourceExtension = NormalizeExtension(sourceExtension);
             EncodedData = encodedData;
-            StartFrame = Math.Max(0, startFrame);
-            Volume = Math.Clamp(volume, 0f, 1f);
+            StartFrame = startFrame;
+            Volume = volume;
             IsMuted = isMuted;
             DurationSeconds = durationSeconds;
             SetDecodedPcm(pcmData);
         }
 
-        internal void SetDecodedPcm(byte[] pcmData)
+        internal void SetDecodedPcm(byte[]? pcmData)
         {
             if (pcmData != null && pcmData.Length % (ChannelCount * BytesPerSample) != 0)
                 throw new InvalidDataException("Decoded audio data is not sample-aligned.");

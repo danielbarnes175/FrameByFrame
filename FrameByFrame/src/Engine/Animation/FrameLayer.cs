@@ -9,7 +9,7 @@ namespace FrameByFrame.src.Engine.Animation
     {
         public AnimationLayer Definition { get; }
         public Dictionary<int, Color> Pixels { get; } = new();
-        internal Texture2D Texture { get; set; }
+        internal Texture2D? Texture { get; set; }
 
         public Guid Id => Definition.Id;
 

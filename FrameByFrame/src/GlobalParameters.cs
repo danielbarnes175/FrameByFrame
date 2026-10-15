@@ -18,17 +18,18 @@ namespace FrameByFrame.src
         public static int screenHeight, screenWidth;
         public static float scaleX, scaleY;
 
-        public static ContentManager GlobalContent;
-        public static SpriteBatch GlobalSpriteBatch;
-        public static GraphicsDevice GlobalGraphics;
-        public static MouseController GlobalMouse;
-        public static KeyboardController GlobalKeyboard;
+        // Initialized by Main.LoadContent before any scene is updated or drawn.
+        public static ContentManager GlobalContent = null!;
+        public static SpriteBatch GlobalSpriteBatch = null!;
+        public static GraphicsDevice GlobalGraphics = null!;
+        public static MouseController GlobalMouse = null!;
+        public static KeyboardController GlobalKeyboard = null!;
 
-        public static Dictionary<string, BaseScene> Scenes;
-        public static BaseScene CurrentScene;
+        public static Dictionary<string, BaseScene> Scenes = null!;
+        public static BaseScene CurrentScene = null!;
 
-        public static SpriteFont font;
-        public static SpriteFont uiFont;
+        public static SpriteFont font = null!;
+        public static SpriteFont uiFont = null!;
 
     }
 }
