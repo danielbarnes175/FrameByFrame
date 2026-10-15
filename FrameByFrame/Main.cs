@@ -77,7 +77,7 @@ namespace FrameByFrame
             GlobalParameters.GlobalKeyboard = new KeyboardController();
             GlobalParameters.GlobalMouse = new MouseController();
 
-            GlobalParameters.font = Content.Load<SpriteFont>("Static\\Roboto");
+            GlobalParameters.font = Content.Load<SpriteFont>("Roboto");
             GlobalParameters.uiFont = Content.Load<SpriteFont>("UIFont");
 
             // Create a new SpriteBatch, which can be used to draw textures.

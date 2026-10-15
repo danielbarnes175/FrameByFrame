@@ -12,11 +12,18 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin Roboto.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Color
+/build:Roboto.spritefont
+
 #begin UIFont.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
-/processorParam:TextureFormat=Compressed
+/processorParam:TextureFormat=Color
 /build:UIFont.spritefont
 
 #begin bucket_tool.png
