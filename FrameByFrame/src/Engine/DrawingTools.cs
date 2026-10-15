@@ -41,7 +41,8 @@ namespace FrameByFrame.src.Engine
                 return;
             }
 
-            if (!canDraw || UIPointerRouter.IsPointerBlocked()) return;
+            if (!canDraw || UIPointerRouter.IsPointerBlocked() ||
+                !_animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos)) return;
 
             switch (SelectedTool)
             {

@@ -10,12 +10,17 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class DrawingScene : BaseScene
     {
+        private const float RotationDegreesPerPixel = .5f;
+
         public Animation.Animation animation;
         public DrawingTools drawingTools;
         private DrawingNavbarComponent _navbar;
         private TimelineComponent _timeline;
         private AudioPlaybackController _audioPlayback;
         private readonly AutosaveService _autosave = new();
+        private readonly CanvasView _canvasView = new();
+        private bool _isPanning;
+        private bool _isRotating;
         public bool loadedScene;
 
         public DrawingScene() => InitializeDefaults();
@@ -59,9 +64,12 @@ namespace FrameByFrame.src.Engine.Scenes
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, navbarHeight));
             _timeline.Arrange(new Rectangle(0, GlobalParameters.screenHeight - timelineHeight,
                 GlobalParameters.screenWidth, timelineHeight));
+            Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
+            _canvasView.Arrange(stage, (int)animation.frameSize.X, (int)animation.frameSize.Y);
             HandleKeyboardShortcuts();
             if (!_navbar.HasOpenPopover) _timeline.Update();
             _navbar.Update();
+            HandleCanvasViewInput(stage);
             HandleMouseShortcuts();
             animation.Animate(gameTime);
             _audioPlayback.Update();
@@ -73,13 +81,53 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalGraphics.Clear(UITheme.CanvasStage);
             int navbarHeight = _navbar.Bounds.Height;
             int timelineHeight = _timeline.Bounds.Height;
-            int margin = Math.Min(24, Math.Max(4, Math.Min(GlobalParameters.screenWidth, GlobalParameters.screenHeight) / 30));
-            Rectangle stage = new(margin, navbarHeight + margin, Math.Max(1, GlobalParameters.screenWidth - margin * 2),
-                Math.Max(1, GlobalParameters.screenHeight - navbarHeight - timelineHeight - margin * 2));
-            animation.DrawCurrentFrame(UILayoutEngine.FitAspect(stage, animation.frameSize.X / animation.frameSize.Y));
+            Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
+            _canvasView.Arrange(stage, (int)animation.frameSize.X, (int)animation.frameSize.Y);
+            animation.DrawCurrentFrame(_canvasView);
             _timeline.Draw();
             _navbar.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
+        }
+
+        private static Rectangle CanvasStageBounds(int navbarHeight, int timelineHeight)
+        {
+            int margin = Math.Min(24, Math.Max(4,
+                Math.Min(GlobalParameters.screenWidth, GlobalParameters.screenHeight) / 30));
+            return new Rectangle(margin, navbarHeight + margin,
+                Math.Max(1, GlobalParameters.screenWidth - margin * 2),
+                Math.Max(1, GlobalParameters.screenHeight - navbarHeight - timelineHeight - margin * 2));
+        }
+
+        private void HandleCanvasViewInput(Rectangle stage)
+        {
+            var mouse = GlobalParameters.GlobalMouse;
+            if (!mouse.MiddleClickHold()) _isPanning = false;
+            if (!mouse.RightClickHold()) _isRotating = false;
+
+            bool canStartGesture = !_navbar.HasOpenPopover &&
+                stage.Contains(mouse.newMousePos) && !UIPointerRouter.IsPointerBlocked();
+            if (canStartGesture)
+            {
+                if (mouse.MiddleClick())
+                {
+                    _isPanning = true;
+                    _isRotating = false;
+                }
+                else if (mouse.RightClick())
+                {
+                    _isRotating = true;
+                    _isPanning = false;
+                }
+
+                int scroll = mouse.ScrollDelta;
+                if (scroll != 0)
+                    _canvasView.ZoomAt(mouse.newMousePos, Math.Sign(scroll) * CanvasView.ZoomStep);
+            }
+
+            Vector2 mouseDelta = mouse.newMousePos - mouse.oldMousePos;
+            if (_isPanning && mouse.MiddleClickHold()) _canvasView.PanBy(mouseDelta);
+            if (_isRotating && mouse.RightClickHold())
+                _canvasView.RotateBy(mouseDelta.X * RotationDegreesPerPixel);
         }
 
         private void HandleMouseShortcuts()
@@ -93,6 +141,7 @@ namespace FrameByFrame.src.Engine.Scenes
             animation?.Dispose();
             InitializeDefaults();
             animation.InitializeFrames(width, height);
+            _canvasView.Reset();
             SetupUI();
         }
 
@@ -103,6 +152,7 @@ namespace FrameByFrame.src.Engine.Scenes
             animation = loadedAnimation;
             drawingTools = new DrawingTools(animation);
             loadedScene = false;
+            _canvasView.Reset();
             SetupUI();
         }
 

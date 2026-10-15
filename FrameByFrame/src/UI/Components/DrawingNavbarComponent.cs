@@ -28,7 +28,7 @@ namespace FrameByFrame.src.UI.Components
             public const int PopoverTop = UITheme.AppBarHeight + ItemGap;
             public const int PopoverEdge = UITheme.SpaceSm;
             public const int HelpWidth = 520;
-            public const int HelpContentHeight = 410;
+            public const int HelpContentHeight = 470;
             public const int SettingsWidth = 450;
             public const int SettingsContentHeight = 620;
             public const int ColorWidth = 236;
@@ -104,6 +104,9 @@ namespace FrameByFrame.src.UI.Components
             "Delete - Remove current frame",
             "O - Toggle onion skin",
             "[ / ] - Change brush size",
+            "Middle mouse drag - Pan canvas view",
+            "Right mouse drag - Rotate canvas view",
+            "Mouse wheel - Zoom canvas view",
             "Backspace - Clear selected layer",
             "L - Save project",
             "Esc - Return home"

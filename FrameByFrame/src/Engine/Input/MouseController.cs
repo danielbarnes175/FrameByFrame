@@ -51,6 +51,26 @@ namespace FrameByFrame.src.Engine.Input
             return (newMouse.LeftButton == ButtonState.Pressed);
         }
 
+        public bool MiddleClick()
+        {
+            return newMouse.MiddleButton == ButtonState.Pressed && oldMouse.MiddleButton == ButtonState.Released;
+        }
+
+        public bool MiddleClickHold()
+        {
+            return newMouse.MiddleButton == ButtonState.Pressed;
+        }
+
+        public bool RightClick()
+        {
+            return newMouse.RightButton == ButtonState.Pressed && oldMouse.RightButton == ButtonState.Released;
+        }
+
+        public bool RightClickHold()
+        {
+            return newMouse.RightButton == ButtonState.Pressed;
+        }
+
         public int ScrollDelta => newMouse.ScrollWheelValue - oldMouse.ScrollWheelValue;
     }
 }

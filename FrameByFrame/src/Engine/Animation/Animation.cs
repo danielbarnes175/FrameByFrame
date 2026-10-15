@@ -60,6 +60,7 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Stack<PixelEdit> _undoHistory = new();
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
+        private CanvasView _displayView;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
 
@@ -312,11 +313,15 @@ namespace FrameByFrame.src.Engine.Animation
 
         private Vector2 ToFramePosition(Vector2 screenPosition)
         {
+            if (_displayView != null) return _displayView.ScreenToCanvas(screenPosition);
             if (DisplayBounds.Width <= 0 || DisplayBounds.Height <= 0) return screenPosition - framePosition;
             return new Vector2(
                 (screenPosition.X - DisplayBounds.X) * frameSize.X / DisplayBounds.Width,
                 (screenPosition.Y - DisplayBounds.Y) * frameSize.Y / DisplayBounds.Height);
         }
+
+        public bool IsScreenPointOnCanvas(Vector2 screenPosition) =>
+            _displayView?.ContainsScreenPoint(screenPosition) ?? DisplayBounds.Contains(screenPosition);
 
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
@@ -348,22 +353,36 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void DrawCurrentFrame(Rectangle destination)
         {
-            DisplayBounds = destination;
-            DrawingService.DrawCanvasBackground(destination, IsCanvasBackgroundTransparent, CanvasBackgroundColor);
+            CanvasView view = new();
+            view.Arrange(destination, (int)frameSize.X, (int)frameSize.Y);
+            DrawCurrentFrame(view);
+        }
+
+        public void DrawCurrentFrame(CanvasView view)
+        {
+            ArgumentNullException.ThrowIfNull(view);
+            _displayView = view;
+            DisplayBounds = new Rectangle(
+                (int)Math.Round(view.Center.X - frameSize.X * view.Scale / 2f),
+                (int)Math.Round(view.Center.Y - frameSize.Y * view.Scale / 2f),
+                Math.Max(1, (int)Math.Round(frameSize.X * view.Scale)),
+                Math.Max(1, (int)Math.Round(frameSize.Y * view.Scale)));
+            DrawingService.DrawCanvasBackground(view, IsCanvasBackgroundTransparent, CanvasBackgroundColor);
             if (!IsPlaying && isOnionSkinEnabled)
             {
                 for (int i = 1; i <= previousOnionFrames; i++)
                 {
                     Frame frame = GetFrameAtIndex(CurrentFrameIndex - i);
-                    if (frame != null) frame.DrawLayers(destination, baseOpacity * (previousOnionFrames - i + 1));
+                    if (frame != null) frame.DrawLayers(view, baseOpacity * (previousOnionFrames - i + 1));
                 }
                 for (int i = 1; i <= nextOnionFrames; i++)
                 {
                     Frame frame = GetFrameAtIndex(CurrentFrameIndex + i);
-                    if (frame != null) frame.DrawLayers(destination, baseOpacity * (nextOnionFrames - i + 1));
+                    if (frame != null) frame.DrawLayers(view, baseOpacity * (nextOnionFrames - i + 1));
                 }
             }
-            CurrentFrame?.DrawLayers(destination, 1f);
+            CurrentFrame?.DrawLayers(view, 1f);
+            DrawingService.DrawCanvasOutline(view, UI.UITheme.Border);
         }
 
         private void DrawBrushAt(Vector2 localPos, Color color, int brushSize)

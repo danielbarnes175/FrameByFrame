@@ -38,6 +38,51 @@ namespace FrameByFrame.src.Engine.Services
             }
         }
 
+        public static void DrawCanvasBackground(CanvasView view, bool isTransparent, Color backgroundColor)
+        {
+            ArgumentNullException.ThrowIfNull(view);
+            Texture2D pixel = TextureManager.GetOrCreateColorTexture(
+                GlobalParameters.GlobalGraphics, Color.White, 1);
+            if (!isTransparent)
+            {
+                DrawCanvasTile(pixel, view, 0, 0, view.CanvasWidth, view.CanvasHeight, backgroundColor);
+                return;
+            }
+
+            const int tileSize = 24;
+            for (int y = 0; y < view.CanvasHeight; y += tileSize)
+            for (int x = 0; x < view.CanvasWidth; x += tileSize)
+            {
+                int width = Math.Min(tileSize, view.CanvasWidth - x);
+                int height = Math.Min(tileSize, view.CanvasHeight - y);
+                DrawCanvasTile(pixel, view, x, y, width, height,
+                    CheckerboardColor(x / tileSize, y / tileSize, 1));
+            }
+        }
+
+        public static void DrawCanvasOutline(CanvasView view, Color color, float thickness = 2f)
+        {
+            ArgumentNullException.ThrowIfNull(view);
+            Texture2D pixel = TextureManager.GetOrCreateColorTexture(
+                GlobalParameters.GlobalGraphics, Color.White, 1);
+            float canvasThickness = Math.Max(1f / view.Scale, thickness / view.Scale);
+            DrawCanvasTile(pixel, view, 0, 0, view.CanvasWidth, canvasThickness, color);
+            DrawCanvasTile(pixel, view, 0, view.CanvasHeight - canvasThickness,
+                view.CanvasWidth, canvasThickness, color);
+            DrawCanvasTile(pixel, view, 0, 0, canvasThickness, view.CanvasHeight, color);
+            DrawCanvasTile(pixel, view, view.CanvasWidth - canvasThickness, 0,
+                canvasThickness, view.CanvasHeight, color);
+        }
+
+        private static void DrawCanvasTile(Texture2D pixel, CanvasView view, float x, float y,
+            float width, float height, Color color)
+        {
+            Vector2 center = view.CanvasToScreen(new Vector2(x + width / 2f, y + height / 2f));
+            GlobalParameters.GlobalSpriteBatch.Draw(pixel, center, null, color, view.RotationRadians,
+                new Vector2(.5f, .5f), new Vector2(width * view.Scale, height * view.Scale),
+                SpriteEffects.None, 0f);
+        }
+
         public static Texture2D CreateTexture(GraphicsDevice device, int width, int height, Func<int, Color> paint, Shapes shape)
         {
             //initialize a texture
