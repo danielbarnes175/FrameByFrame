@@ -65,6 +65,11 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             UIPointerRouter.BeginFrame();
             _feedback.Advance(gameTime);
+            if (_navbar.HasPendingSave)
+            {
+                _navbar.ProcessPendingSave();
+                return;
+            }
             int navbarHeight = DrawingNavbarComponent.PreferredHeight(GlobalParameters.screenWidth);
             int timelineHeight = Math.Min(UITheme.TimelineHeight,
                 Math.Max(72, (GlobalParameters.screenHeight - navbarHeight) / 3));
