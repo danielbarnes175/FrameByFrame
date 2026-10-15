@@ -65,7 +65,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly List<DrawingTool> _toolKinds = new();
         private readonly List<UIIconButton> _playback = new();
         private readonly UISlider _brushSize;
-        private readonly UIActionButton _brushEditor;
+        private readonly UIIconButton _brushEditor;
         private readonly UIActionButton _previousBrush;
         private readonly UIActionButton _nextBrush;
         private readonly UIActionButton _newBrush;
@@ -92,6 +92,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIPopover _brushesPopover = new();
         private readonly Texture2D _colorWheelTexture;
         private readonly Texture2D _swatchTexture;
+        private readonly Texture2D _brushPresetIcon;
         private readonly Texture2D _selectionIcon;
         private readonly Color[] _swatchPixels = new Color[Layout.SwatchSize * Layout.SwatchSize];
         private Rectangle _frameCounterBounds;
@@ -159,8 +160,10 @@ namespace FrameByFrame.src.UI.Components
 
             _brushSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
                 _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
-            _brushEditor = new UIActionButton("Brush", () => Toggle(PopoverKind.Brushes))
-                { Tooltip = "Custom brush editor" };
+            _brushPresetIcon = new Texture2D(GlobalParameters.GlobalGraphics, Layout.IconSize, Layout.IconSize);
+            UpdateBrushPresetIcon();
+            _brushEditor = new UIIconButton(_brushPresetIcon, () => Toggle(PopoverKind.Brushes))
+                { Tooltip = "Brush presets", UseToolSelectionStyle = true };
             _previousBrush = new UIActionButton("<", () => SelectBrush(-1));
             _nextBrush = new UIActionButton(">", () => SelectBrush(1));
             _newBrush = new UIActionButton("New", _drawingTools.CreateBrush);
@@ -290,9 +293,8 @@ namespace FrameByFrame.src.UI.Components
                 x = _frameCounterBounds.Right + gap;
                 foreach (UIIconButton button in _playback) Place(button);
                 Place(_brushSize, Math.Min(Layout.BrushSliderCompactWidth, Math.Max(72, bounds.Width / 4)));
-                Place(_brushEditor, 68);
                 foreach (UIIconButton tool in _tools) Place(tool);
-                Place(_layers); Place(_color);
+                Place(_layers); Place(_brushEditor); Place(_color);
                 goto Popovers;
             }
             _home.Arrange(new Rectangle(x, controlY, homeWidth, Layout.ControlHeight));
@@ -310,11 +312,11 @@ namespace FrameByFrame.src.UI.Components
                 x += iconStep;
             }
             _brushSize.Arrange(new Rectangle(x + Layout.ItemGap, controlY, brushSliderWidth, Layout.ControlHeight));
-            _brushEditor.Arrange(new Rectangle(_brushSize.Bounds.Right + Layout.ItemGap,
-                controlY, 70, Layout.ControlHeight));
-
             _color.Arrange(new Rectangle(bounds.Right - Layout.OuterPadding - Layout.IconSize, iconY, Layout.IconSize, Layout.IconSize));
-            _layers.Arrange(new Rectangle(_color.Bounds.X - Layout.IconSize - trailingGap, iconY, Layout.IconSize, Layout.IconSize));
+            _brushEditor.Arrange(new Rectangle(_color.Bounds.X - Layout.IconSize - trailingGap,
+                iconY, Layout.IconSize, Layout.IconSize));
+            _layers.Arrange(new Rectangle(_brushEditor.Bounds.X - Layout.IconSize - trailingGap,
+                iconY, Layout.IconSize, Layout.IconSize));
             int toolGroupWidth = _tools.Count * Layout.IconSize + Math.Max(0, _tools.Count - 1) * Layout.ItemGap;
             int toolX = _layers.Bounds.X - toolGroupGap - toolGroupWidth;
             foreach (UIIconButton tool in _tools)
@@ -462,6 +464,7 @@ namespace FrameByFrame.src.UI.Components
             Rectangle editorArea = new(_brushesPopover.Bounds.X + 20, _brushesPopover.Bounds.Y + 220,
                 editorSize, editorSize);
             _brushTipBounds = FitBrushTip(editorArea, brush);
+            UpdateBrushPresetIcon();
             if (!canEdit || !_brushTipBounds.Contains(pointer) ||
                 (!GlobalParameters.GlobalMouse.LeftClickHold() && !GlobalParameters.GlobalMouse.RightClickHold())) return;
             int tipX = Math.Clamp((int)((pointer.X - _brushTipBounds.X) * brush.TipWidth / _brushTipBounds.Width),
@@ -472,6 +475,24 @@ namespace FrameByFrame.src.UI.Components
                 ? (byte)0
                 : (byte)Math.Clamp((int)Math.Round(_brushTipAlphaPercent / 100f * 255f), 0, 255);
             _drawingTools.SetBrushTipAlpha(tipX, tipY, alpha);
+            UpdateBrushPresetIcon();
+        }
+
+        private void UpdateBrushPresetIcon()
+        {
+            BrushPreset brush = _drawingTools.SelectedBrush;
+            Color[] pixels = new Color[Layout.IconSize * Layout.IconSize];
+            const int padding = 4;
+            int size = Layout.IconSize - padding * 2;
+            for (int y = padding; y < Layout.IconSize - padding; y++)
+            for (int x = padding; x < Layout.IconSize - padding; x++)
+            {
+                int tipX = (x - padding) * brush.TipWidth / size;
+                int tipY = (y - padding) * brush.TipHeight / size;
+                byte alpha = brush.AlphaAt(tipX, tipY);
+                if (alpha > 0) pixels[x + y * Layout.IconSize] = UITheme.Text * (alpha / 255f);
+            }
+            _brushPresetIcon.SetData(pixels);
         }
 
         private IEnumerable<(int Index, Rectangle Bounds)> VisibleBrushPresetBounds()
@@ -700,7 +721,7 @@ namespace FrameByFrame.src.UI.Components
 
             if (GlobalParameters.screenWidth >= Layout.ProjectLabelMinScreenWidth)
             {
-                int labelX = _brushEditor.Bounds.Right + 8;
+                int labelX = _brushSize.Bounds.Right + 8;
                 int labelWidth = Math.Max(1, _tools[0].Bounds.X - labelX - 8);
                 new UITextContainer { Bounds = new Rectangle(labelX, 4, labelWidth, 28), MaxLines = 1, HorizontalAlignment = UIAlign.Start }
                     .Draw(_animation.projectName, UITheme.TextMuted, .72f);
@@ -1025,6 +1046,7 @@ namespace FrameByFrame.src.UI.Components
         {
             _colorWheelTexture.Dispose();
             _swatchTexture.Dispose();
+            _brushPresetIcon.Dispose();
             _selectionIcon.Dispose();
         }
     }
