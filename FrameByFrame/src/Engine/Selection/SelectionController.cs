@@ -75,8 +75,7 @@ namespace FrameByFrame.src.Engine.Selection
         {
             EnsureCurrentTarget();
             if (_clipboard == null || _animation.CurrentFrame == null) return;
-            PixelSelection pasted = FitWithinCanvas(_clipboard.Clone(new Rectangle(_clipboard.Bounds.X + 10,
-                _clipboard.Bounds.Y + 10, _clipboard.Width, _clipboard.Height)));
+            PixelSelection pasted = FitWithinCanvas(_clipboard.Clone());
             pasted = pasted.Clone(ClampBounds(pasted.Bounds));
             Color[] pixels = _animation.GetLayerPixels(_animation.SelectedLayerId);
             SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height, pasted);
