@@ -155,7 +155,7 @@ namespace FrameByFrame.src.UI
             {
                 int hintY = _state.Details.Count > 0 ? _dialog.Bottom - 124 : messageY + 76;
                 new UITextContainer { Bounds = new Rectangle(_dialog.X + 34, hintY,
-                    _dialog.Width - 68, 48), MaxLines = 2 }.Draw(_state.ActionHint, UITheme.TextMuted, UITextRole.Caption);
+                    _dialog.Width - 68, 48), MaxLines = 2 }.Draw(_state.ActionHint, UITheme.TextMuted, UITextRole.Body);
             }
             if (!_state.IsBusy) _dismiss.Draw(true);
         }
@@ -187,7 +187,7 @@ namespace FrameByFrame.src.UI
                     textWidth, DetailRowHeight - 4);
                 UIRenderer.Fill(row, slot % 2 == 0 ? UITheme.Surface : UITheme.SurfaceRaised);
                 new UITextContainer { Bounds = row, HorizontalAlignment = UIAlign.Start,
-                    Padding = 8, MaxLines = 2 }.Draw($"{index + 1}. {_state.Details[index]}", UITheme.Text, UITextRole.Caption);
+                    Padding = 8, MaxLines = 2 }.Draw($"{index + 1}. {_state.Details[index]}", UITheme.Text, UITextRole.Body);
             }
 
             if (_state.Details.Count <= visibleRows) return;
@@ -200,7 +200,7 @@ namespace FrameByFrame.src.UI
             UIRenderer.Fill(new Rectangle(track.X, thumbY, track.Width, thumbHeight), UITheme.Primary);
             new UITextContainer { Bounds = new Rectangle(_detailsViewport.X, _detailsViewport.Bottom - 22,
                 textWidth - 8, 24), HorizontalAlignment = UIAlign.End, Padding = 0, MaxLines = 1 }
-                .Draw($"{_detailScrollIndex + 1}-{end} of {_state.Details.Count}", UITheme.TextMuted, UITextRole.Caption);
+                .Draw($"{_detailScrollIndex + 1}-{end} of {_state.Details.Count}", UITheme.TextMuted, UITextRole.Label);
         }
 
         private int VisibleDetailRows() => Math.Max(1,

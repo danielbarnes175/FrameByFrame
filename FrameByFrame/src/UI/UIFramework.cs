@@ -46,12 +46,12 @@ namespace FrameByFrame.src.UI
             UITextRole.Title => new(1f, true),
             UITextRole.Heading => new(.82f, true),
             UITextRole.Button => new(.72f, true),
-            UITextRole.Body => new(.72f, false),
+            UITextRole.Body => new(.76f, false),
             UITextRole.Label => new(.62f, true),
-            UITextRole.Caption => new(.58f, false),
-            UITextRole.Tooltip => new(.58f, false),
+            UITextRole.Caption => new(.66f, false),
+            UITextRole.Tooltip => new(.66f, false),
             UITextRole.Debug => new(.55f, false),
-            _ => new(.72f, false)
+            _ => new(.76f, false)
         };
     }
 

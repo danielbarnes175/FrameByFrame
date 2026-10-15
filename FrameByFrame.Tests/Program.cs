@@ -28,8 +28,9 @@ UITextMetrics bodyText = UITheme.Typography(UITextRole.Body);
 UITextMetrics captionText = UITheme.Typography(UITextRole.Caption);
 Assert(displayText.Bold && displayText.Scale > bodyText.Scale,
     "Display text should be bolder and larger than body copy.");
-Assert(!bodyText.Bold && !captionText.Bold && bodyText.Scale > captionText.Scale,
-    "Body and supporting copy should use a readable regular-weight hierarchy.");
+Assert(!bodyText.Bold && !captionText.Bold && bodyText.Scale > captionText.Scale &&
+       bodyText.Scale >= .75f && captionText.Scale >= .65f,
+    "Body and supporting copy should use a readable regular-weight hierarchy at legible sizes.");
 
 Rectangle tooltipViewport = new(8, 8, 304, 464);
 Rectangle containedTooltip = UILayoutEngine.PlaceFloatingPanel(
