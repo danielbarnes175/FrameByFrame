@@ -90,6 +90,14 @@ feedback.ShowError("Load failed", "The file is damaged.", "Choose another file."
 Assert(!feedback.IsBusy && feedback.Kind == UIFeedbackKind.Error &&
        feedback.ActionHint == "Choose another file.",
     "Error feedback should retain actionable recovery guidance.");
+feedback.ShowErrorList("Projects skipped", ["one.fbf: invalid header", "two.fbf: truncated data"],
+    "Repair or remove these projects.");
+Assert(feedback.Details.Count == 2 && feedback.Details[0].StartsWith("one.fbf") &&
+       string.IsNullOrEmpty(feedback.Message),
+    "List feedback should retain every project-specific error for scrolling.");
+feedback.ShowError("Load failed", "The file is damaged.", "Choose another file.");
+Assert(feedback.Details.Count == 0,
+    "Ordinary feedback should clear details from an earlier list.");
 feedback.Dismiss();
 Assert(!feedback.IsVisible, "Completed feedback should be dismissible.");
 

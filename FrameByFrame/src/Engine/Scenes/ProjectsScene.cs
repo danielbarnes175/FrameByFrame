@@ -430,10 +430,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (_projectLoadErrors.Count == 0) _feedback.Clear();
             else
             {
-                string details = string.Join("\n", _projectLoadErrors.GetRange(0,
-                    Math.Min(2, _projectLoadErrors.Count)));
-                if (_projectLoadErrors.Count > 2) details += $"\n...and {_projectLoadErrors.Count - 2} more.";
-                _feedback.ShowError($"{_projectLoadErrors.Count} project(s) were skipped", details,
+                _feedback.ShowErrorList($"{_projectLoadErrors.Count} project(s) were skipped", _projectLoadErrors,
                     "The remaining projects are safe to use. Replace or remove the damaged files before retrying.");
             }
         }
