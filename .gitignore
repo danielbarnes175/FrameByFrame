@@ -46,6 +46,8 @@ FrameByFrame/Properties
 FrameByFrame/Settings.json
 FrameByFrame/Brushes.json
 /Brushes.json
+FrameByFrame/CustomBrushes.json
+/CustomBrushes.json
 **/Projects
 
 # Office Temp Files

@@ -68,6 +68,10 @@
     <PackageReference Include="NativeFileDialogNET" Version="2.0.2" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="DefaultBrushes.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
     <None Update="Content\Static\DrawingScene\brush.xnb">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

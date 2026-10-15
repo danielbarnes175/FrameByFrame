@@ -8,23 +8,40 @@ namespace FrameByFrame.src.Engine
 {
     public sealed class BrushPresetStore
     {
-        private readonly string _path;
+        private const string DefaultLibraryFileName = "DefaultBrushes.json";
+        private const string CustomLibraryFileName = "CustomBrushes.json";
+        private const string LegacyLibraryFileName = "Brushes.json";
+
+        private readonly string _defaultPath;
+        private readonly string _customPath;
+        private readonly string _legacyPath;
         private readonly List<BrushPreset> _presets = new();
+        private readonly List<BrushPreset> _customPresets = new();
 
         public IReadOnlyList<BrushPreset> Presets => _presets;
         public string LastError { get; private set; } = string.Empty;
 
-        public BrushPresetStore(string path = "Brushes.json")
+        public BrushPresetStore(string customPath = CustomLibraryFileName,
+            string defaultPath = null, string legacyPath = null)
         {
-            _path = Path.GetFullPath(path);
+            bool useStandardPaths = string.Equals(customPath, CustomLibraryFileName,
+                StringComparison.OrdinalIgnoreCase);
+            _customPath = Path.GetFullPath(customPath);
+            _defaultPath = Path.GetFullPath(defaultPath ??
+                Path.Combine(AppContext.BaseDirectory, DefaultLibraryFileName));
+            _legacyPath = legacyPath == null
+                ? useStandardPaths ? Path.GetFullPath(LegacyLibraryFileName) : null
+                : Path.GetFullPath(legacyPath);
             Load();
         }
 
         public BrushPreset Add(BrushPreset source = null)
         {
-            BrushPreset preset = source?.Clone($"Custom {_presets.Count + 1}") ??
-                new BrushPreset { Name = $"Custom {_presets.Count + 1}" };
+            BrushPreset preset = source?.Clone($"Custom {_customPresets.Count + 1}") ??
+                new BrushPreset { Name = $"Custom {_customPresets.Count + 1}" };
+            preset.IsBuiltIn = false;
             preset.Normalize();
+            _customPresets.Add(preset);
             _presets.Add(preset);
             Save();
             return preset;
@@ -32,10 +49,10 @@ namespace FrameByFrame.src.Engine
 
         public bool Remove(Guid id)
         {
-            if (_presets.Count <= 1) return false;
-            int index = _presets.FindIndex(candidate => candidate.Id == id);
-            if (index < 0 || _presets[index].IsBuiltIn) return false;
-            _presets.RemoveAt(index);
+            int customIndex = _customPresets.FindIndex(candidate => candidate.Id == id);
+            if (customIndex < 0) return false;
+            _customPresets.RemoveAt(customIndex);
+            _presets.RemoveAll(candidate => candidate.Id == id);
             Save();
             return true;
         }
@@ -44,80 +61,93 @@ namespace FrameByFrame.src.Engine
         {
             try
             {
-                string directory = Path.GetDirectoryName(_path);
+                string directory = Path.GetDirectoryName(_customPath);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                string temporary = _path + ".tmp";
-                File.WriteAllText(temporary, JsonSerializer.Serialize(_presets,
+                string temporary = _customPath + ".tmp";
+                File.WriteAllText(temporary, JsonSerializer.Serialize(_customPresets,
                     new JsonSerializerOptions { WriteIndented = true }));
-                File.Move(temporary, _path, overwrite: true);
+                File.Move(temporary, _customPath, overwrite: true);
                 LastError = string.Empty;
             }
             catch (Exception ex)
             {
-                LastError = $"Brush presets could not be saved: {ex.Message}";
+                LastError = $"Custom brushes could not be saved: {ex.Message}";
             }
         }
 
         private void Load()
         {
+            List<string> errors = new();
+            LoadDefaults(errors);
+            LoadCustoms(errors);
+            EnsureUniqueIds();
+            LastError = string.Join(" ", errors);
+        }
+
+        private void LoadDefaults(List<string> errors)
+        {
             try
             {
-                if (File.Exists(_path))
+                List<BrushPreset> defaults = ReadPresets(_defaultPath);
+                if (defaults.Count == 0) throw new InvalidDataException("The default brush library is empty.");
+                foreach (BrushPreset preset in defaults)
                 {
-                    string json = File.ReadAllText(_path);
-                    List<BrushPreset> loaded = JsonSerializer.Deserialize<List<BrushPreset>>(
-                        json);
-                    if (loaded != null) _presets.AddRange(loaded.Where(candidate => candidate != null));
-
-                    // The original editor stored shape/size controls rather than a tip mask.
-                    // Preserve those user entries as editable masks and add the new visual library once.
-                    if (json.Contains("\"Shape\"", StringComparison.Ordinal))
-                    {
-                        foreach (BrushPreset builtIn in BrushPreset.CreateBuiltIns())
-                            if (!_presets.Any(preset => string.Equals(preset.Name, builtIn.Name,
-                                StringComparison.OrdinalIgnoreCase)))
-                                _presets.Add(builtIn);
-                    }
+                    preset.Normalize();
+                    preset.IsBuiltIn = true;
+                    _presets.Add(preset);
                 }
-                foreach (BrushPreset preset in _presets) preset.Normalize();
-                bool repairedBuiltIns = RestoreBuiltIns();
-                if (_presets.Select(preset => preset.Id).Distinct().Count() != _presets.Count)
-                    foreach (BrushPreset preset in _presets) preset.Id = Guid.NewGuid();
-                LastError = string.Empty;
-                if (repairedBuiltIns) Save();
             }
             catch (Exception ex)
             {
-                _presets.Clear();
                 _presets.AddRange(BrushPreset.CreateBuiltIns());
-                LastError = $"Brush presets could not be loaded: {ex.Message}";
+                errors.Add($"Default brushes could not be loaded: {ex.Message}");
             }
         }
 
-        private bool RestoreBuiltIns()
+        private void LoadCustoms(List<string> errors)
         {
-            bool changed = false;
-            foreach (BrushPreset builtIn in BrushPreset.CreateBuiltIns())
+            string sourcePath = File.Exists(_customPath) ? _customPath
+                : !string.IsNullOrEmpty(_legacyPath) && File.Exists(_legacyPath) ? _legacyPath
+                : null;
+            if (sourcePath == null) return;
+
+            try
             {
-                int index = _presets.FindIndex(preset => string.Equals(preset.Name, builtIn.Name,
-                    StringComparison.OrdinalIgnoreCase));
-                if (index < 0)
+                HashSet<string> reservedNames = _presets.Select(preset => preset.Name)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (BrushPreset preset in ReadPresets(sourcePath))
                 {
-                    _presets.Add(builtIn);
-                    changed = true;
-                    continue;
+                    preset.Normalize();
+                    if (reservedNames.Contains(preset.Name)) continue;
+                    preset.IsBuiltIn = false;
+                    _customPresets.Add(preset);
+                    _presets.Add(preset);
                 }
 
-                BrushPreset existing = _presets[index];
-                bool needsRepair = !existing.IsBuiltIn || existing.TileTip != builtIn.TileTip ||
-                    existing.TipWidth != builtIn.TipWidth || existing.TipHeight != builtIn.TipHeight ||
-                    !existing.TipAlpha.SequenceEqual(builtIn.TipAlpha);
-                if (!needsRepair) continue;
-                builtIn.Id = existing.Id;
-                _presets[index] = builtIn;
-                changed = true;
+                if (!string.Equals(sourcePath, _customPath, StringComparison.Ordinal)) Save();
             }
-            return changed;
+            catch (Exception ex)
+            {
+                errors.Add($"Custom brushes could not be loaded: {ex.Message}");
+            }
+        }
+
+        private static List<BrushPreset> ReadPresets(string path)
+        {
+            List<BrushPreset> loaded = JsonSerializer.Deserialize<List<BrushPreset>>(
+                File.ReadAllText(path));
+            return loaded?.Where(candidate => candidate != null).ToList() ?? new List<BrushPreset>();
+        }
+
+        private void EnsureUniqueIds()
+        {
+            HashSet<Guid> ids = new();
+            foreach (BrushPreset preset in _presets)
+                if (preset.Id == Guid.Empty || !ids.Add(preset.Id))
+                {
+                    preset.Id = Guid.NewGuid();
+                    ids.Add(preset.Id);
+                }
         }
     }
 }

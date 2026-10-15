@@ -7,6 +7,7 @@ using FrameByFrame.src.Engine;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 
 static void Assert(bool condition, string message)
 {
@@ -203,6 +204,9 @@ try
     Assert(brushes.Presets.Count >= 9 &&
            brushes.Presets.Any(preset => preset.Name == "Vertical Tone"),
         "The built-in library should expose a useful range of pen, texture, and tone presets.");
+    Assert(File.Exists(Path.Combine(AppContext.BaseDirectory, "DefaultBrushes.json")) &&
+           brushes.Presets.Take(9).All(preset => preset.IsBuiltIn),
+        "The committed default library should load before custom brushes.");
     Assert(!brushes.Remove(brushes.Presets[0].Id),
         "Built-in brush presets should not be removable.");
     BrushPreset custom = brushes.Add(brushes.Presets[0]);
@@ -213,6 +217,10 @@ try
     Guid oilId = oil.Id;
     oil.TipAlpha[0] = byte.MaxValue;
     brushes.Save();
+    using (JsonDocument customFile = JsonDocument.Parse(File.ReadAllText(brushSettings)))
+        Assert(customFile.RootElement.GetArrayLength() == 1 &&
+               customFile.RootElement[0].GetProperty("Name").GetString() == "Custom stipple",
+            "The custom library should persist only user-created brushes.");
     var reloadedBrushes = new BrushPresetStore(brushSettings);
     BrushPreset restoredOil = reloadedBrushes.Presets.Single(preset => preset.Name == "Oil");
     Assert(restoredOil.Id == oilId && restoredOil.IsBuiltIn &&
@@ -230,6 +238,28 @@ try
 finally
 {
     File.Delete(brushSettings);
+}
+
+string legacyBrushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-legacy-brushes-{Guid.NewGuid():N}.json");
+string migratedBrushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-custom-brushes-{Guid.NewGuid():N}.json");
+try
+{
+    File.WriteAllText(legacyBrushSettings, JsonSerializer.Serialize(new[]
+    {
+        BrushPreset.CreateOil(),
+        new BrushPreset { Name = "Legacy custom" }
+    }));
+    var migratedBrushes = new BrushPresetStore(migratedBrushSettings,
+        Path.Combine(AppContext.BaseDirectory, "DefaultBrushes.json"), legacyBrushSettings);
+    Assert(migratedBrushes.Presets.Take(9).All(preset => preset.IsBuiltIn) &&
+           migratedBrushes.Presets.Count(preset => preset.Name == "Oil") == 1 &&
+           migratedBrushes.Presets[^1].Name == "Legacy custom" && File.Exists(migratedBrushSettings),
+        "Legacy brush settings should migrate only custom entries after the default library.");
+}
+finally
+{
+    File.Delete(legacyBrushSettings);
+    File.Delete(migratedBrushSettings);
 }
 
 Color X = Color.Black;
