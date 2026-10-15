@@ -191,7 +191,7 @@ namespace FrameByFrame.src.UI.Components
                 if (_isDragging && frameIndex == _dropTarget)
                     UIRenderer.Border(thumbnail, UITheme.ToolSelected, 3);
                 new UITextContainer { Bounds = new Rectangle(thumbnail.X, thumbnail.Bottom - 24, thumbnail.Width, 22), MaxLines = 1 }
-                    .Draw((frameIndex + 1).ToString(), selected ? UITheme.Primary : UITheme.TextMuted, .65f);
+                    .Draw((frameIndex + 1).ToString(), selected ? UITheme.Primary : UITheme.TextMuted, UITextRole.Label);
             }
 
             // Tooltips render last so neighboring controls cannot cover them.
@@ -293,14 +293,15 @@ namespace FrameByFrame.src.UI.Components
                 }
                 string label = $"{track.SourceName} | frame {track.StartFrame + 1} | {track.DurationSeconds:0.0}s | {(track.IsMuted ? "muted" : $"{track.Volume:P0}")}";
                 new UITextContainer { Bounds = row, HorizontalAlignment = UIAlign.Start, Padding = 6, MaxLines = 1 }
-                    .Draw(label, UITheme.Text, .58f);
+                    .Draw(label, UITheme.Text, UITextRole.Caption);
             }
             string status = _importTask != null ? "Importing audio..." :
                 !string.IsNullOrWhiteSpace(_audioPlayback?.LastError) ? _audioPlayback.LastError : _audioStatus;
             if (_animation.AudioTracks.Count == 0 && string.IsNullOrWhiteSpace(status)) status = "Import audio to add a timeline track.";
             if (!string.IsNullOrWhiteSpace(status))
                 new UITextContainer { Bounds = rows, MaxLines = 2 }.Draw(status,
-                    status.Contains("failed", StringComparison.OrdinalIgnoreCase) ? UITheme.Danger : UITheme.TextMuted, .62f);
+                    status.Contains("failed", StringComparison.OrdinalIgnoreCase) ? UITheme.Danger : UITheme.TextMuted,
+                    UITextRole.Caption);
 
             _addAudio.DrawTooltip(); _removeAudio.DrawTooltip(); _muteAudio.DrawTooltip();
             _startDown.DrawTooltip(); _startUp.DrawTooltip(); _volumeDown.DrawTooltip(); _volumeUp.DrawTooltip();

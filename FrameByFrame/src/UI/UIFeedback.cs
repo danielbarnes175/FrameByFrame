@@ -138,7 +138,7 @@ namespace FrameByFrame.src.UI
             Color accent = _state.Kind == UIFeedbackKind.Error ? UITheme.Danger : UITheme.Primary;
             UIRenderer.Border(_dialog, accent, 3);
             new UITextContainer { Bounds = new Rectangle(_dialog.X + 28, _dialog.Y + 20,
-                _dialog.Width - 56, 48), MaxLines = 1 }.Draw(_state.Title, accent, .95f);
+                _dialog.Width - 56, 48), MaxLines = 1 }.Draw(_state.Title, accent, UITextRole.Title);
 
             if (_state.IsBusy) DrawSpinner(accent);
             if (_state.Progress.HasValue) DrawProgress(accent, _state.Progress.Value);
@@ -149,13 +149,13 @@ namespace FrameByFrame.src.UI
             else
             {
                 new UITextContainer { Bounds = new Rectangle(_dialog.X + 34, messageY,
-                    _dialog.Width - 68, 76), MaxLines = 3 }.Draw(_state.Message, UITheme.Text, .68f);
+                    _dialog.Width - 68, 76), MaxLines = 3 }.Draw(_state.Message, UITheme.Text, UITextRole.Body);
             }
             if (!string.IsNullOrWhiteSpace(_state.ActionHint))
             {
                 int hintY = _state.Details.Count > 0 ? _dialog.Bottom - 124 : messageY + 76;
                 new UITextContainer { Bounds = new Rectangle(_dialog.X + 34, hintY,
-                    _dialog.Width - 68, 48), MaxLines = 2 }.Draw(_state.ActionHint, UITheme.TextMuted, .58f);
+                    _dialog.Width - 68, 48), MaxLines = 2 }.Draw(_state.ActionHint, UITheme.TextMuted, UITextRole.Caption);
             }
             if (!_state.IsBusy) _dismiss.Draw(true);
         }
@@ -187,7 +187,7 @@ namespace FrameByFrame.src.UI
                     textWidth, DetailRowHeight - 4);
                 UIRenderer.Fill(row, slot % 2 == 0 ? UITheme.Surface : UITheme.SurfaceRaised);
                 new UITextContainer { Bounds = row, HorizontalAlignment = UIAlign.Start,
-                    Padding = 8, MaxLines = 2 }.Draw($"{index + 1}. {_state.Details[index]}", UITheme.Text, .58f);
+                    Padding = 8, MaxLines = 2 }.Draw($"{index + 1}. {_state.Details[index]}", UITheme.Text, UITextRole.Caption);
             }
 
             if (_state.Details.Count <= visibleRows) return;
@@ -200,7 +200,7 @@ namespace FrameByFrame.src.UI
             UIRenderer.Fill(new Rectangle(track.X, thumbY, track.Width, thumbHeight), UITheme.Primary);
             new UITextContainer { Bounds = new Rectangle(_detailsViewport.X, _detailsViewport.Bottom - 22,
                 textWidth - 8, 24), HorizontalAlignment = UIAlign.End, Padding = 0, MaxLines = 1 }
-                .Draw($"{_detailScrollIndex + 1}-{end} of {_state.Details.Count}", UITheme.TextMuted, .48f);
+                .Draw($"{_detailScrollIndex + 1}-{end} of {_state.Details.Count}", UITheme.TextMuted, UITextRole.Caption);
         }
 
         private int VisibleDetailRows() => Math.Max(1,

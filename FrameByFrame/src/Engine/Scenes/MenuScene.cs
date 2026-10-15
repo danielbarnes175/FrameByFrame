@@ -120,9 +120,9 @@ namespace FrameByFrame.src.Engine.Scenes
             UIRenderer.Fill(glow, UITheme.Surface);
             UIRenderer.Border(glow, UITheme.Border, 2);
             new UITextContainer { Bounds = new Rectangle(glow.X + UILayoutEngine.Scale(24), glow.Y + UILayoutEngine.Scale(40), glow.Width - UILayoutEngine.Scale(48), UILayoutEngine.Scale(80)), MaxLines = 1 }
-                .Draw("FRAME BY FRAME", UITheme.Primary, 1.55f);
+                .Draw("FRAME BY FRAME", UITheme.Primary, UITextRole.Display);
             new UITextContainer { Bounds = new Rectangle(glow.X + UILayoutEngine.Scale(40), glow.Y + UILayoutEngine.Scale(125), glow.Width - UILayoutEngine.Scale(80), UILayoutEngine.Scale(58)), MaxLines = 2 }
-                .Draw("Bring your ideas to life", UITheme.Text, 1f);
+                .Draw("Bring your ideas to life", UITheme.Text, UITextRole.Title);
             _newButton.Draw(true); _projectsButton.Draw();
             if (_isConfiguringNewAnimation) DrawNewAnimationDialog();
         }
@@ -135,15 +135,15 @@ namespace FrameByFrame.src.Engine.Scenes
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised);
             UIRenderer.Border(dialog, UITheme.Primary, 3);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(20), dialog.Width - S(56), S(48)), MaxLines = 1 }
-                .Draw("New animation", UITheme.Primary, 1f);
+                .Draw("New animation", UITheme.Primary, UITextRole.Title);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(94), S(190), S(48)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Canvas width", UITheme.Text, .75f);
+                .Draw("Canvas width", UITheme.Text, UITextRole.Body);
             new UITextContainer { Bounds = new Rectangle(_widthDown.Bounds.Right, _widthDown.Bounds.Y, S(100), _widthDown.Bounds.Height), MaxLines = 1 }
-                .Draw(_canvasWidth.ToString(), UITheme.Text, .72f);
+                .Draw(_canvasWidth.ToString(), UITheme.Text, UITextRole.Label);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(28), dialog.Y + S(154), S(190), S(48)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Canvas height", UITheme.Text, .75f);
+                .Draw("Canvas height", UITheme.Text, UITextRole.Body);
             new UITextContainer { Bounds = new Rectangle(_heightDown.Bounds.Right, _heightDown.Bounds.Y, S(100), _heightDown.Bounds.Height), MaxLines = 1 }
-                .Draw(_canvasHeight.ToString(), UITheme.Text, .72f);
+                .Draw(_canvasHeight.ToString(), UITheme.Text, UITextRole.Label);
             _widthDown.Draw(); _widthUp.Draw(); _heightDown.Draw(); _heightUp.Draw();
             _createButton.Draw(true); _cancelButton.Draw();
         }

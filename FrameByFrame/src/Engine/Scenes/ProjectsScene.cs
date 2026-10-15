@@ -249,7 +249,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 Bounds = new Rectangle(_back.Bounds.Right + S(16), S(10), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(68)),
                 HorizontalAlignment = UIAlign.Start,
                 MaxLines = 2
-            }.Draw(heading, UITheme.Text, 1f);
+            }.Draw(heading, UITheme.Text, UITextRole.Title);
             _back.Draw(); _folder.Draw();
 
             if (_animations.Count == 0) DrawEmptyState(); else DrawSelectedProject();
@@ -264,9 +264,9 @@ namespace FrameByFrame.src.Engine.Scenes
             Rectangle card = new(GlobalParameters.screenWidth / 2 - S(300), GlobalParameters.screenHeight / 2 - S(160), S(600), S(300));
             UIRenderer.Fill(card, UITheme.Surface); UIRenderer.Border(card, UITheme.Border, 2);
             new UITextContainer { Bounds = new Rectangle(card.X + S(24), card.Y + S(40), card.Width - S(48), S(64)), MaxLines = 2 }
-                .Draw("Your first animation starts here", UITheme.Primary, 1.05f);
+                .Draw("Your first animation starts here", UITheme.Primary, UITextRole.Title);
             new UITextContainer { Bounds = new Rectangle(card.X + S(32), card.Y + S(110), card.Width - S(64), S(72)), MaxLines = 2 }
-                .Draw("Create a canvas, draw a frame, and save it to see it here.", UITheme.TextMuted, .9f);
+                .Draw("Create a canvas, draw a frame, and save it to see it here.", UITheme.TextMuted, UITextRole.Body);
             _create.Draw(true);
         }
 
@@ -302,11 +302,11 @@ namespace FrameByFrame.src.Engine.Scenes
                 Rectangle nameBounds = new(card.X + padding, previewArea.Bottom + S(3),
                     Math.Max(1, card.Width - padding * 2), Math.Max(20, detailsHeight / 2));
                 new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
-                    .Draw(animation.projectName, UITheme.Text, .72f);
+                    .Draw(animation.projectName, UITheme.Text, UITextRole.Label);
                 Rectangle details = new(nameBounds.X, nameBounds.Bottom, nameBounds.Width,
                     Math.Max(18, card.Bottom - padding - nameBounds.Bottom));
                 new UITextContainer { Bounds = details, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
-                    .Draw($"{animation.TotalFrames} frames | {animation.fps} fps", UITheme.TextMuted, .58f);
+                    .Draw($"{animation.TotalFrames} frames | {animation.fps} fps", UITheme.TextMuted, UITextRole.Caption);
             }
 
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
@@ -372,14 +372,14 @@ namespace FrameByFrame.src.Engine.Scenes
             Rectangle dialog = new(GlobalParameters.screenWidth / 2 - S(260), GlobalParameters.screenHeight / 2 - S(120), S(520), S(270));
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised); UIRenderer.Border(dialog, UITheme.Primary, 3);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18), dialog.Width - S(48), S(42)), MaxLines = 1 }
-                .Draw("Rename project", UITheme.Primary, .9f);
+                .Draw("Rename project", UITheme.Primary, UITextRole.Heading);
             UIRenderer.Fill(_renameInputBounds, UITheme.Surface); UIRenderer.Border(_renameInputBounds, UITheme.Border, 2);
             string display = string.IsNullOrEmpty(_renameText) ? "Type a project name" : _renameText + "|";
             new UITextContainer { Bounds = _renameInputBounds, HorizontalAlignment = UIAlign.Start, Padding = S(12), MaxLines = 1 }
-                .Draw(display, string.IsNullOrEmpty(_renameText) ? UITheme.TextMuted : UITheme.Text, .75f);
+                .Draw(display, string.IsNullOrEmpty(_renameText) ? UITheme.TextMuted : UITheme.Text, UITextRole.Body);
             if (!string.IsNullOrEmpty(_renameError))
                 new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), _renameInputBounds.Bottom + S(4), dialog.Width - S(48), S(34)), MaxLines = 1 }
-                    .Draw(_renameError, Color.IndianRed, .55f);
+                    .Draw(_renameError, Color.IndianRed, UITextRole.Caption);
             _confirmRename.Draw(true); _cancelRename.Draw();
         }
 
@@ -607,21 +607,21 @@ namespace FrameByFrame.src.Engine.Scenes
             Rectangle dialog = new(cx - S(260), cy - S(215), S(520), S(450));
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised); UIRenderer.Border(dialog, UITheme.Primary, 3);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18), dialog.Width - S(48), S(42)), MaxLines = 1 }
-                .Draw("Export frame range", UITheme.Primary, .9f);
+                .Draw("Export frame range", UITheme.Primary, UITextRole.Heading);
             new UITextContainer { Bounds = new Rectangle(cx - S(210), cy - S(130), S(150), S(42)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Format", UITheme.Text, .7f);
+                .Draw("Format", UITheme.Text, UITextRole.Body);
             new UITextContainer { Bounds = new Rectangle(cx + S(10), cy - S(130), S(90), S(42)), MaxLines = 1 }
-                .Draw(ExportFormatLabel(_exportFormat), UITheme.Primary, .6f);
+                .Draw(ExportFormatLabel(_exportFormat), UITheme.Primary, UITextRole.Label);
             _exportFormatPrevious.Draw(); _exportFormatNext.Draw();
             new UITextContainer { Bounds = new Rectangle(cx - S(210), cy - S(75), S(150), S(42)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("First frame", UITheme.Text, .7f);
+                .Draw("First frame", UITheme.Text, UITextRole.Body);
             new UITextContainer { Bounds = new Rectangle(cx + S(10), cy - S(75), S(90), S(42)), MaxLines = 1 }
-                .Draw((_exportStart + 1).ToString(), UITheme.Primary, .75f);
+                .Draw((_exportStart + 1).ToString(), UITheme.Primary, UITextRole.Label);
             _exportStartDown.Draw(); _exportStartUp.Draw();
             new UITextContainer { Bounds = new Rectangle(cx - S(210), cy - S(20), S(150), S(42)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Last frame", UITheme.Text, .7f);
+                .Draw("Last frame", UITheme.Text, UITextRole.Body);
             new UITextContainer { Bounds = new Rectangle(cx + S(10), cy - S(20), S(90), S(42)), MaxLines = 1 }
-                .Draw((_exportEnd + 1).ToString(), UITheme.Primary, .75f);
+                .Draw((_exportEnd + 1).ToString(), UITheme.Primary, UITextRole.Label);
             _exportEndDown.Draw(); _exportEndUp.Draw();
             new UITextContainer
             {
@@ -629,7 +629,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 HorizontalAlignment = UIAlign.Start,
                 MaxLines = 1
             }.Draw(string.IsNullOrEmpty(_exportMessage) ? _exportDirectory : _exportMessage,
-                string.IsNullOrEmpty(_exportMessage) ? UITheme.TextMuted : UITheme.Danger, .55f);
+                string.IsNullOrEmpty(_exportMessage) ? UITheme.TextMuted : UITheme.Danger, UITextRole.Caption);
             _chooseExportDirectory.Draw();
             _confirmExport.Draw(true); _cancelExport.Draw();
         }

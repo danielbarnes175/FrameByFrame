@@ -93,7 +93,7 @@ namespace FrameByFrame.src.Engine
             {
                 var linePos = position + new Vector2(0, i * lineHeight);
                 Color textColor = i == 0 ? UIConstants.DEBUG_PERFORMANCE : UIConstants.DEBUG_TEXT;
-                UIRenderer.Text(helpLines[i], linePos, textColor, .55f);
+                UIRenderer.Text(helpLines[i], linePos, textColor, UITextRole.Debug);
             }
         }
         

@@ -23,6 +23,26 @@ Rectangle tall = UILayoutEngine.FitAspect(new Rectangle(10, 20, 900, 300), 1.5f)
 Assert(tall.Width == 450 && tall.Height == 300, "Aspect fitting should constrain width.");
 Assert(tall.X == 235 && tall.Y == 20, "Aspect fitting should preserve the container origin while centering.");
 
+UITextMetrics displayText = UITheme.Typography(UITextRole.Display);
+UITextMetrics bodyText = UITheme.Typography(UITextRole.Body);
+UITextMetrics captionText = UITheme.Typography(UITextRole.Caption);
+Assert(displayText.Bold && displayText.Scale > bodyText.Scale,
+    "Display text should be bolder and larger than body copy.");
+Assert(!bodyText.Bold && !captionText.Bold && bodyText.Scale > captionText.Scale,
+    "Body and supporting copy should use a readable regular-weight hierarchy.");
+
+Rectangle tooltipViewport = new(8, 8, 304, 464);
+Rectangle containedTooltip = UILayoutEngine.PlaceFloatingPanel(
+    new Rectangle(300, 450, 40, 40), new Point(420, 600), tooltipViewport, preferBelow: true);
+Assert(containedTooltip.X >= tooltipViewport.X && containedTooltip.Y >= tooltipViewport.Y &&
+       containedTooltip.Right <= tooltipViewport.Right && containedTooltip.Bottom <= tooltipViewport.Bottom,
+    "Floating text panels should remain contained at the minimum supported window size.");
+
+Rectangle flippedTooltip = UILayoutEngine.PlaceFloatingPanel(
+    new Rectangle(100, 420, 40, 32), new Point(160, 80), tooltipViewport, preferBelow: true);
+Assert(flippedTooltip.Bottom <= 420,
+    "A tooltip near the bottom edge should move above its anchor when space is available.");
+
 var horizontal = UILayoutEngine.Stack(new Rectangle(0, 0, 320, 40), UIAxis.Horizontal, 3, 10);
 Assert(horizontal.Count == 3, "Stack should create the requested item count.");
 Assert(horizontal[0].Width == 100 && horizontal[1].X == 110 && horizontal[2].X == 220,
