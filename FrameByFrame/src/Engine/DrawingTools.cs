@@ -1,5 +1,6 @@
 using System;
 using FrameByFrame.src.Engine.Animation;
+using FrameByFrame.src.Engine.Selection;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
 
@@ -10,7 +11,8 @@ namespace FrameByFrame.src.Engine
         Draw,
         Eraser,
         Fill,
-        ColorPicker
+        ColorPicker,
+        Selection
     }
 
     /// <summary>Owns drawing-tool selection, brush settings, and pointer-driven tool behavior.</summary>
@@ -19,13 +21,24 @@ namespace FrameByFrame.src.Engine
         private readonly Animation.Animation _animation;
         private bool _pixelEditActive;
         private int _brushSize = 5;
+        private DrawingTool _selectedTool = DrawingTool.Draw;
 
         public DrawingTools(Animation.Animation animation)
         {
             _animation = animation ?? throw new ArgumentNullException(nameof(animation));
+            Selection = new SelectionController(_animation);
         }
 
-        public DrawingTool SelectedTool { get; set; } = DrawingTool.Draw;
+        public DrawingTool SelectedTool
+        {
+            get => _selectedTool;
+            set
+            {
+                if (_selectedTool == DrawingTool.Selection && value != DrawingTool.Selection) Selection.Clear();
+                _selectedTool = value;
+            }
+        }
+        public SelectionController Selection { get; }
 
         public int BrushSize
         {
@@ -35,6 +48,12 @@ namespace FrameByFrame.src.Engine
 
         public void Update(Color selectedColor, Action<Color> selectColor, bool canDraw)
         {
+            if (SelectedTool == DrawingTool.Selection)
+            {
+                EndStroke();
+                Selection.Update(canDraw);
+                return;
+            }
             if (!GlobalParameters.GlobalMouse.LeftClickHold())
             {
                 EndStroke();

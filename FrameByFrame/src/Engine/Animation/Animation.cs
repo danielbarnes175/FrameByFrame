@@ -320,8 +320,22 @@ namespace FrameByFrame.src.Engine.Animation
                 (screenPosition.Y - DisplayBounds.Y) * frameSize.Y / DisplayBounds.Height);
         }
 
+        public Vector2 ToCanvasPosition(Vector2 screenPosition) => ToFramePosition(screenPosition);
+
         public bool IsScreenPointOnCanvas(Vector2 screenPosition) =>
             _displayView?.ContainsScreenPoint(screenPosition) ?? DisplayBounds.Contains(screenPosition);
+
+        public Rectangle ToScreenRectangle(Rectangle canvasBounds)
+        {
+            if (DisplayBounds.Width <= 0 || DisplayBounds.Height <= 0) return canvasBounds;
+            float scaleX = DisplayBounds.Width / frameSize.X;
+            float scaleY = DisplayBounds.Height / frameSize.Y;
+            return new Rectangle(
+                DisplayBounds.X + (int)Math.Floor(canvasBounds.X * scaleX),
+                DisplayBounds.Y + (int)Math.Floor(canvasBounds.Y * scaleY),
+                Math.Max(1, (int)Math.Ceiling(canvasBounds.Width * scaleX)),
+                Math.Max(1, (int)Math.Ceiling(canvasBounds.Height * scaleY)));
+        }
 
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
@@ -419,6 +433,19 @@ namespace FrameByFrame.src.Engine.Animation
         public Color[] GetLayerPixels(Guid layerId)
         {
             return CurrentFrame.GetLayerPixels(layerId);
+        }
+
+        public bool ReplaceCurrentLayerPixels(Color[] pixels)
+        {
+            ArgumentNullException.ThrowIfNull(pixels);
+            if (CurrentFrame == null || SelectedLayer == null || SelectedLayer.IsLocked ||
+                pixels.Length != CurrentFrame.width * CurrentFrame.height ||
+                !CanReplaceLayer(CurrentFrame, SelectedLayerId, pixels)) return false;
+            CommitPixelEdit();
+            BeginPixelEdit();
+            CurrentFrame.SetLayerPixels(SelectedLayerId, pixels);
+            CommitPixelEdit();
+            return true;
         }
 
         private bool CanReplaceLayer(Frame frame, Guid layerId, Color[] replacement)

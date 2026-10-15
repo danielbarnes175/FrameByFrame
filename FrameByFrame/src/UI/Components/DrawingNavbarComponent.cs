@@ -81,6 +81,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIPopover _layersPopover = new();
         private readonly Texture2D _colorWheelTexture;
         private readonly Texture2D _swatchTexture;
+        private readonly Texture2D _selectionIcon;
         private readonly Color[] _swatchPixels = new Color[Layout.SwatchSize * Layout.SwatchSize];
         private Rectangle _frameCounterBounds;
         private PopoverKind _openPopover;
@@ -96,7 +97,7 @@ namespace FrameByFrame.src.UI.Components
         {
             "Ctrl+Z / Ctrl+Y - Undo or redo",
             "Ctrl+D - Duplicate selected frame",
-            "Ctrl+C / Ctrl+V - Copy or paste frame",
+            "Ctrl+C / Ctrl+V - Copy or paste frame/selection",
             "Drag timeline frames - Reorder frames",
             "P - Play or pause",
             "N / M - Previous or next frame",
@@ -134,6 +135,8 @@ namespace FrameByFrame.src.UI.Components
             AddTool(DrawingTool.Eraser, "Static\\DrawingScene/eraser", "Eraser");
             AddTool(DrawingTool.Fill, "bucket_tool", "Bucket fill");
             AddTool(DrawingTool.ColorPicker, "eyedropper_tool", "Color picker");
+            _selectionIcon = CreateSelectionIcon();
+            AddTool(DrawingTool.Selection, _selectionIcon, "Selection tool");
 
             _playback.Add(Icon("Static\\DrawingScene/first_frame", _animation.FirstFrame, "First frame"));
             _playback.Add(Icon("Static\\DrawingScene/previous_frame", _animation.PreviousFrame, "Previous frame - N"));
@@ -184,10 +187,33 @@ namespace FrameByFrame.src.UI.Components
 
         private void AddTool(DrawingTool tool, string asset, string tooltip)
         {
-            UIIconButton button = Icon(asset, () => SelectTool(tool), tooltip);
+            AddTool(tool, GlobalParameters.GlobalContent.Load<Texture2D>(asset), tooltip);
+        }
+
+        private void AddTool(DrawingTool tool, Texture2D icon, string tooltip)
+        {
+            UIIconButton button = new(icon, () => SelectTool(tool)) { Tooltip = tooltip };
             button.UseToolSelectionStyle = true;
             _tools.Add(button);
             _toolKinds.Add(tool);
+        }
+
+        private static Texture2D CreateSelectionIcon()
+        {
+            const int size = 32;
+            Texture2D texture = new(GlobalParameters.GlobalGraphics, size, size);
+            Color[] pixels = new Color[size * size];
+            for (int i = 6; i <= 25; i++)
+            {
+                bool dash = ((i - 6) / 3) % 2 == 0;
+                if (!dash) continue;
+                pixels[i + 6 * size] = UITheme.Text;
+                pixels[i + 25 * size] = UITheme.Text;
+                pixels[6 + i * size] = UITheme.Text;
+                pixels[25 + i * size] = UITheme.Text;
+            }
+            texture.SetData(pixels);
+            return texture;
         }
 
         private void SelectTool(DrawingTool tool) => _drawingTools.SelectedTool = tool;
@@ -779,6 +805,7 @@ namespace FrameByFrame.src.UI.Components
         {
             _colorWheelTexture.Dispose();
             _swatchTexture.Dispose();
+            _selectionIcon.Dispose();
         }
     }
 }

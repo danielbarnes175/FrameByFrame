@@ -2,6 +2,7 @@ using FrameByFrame.src.UI;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Audio;
+using FrameByFrame.src.Engine.Selection;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
@@ -188,6 +189,31 @@ Assert(fillPixels[3] == O && fillPixels[7] == O && fillPixels[11] == O,
     "Flood fill should not cross a separating boundary.");
 Assert(fillPixels[2] == X && fillPixels[5] == X,
     "Flood fill should preserve boundary colors.");
+
+Color[] selectionCanvas =
+{
+    Color.Red, Color.Green, Color.Transparent, Color.Transparent,
+    Color.Blue, Color.Yellow, Color.Transparent, Color.Transparent,
+    Color.Purple, Color.Orange, Color.Transparent, Color.Transparent
+};
+PixelSelection selection = SelectionOperations.Extract(selectionCanvas, 4, 3, new Rectangle(0, 0, 2, 3));
+Assert(selection.Width == 2 && selection.Height == 3 && selection.Pixels[5] == Color.Orange,
+    "Marquee extraction should retain the selected rectangular artwork.");
+PixelSelection rotatedSelection = SelectionOperations.RotateClockwise(selection);
+Assert(rotatedSelection.Width == 3 && rotatedSelection.Height == 2 &&
+       rotatedSelection.Pixels[0] == Color.Purple && rotatedSelection.Pixels[2] == Color.Red &&
+       rotatedSelection.Pixels[3] == Color.Orange && rotatedSelection.Pixels[5] == Color.Green,
+    "Selection rotation should turn pixels clockwise without losing artwork.");
+PixelSelection resizedSelection = SelectionOperations.Resize(selection, 4, 6);
+Assert(resizedSelection.Pixels[0] == Color.Red && resizedSelection.Pixels[3] == Color.Green &&
+       resizedSelection.Pixels[^1] == Color.Orange,
+    "Selection resizing should preserve edge pixels through nearest-neighbor scaling.");
+SelectionOperations.Clear(selectionCanvas, 4, 3, selection.Bounds);
+PixelSelection movedSelection = SelectionOperations.Move(selection, 2, 0);
+SelectionOperations.Composite(selectionCanvas, 4, 3, movedSelection);
+Assert(selectionCanvas[0] == Color.Transparent && selectionCanvas[2] == Color.Red &&
+       selectionCanvas[11] == Color.Orange,
+    "Moving a selection should clear its source and composite it at the destination.");
 
 Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
        !SaveService.FormatSupportsTransparency(ExportFormat.Mov),
