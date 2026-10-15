@@ -181,7 +181,9 @@ Assert(BrushRasterizer.Sample(solidPen, 0, 0, 8, 0, 0) == byte.MaxValue &&
        BrushRasterizer.Sample(checker, 0, 0, 8, 8, 8) !=
            BrushRasterizer.Sample(checker, 1, 0, 8, 9, 8) &&
        BrushRasterizer.Sample(checker, 0, 0, 8, 8, 8) ==
-           BrushRasterizer.Sample(checker, -1, 0, 8, 8, 8),
+           BrushRasterizer.Sample(checker, -1, 0, 8, 8, 8) &&
+       BrushRasterizer.Sample(checker, 0, 0, 32, 0, 0) ==
+           BrushRasterizer.Sample(checker, 1, 0, 32, 1, 0),
     "Brush-tip masks should control the opacity and footprint of each stamp.");
 byte builtInAlpha = checker.AlphaAt(0, 0);
 Assert(checker.IsBuiltIn && !checker.SetAlpha(0, 0, (byte)(255 - builtInAlpha)) &&

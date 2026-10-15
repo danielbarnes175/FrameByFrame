@@ -61,6 +61,8 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
         private readonly Dictionary<int, byte> _strokeCoverage = new();
+        private Point _strokePatternOrigin;
+        private bool _hasStrokePatternOrigin;
         private CanvasView _displayView;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
@@ -209,6 +211,7 @@ namespace FrameByFrame.src.Engine.Animation
             _pendingPixelEdit = new PixelEdit(CurrentFrame, SelectedLayerId,
                 CurrentFrame.GetLayerPixels(SelectedLayerId), null);
             _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
         }
 
         public void CommitPixelEdit()
@@ -219,6 +222,7 @@ namespace FrameByFrame.src.Engine.Animation
             PixelEdit completed = _pendingPixelEdit with { After = after };
             _pendingPixelEdit = null;
             _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
             if (after == null || completed.Before.SequenceEqual(after)) return;
             _undoHistory.Push(completed);
             while (_undoHistory.Count > MaxHistoryEntries)
@@ -234,6 +238,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             _pendingPixelEdit = null;
             _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
             _undoHistory.Clear();
             _redoHistory.Clear();
         }
@@ -296,6 +301,11 @@ namespace FrameByFrame.src.Engine.Animation
             Vector2 current = ToFramePosition(mousePositionCur);
             Vector2 previous = ToFramePosition(mousePositionOld);
             float distance = Vector2.Distance(current, previous);
+            if (!_hasStrokePatternOrigin)
+            {
+                _strokePatternOrigin = new Point((int)current.X - brushSize, (int)current.Y - brushSize);
+                _hasStrokePatternOrigin = true;
+            }
 
             if (GlobalParameters.GlobalMouse.LeftClick())
             {
@@ -418,7 +428,8 @@ namespace FrameByFrame.src.Engine.Animation
                     int dx = x - centerX;
                     int dy = y - centerY;
                     
-                    byte tipAlpha = BrushRasterizer.Sample(brush, dx, dy, brushSize, x, y);
+                    byte tipAlpha = BrushRasterizer.Sample(brush, dx, dy, brushSize,
+                        x - _strokePatternOrigin.X, y - _strokePatternOrigin.Y);
                     if (tipAlpha > 0)
                     {
                         int pixelIndex = x + y * CurrentFrame.width;
