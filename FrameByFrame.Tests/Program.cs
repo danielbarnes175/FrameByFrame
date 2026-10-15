@@ -9,11 +9,17 @@ using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using Xunit;
 
-static void Assert(bool condition, string message)
+public sealed class ContractTests
 {
-    if (!condition) throw new InvalidOperationException(message);
-}
+    [Fact]
+    public void ExistingContractsRemainValid()
+    {
+        static void Assert(bool condition, string message)
+        {
+            Xunit.Assert.True(condition, message);
+        }
 
 static void AssertThrows<TException>(Action action, string message) where TException : Exception
 {
@@ -519,6 +525,7 @@ finally
     if (Directory.Exists(asyncExportRoot)) Directory.Delete(asyncExportRoot, recursive: true);
 }
 
-Console.WriteLine("FrameByFrame UI contract tests passed.");
+    }
+}
 
 sealed class TestElement : UIElement { }

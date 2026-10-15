@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install content build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fonts-roboto
+          fc-match Roboto
+      - name: Restore
+        run: dotnet restore FrameByFrame.sln -p:BundleFfmpeg=false
+      - name: Build
+        run: dotnet build FrameByFrame.sln --no-restore --configuration ${{ matrix.configuration }} -p:BundleFfmpeg=false
+      - name: Test
+        run: dotnet test FrameByFrame.sln --no-build --configuration ${{ matrix.configuration }} -p:BundleFfmpeg=false --logger "trx;LogFileName=test-results.trx"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.configuration }}
+          path: "**/TestResults/*.trx"
+          if-no-files-found: ignore
+
+  analyzers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore FrameByFrame.sln -p:BundleFfmpeg=false
+      - run: dotnet format analyzers FrameByFrame.sln --no-restore --verify-no-changes
+
+  package-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore FrameByFrame.sln -p:BundleFfmpeg=false
+      - run: dotnet list FrameByFrame.sln package --vulnerable --include-transitive
+
+  publish-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install content build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fonts-roboto
+          fc-match Roboto
+      - run: dotnet publish FrameByFrame/FrameByFrame.csproj --configuration Release --runtime linux-x64 --self-contained false -p:BundleFfmpeg=false
