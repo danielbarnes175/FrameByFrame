@@ -296,6 +296,9 @@ namespace FrameByFrame.src.Engine.Animation
         public void DrawOnCurrentLayer(Color selectedColor, BrushPreset brush, int brushSize, bool erase)
         {
             ArgumentNullException.ThrowIfNull(brush);
+            if (_pendingPixelEdit == null ||
+                !ReferenceEquals(_pendingPixelEdit.Frame, CurrentFrame) ||
+                _pendingPixelEdit.LayerId != SelectedLayerId) return;
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
             Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
             Vector2 current = ToFramePosition(mousePositionCur);

@@ -78,6 +78,19 @@ canvasView.Reset();
 Assert(canvasView.Zoom == 1f && canvasView.RotationDegrees == 0f && canvasView.PanOffset == Vector2.Zero,
     "Reset should restore the default editor-only canvas view.");
 
+object firstStrokeFrame = new();
+object secondStrokeFrame = new();
+Guid firstStrokeLayer = Guid.NewGuid();
+Assert(!DrawingTools.HasEditTargetChanged(true, firstStrokeFrame, firstStrokeLayer,
+           firstStrokeFrame, firstStrokeLayer) &&
+       DrawingTools.HasEditTargetChanged(true, firstStrokeFrame, firstStrokeLayer,
+           secondStrokeFrame, firstStrokeLayer) &&
+       DrawingTools.HasEditTargetChanged(true, firstStrokeFrame, firstStrokeLayer,
+           firstStrokeFrame, Guid.NewGuid()) &&
+       !DrawingTools.HasEditTargetChanged(false, firstStrokeFrame, firstStrokeLayer,
+           secondStrokeFrame, firstStrokeLayer),
+    "Active strokes should end only when their frame or layer edit target changes.");
+
 var feedback = new UIFeedbackState();
 feedback.ShowBusy("Loading", "Opening a project...", 2f);
 Assert(feedback.IsVisible && feedback.IsBusy && feedback.Progress == 1f,

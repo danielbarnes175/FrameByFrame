@@ -23,6 +23,9 @@ namespace FrameByFrame.src.Engine
         private readonly Animation.Animation _animation;
         private readonly BrushPresetStore _brushStore;
         private bool _pixelEditActive;
+        private bool _waitForPointerRelease;
+        private Frame _strokeFrame;
+        private Guid _strokeLayerId;
         private DrawingTool _selectedTool = DrawingTool.Draw;
         private int _selectedBrushIndex;
         private int _brushSize = 5;
@@ -86,17 +89,26 @@ namespace FrameByFrame.src.Engine
 
         public void Update(Color selectedColor, Action<Color> selectColor, bool canDraw)
         {
+            bool pointerHeld = GlobalParameters.GlobalMouse.LeftClickHold();
+            if (HasEditTargetChanged(_pixelEditActive, _strokeFrame, _strokeLayerId,
+                    _animation.CurrentFrame, _animation.SelectedLayerId))
+            {
+                EndStroke();
+                _waitForPointerRelease = true;
+            }
+            if (!pointerHeld)
+            {
+                EndStroke();
+                _waitForPointerRelease = false;
+            }
             if (SelectedTool == DrawingTool.Selection)
             {
                 EndStroke();
                 Selection.Update(canDraw);
                 return;
             }
-            if (!GlobalParameters.GlobalMouse.LeftClickHold())
-            {
-                EndStroke();
-                return;
-            }
+            if (!pointerHeld) return;
+            if (_waitForPointerRelease) return;
 
             if (!canDraw || UIPointerRouter.IsPointerBlocked() ||
                 !_animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos)) return;
@@ -127,6 +139,8 @@ namespace FrameByFrame.src.Engine
         {
             if (_pixelEditActive) _animation.CommitPixelEdit();
             _pixelEditActive = false;
+            _strokeFrame = null;
+            _strokeLayerId = Guid.Empty;
         }
 
         private void BeginStroke()
@@ -134,6 +148,12 @@ namespace FrameByFrame.src.Engine
             if (_pixelEditActive) return;
             _animation.BeginPixelEdit();
             _pixelEditActive = true;
+            _strokeFrame = _animation.CurrentFrame;
+            _strokeLayerId = _animation.SelectedLayerId;
         }
+
+        internal static bool HasEditTargetChanged(bool editActive, object strokeFrame, Guid strokeLayerId,
+            object currentFrame, Guid currentLayerId) => editActive &&
+            (!ReferenceEquals(strokeFrame, currentFrame) || strokeLayerId != currentLayerId);
     }
 }
