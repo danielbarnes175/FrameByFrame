@@ -240,28 +240,6 @@ finally
     File.Delete(brushSettings);
 }
 
-string legacyBrushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-legacy-brushes-{Guid.NewGuid():N}.json");
-string migratedBrushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-custom-brushes-{Guid.NewGuid():N}.json");
-try
-{
-    File.WriteAllText(legacyBrushSettings, JsonSerializer.Serialize(new[]
-    {
-        BrushPreset.CreateOil(),
-        new BrushPreset { Name = "Legacy custom" }
-    }));
-    var migratedBrushes = new BrushPresetStore(migratedBrushSettings,
-        Path.Combine(AppContext.BaseDirectory, "DefaultBrushes.json"), legacyBrushSettings);
-    Assert(migratedBrushes.Presets.Take(9).All(preset => preset.IsBuiltIn) &&
-           migratedBrushes.Presets.Count(preset => preset.Name == "Oil") == 1 &&
-           migratedBrushes.Presets[^1].Name == "Legacy custom" && File.Exists(migratedBrushSettings),
-        "Legacy brush settings should migrate only custom entries after the default library.");
-}
-finally
-{
-    File.Delete(legacyBrushSettings);
-    File.Delete(migratedBrushSettings);
-}
-
 Color X = Color.Black;
 Color O = Color.Transparent;
 Color F = Color.Orange;

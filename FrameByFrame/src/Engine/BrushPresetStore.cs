@@ -10,28 +10,20 @@ namespace FrameByFrame.src.Engine
     {
         private const string DefaultLibraryFileName = "DefaultBrushes.json";
         private const string CustomLibraryFileName = "CustomBrushes.json";
-        private const string LegacyLibraryFileName = "Brushes.json";
 
         private readonly string _defaultPath;
         private readonly string _customPath;
-        private readonly string _legacyPath;
         private readonly List<BrushPreset> _presets = new();
         private readonly List<BrushPreset> _customPresets = new();
 
         public IReadOnlyList<BrushPreset> Presets => _presets;
         public string LastError { get; private set; } = string.Empty;
 
-        public BrushPresetStore(string customPath = CustomLibraryFileName,
-            string defaultPath = null, string legacyPath = null)
+        public BrushPresetStore(string customPath = CustomLibraryFileName, string defaultPath = null)
         {
-            bool useStandardPaths = string.Equals(customPath, CustomLibraryFileName,
-                StringComparison.OrdinalIgnoreCase);
             _customPath = Path.GetFullPath(customPath);
             _defaultPath = Path.GetFullPath(defaultPath ??
                 Path.Combine(AppContext.BaseDirectory, DefaultLibraryFileName));
-            _legacyPath = legacyPath == null
-                ? useStandardPaths ? Path.GetFullPath(LegacyLibraryFileName) : null
-                : Path.GetFullPath(legacyPath);
             Load();
         }
 
@@ -106,16 +98,13 @@ namespace FrameByFrame.src.Engine
 
         private void LoadCustoms(List<string> errors)
         {
-            string sourcePath = File.Exists(_customPath) ? _customPath
-                : !string.IsNullOrEmpty(_legacyPath) && File.Exists(_legacyPath) ? _legacyPath
-                : null;
-            if (sourcePath == null) return;
+            if (!File.Exists(_customPath)) return;
 
             try
             {
                 HashSet<string> reservedNames = _presets.Select(preset => preset.Name)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                foreach (BrushPreset preset in ReadPresets(sourcePath))
+                foreach (BrushPreset preset in ReadPresets(_customPath))
                 {
                     preset.Normalize();
                     if (reservedNames.Contains(preset.Name)) continue;
@@ -123,8 +112,6 @@ namespace FrameByFrame.src.Engine
                     _customPresets.Add(preset);
                     _presets.Add(preset);
                 }
-
-                if (!string.Equals(sourcePath, _customPath, StringComparison.Ordinal)) Save();
             }
             catch (Exception ex)
             {
