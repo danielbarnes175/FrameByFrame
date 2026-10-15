@@ -308,7 +308,9 @@ namespace FrameByFrame.src.Engine.Export
             byte[] pixels = ComposeFramePixels(snapshot, frame);
             var settings = new PixelReadSettings((uint)snapshot.Width, (uint)snapshot.Height,
                 StorageType.Char, PixelMapping.RGBA);
-            using var image = new MagickImage(pixels, settings) { Format = MagickFormat.Png };
+            using var image = new MagickImage(MagickColors.Transparent, (uint)snapshot.Width, (uint)snapshot.Height);
+            image.ReadPixels(pixels, settings);
+            image.Format = MagickFormat.Png;
             image.Write(filename);
         }
 
