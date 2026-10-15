@@ -88,6 +88,13 @@ namespace FrameByFrame.src.Engine.Animation
 
         public int GetLayerPixelCount(Guid layerId) => FindLayer(layerId)?.Pixels.Count ?? 0;
 
+        public Color GetLayerPixel(Guid layerId, int x, int y)
+        {
+            FrameLayer layer = FindLayer(layerId);
+            if (layer == null || x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
+            return layer.Pixels.TryGetValue(y * width + x, out Color color) ? color : Color.Transparent;
+        }
+
         public Color[] GetLayerPixels(Guid layerId)
         {
             FrameLayer layer = FindLayer(layerId);

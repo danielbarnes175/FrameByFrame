@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Selection;
 using FrameByFrame.src.UI;
@@ -19,14 +21,17 @@ namespace FrameByFrame.src.Engine
     public sealed class DrawingTools
     {
         private readonly Animation.Animation _animation;
+        private readonly BrushPresetStore _brushStore;
         private bool _pixelEditActive;
-        private int _brushSize = 5;
         private DrawingTool _selectedTool = DrawingTool.Draw;
+        private int _selectedBrushIndex;
+        private int _brushSize = 5;
 
-        public DrawingTools(Animation.Animation animation)
+        public DrawingTools(Animation.Animation animation, BrushPresetStore brushStore = null)
         {
             _animation = animation ?? throw new ArgumentNullException(nameof(animation));
             Selection = new SelectionController(_animation);
+            _brushStore = brushStore ?? new BrushPresetStore();
         }
 
         public DrawingTool SelectedTool
@@ -44,6 +49,39 @@ namespace FrameByFrame.src.Engine
         {
             get => _brushSize;
             set => _brushSize = Math.Clamp(value, UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE);
+        }
+
+        public IReadOnlyList<BrushPreset> Brushes => _brushStore.Presets;
+        public BrushPreset SelectedBrush => Brushes[_selectedBrushIndex];
+        public int SelectedBrushIndex => _selectedBrushIndex;
+        public bool CanEditSelectedBrush => !SelectedBrush.IsBuiltIn;
+        public string BrushStoreError => _brushStore.LastError;
+
+        public void SelectBrush(int index) =>
+            _selectedBrushIndex = Math.Clamp(index, 0, Math.Max(0, Brushes.Count - 1));
+
+        public void CreateBrush()
+        {
+            BrushPreset created = _brushStore.Add(SelectedBrush);
+            _selectedBrushIndex = Brushes.ToList().FindIndex(candidate => candidate.Id == created.Id);
+        }
+
+        public void DeleteSelectedBrush()
+        {
+            if (!_brushStore.Remove(SelectedBrush.Id)) return;
+            _selectedBrushIndex = Math.Clamp(_selectedBrushIndex, 0, Brushes.Count - 1);
+        }
+
+        public void SetBrushTipAlpha(int x, int y, byte alpha)
+        {
+            if (!SelectedBrush.SetAlpha(x, y, alpha)) return;
+            _brushStore.Save();
+        }
+
+        public void FillBrushTip(byte alpha)
+        {
+            if (!SelectedBrush.Fill(alpha)) return;
+            _brushStore.Save();
         }
 
         public void Update(Color selectedColor, Action<Color> selectColor, bool canDraw)
@@ -67,11 +105,11 @@ namespace FrameByFrame.src.Engine
             {
                 case DrawingTool.Draw:
                     BeginStroke();
-                    _animation.DrawOnCurrentLayer(selectedColor, BrushSize);
+                    _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, BrushSize, erase: false);
                     break;
                 case DrawingTool.Eraser:
                     BeginStroke();
-                    _animation.DrawOnCurrentLayer(Color.Transparent, BrushSize);
+                    _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, BrushSize, erase: true);
                     break;
                 case DrawingTool.Fill when GlobalParameters.GlobalMouse.LeftClick():
                     _animation.BeginPixelEdit();

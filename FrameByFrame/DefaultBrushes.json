@@ -1,0 +1,92 @@
+[
+  {
+    "Id": "00000000-0000-0000-0000-000000000101",
+    "Name": "Solid Pen",
+    "IsBuiltIn": true,
+    "TileTip": false,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "AAAAAAD///////8AAAAAAAAAAP////////////8AAAAAAP///////////////wAAAP//////////////////AAD//////////////////wD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8A//////////////////8AAP//////////////////AAAA////////////////AAAAAAD/////////////AAAAAAAAAAD///////8AAAAAAA=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000102",
+    "Name": "Pencil",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "AAAAAAAEHjk5EAgAAAAAAAAAAAg1WXJ/f3JZNQgAAAAAAApprqVa4eGlpUVpGgAAAAhpjeGlWuFa4aXhjWkIAAA1ruGl4eGl4eGl4eF/SAAEWaWl4eHh4VpapaWl4XkLHnJaWuHh4eGlpaVaWuGcKTl/4eGl4eGl4eGl4eGlrjk5f+Fa4Vql4aXhpeFa4UUqEHKl4eFapeHhWqWl4eE+HghZpaWlpaWlpaWlpaWlWQgANUXh4aVa4eGlpVrhrjUAAAhpjeGlWuFa4aXhjWkIAAAAGml/4eGl4eGlrmkTAAAAAAAISHmcrkU+WTUIAAAAAAAAAAALKTkqHggAAAAAAA=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000103",
+    "Name": "Marker",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAubm5ubm5ubm5ubm5ubkAALm5ubm5ubm5ubm5ubm5AAC5ubm5ubm5ubm5ubm5uQAAubm5ubm5ubm5ubm5ubkAALm5ubm5ubm5ubm5ubm5AAC5ubm5ubm5ubm5ubm5uQAAubm5ubm5ubm5ubm5ubkAALm5ubm5ubm5ubm5ubm5AAC5ubm5ubm5ubm5ubm5uQAAubm5ubm5ubm5ubm5ubkAALm5ubm5ubm5ubm5ubm5AAC5ubm5ubm5ubm5ubm5uQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000104",
+    "Name": "Oil",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "AAAAAAC+vv//KCgAAAAAAAAAAL6+//8oKG5uvr4AAAAAAL7//ygobm6+vr7//wAAAP//KChubr6+vv//KChuAAAoKG5uvr6+//8oKG5uvgAobm6+vr7//ygobm6+vr7/br6+vv//KChubr6+vv//KL6+//8oKG5uvr6+//8oKG7//ygobm6+vr7//ygobm6+KChubr6+vv//KChubr6+vm5uvr6+//8oKG5uvr6+//8Avr7//ygobm6+vr7//ygAAP//KChubr6+vv//KChuAAAAKG5uvr6+//8oKG5uAAAAAAC+vr7//ygobm6+AAAAAAAAAAD/KChubr4AAAAAAA=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000105",
+    "Name": "Checker 50%",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "/wD/AP8A/wD/AP8A/wD/AAD/AP8A/wD/AP8A/wD/AP//AP8A/wD/AP8A/wD/AP8AAP8A/wD/AP8A/wD/AP8A//8A/wD/AP8A/wD/AP8A/wAA/wD/AP8A/wD/AP8A/wD//wD/AP8A/wD/AP8A/wD/AAD/AP8A/wD/AP8A/wD/AP//AP8A/wD/AP8A/wD/AP8AAP8A/wD/AP8A/wD/AP8A//8A/wD/AP8A/wD/AP8A/wAA/wD/AP8A/wD/AP8A/wD//wD/AP8A/wD/AP8A/wD/AAD/AP8A/wD/AP8A/wD/AP//AP8A/wD/AP8A/wD/AP8AAP8A/wD/AP8A/wD/AP8A/w=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000106",
+    "Name": "Sparse 25%",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "/wD/AP8A/wD/AP8A/wD/AAAAAAAAAAAAAAAAAAAAAAD/AP8A/wD/AP8A/wD/AP8AAAAAAAAAAAAAAAAAAAAAAP8A/wD/AP8A/wD/AP8A/wAAAAAAAAAAAAAAAAAAAAAA/wD/AP8A/wD/AP8A/wD/AAAAAAAAAAAAAAAAAAAAAAD/AP8A/wD/AP8A/wD/AP8AAAAAAAAAAAAAAAAAAAAAAP8A/wD/AP8A/wD/AP8A/wAAAAAAAAAAAAAAAAAAAAAA/wD/AP8A/wD/AP8A/wD/AAAAAAAAAAAAAAAAAAAAAAD/AP8A/wD/AP8A/wD/AP8AAAAAAAAAAAAAAAAAAAAAAA=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000107",
+    "Name": "Horizontal Tone",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "//////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAA/////////////////////w=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000108",
+    "Name": "Vertical Tone",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "//8A//8A//8A//8A//8A////AP//AP//AP//AP//AP///wD//wD//wD//wD//wD///8A//8A//8A//8A//8A////AP//AP//AP//AP//AP///wD//wD//wD//wD//wD///8A//8A//8A//8A//8A////AP//AP//AP//AP//AP///wD//wD//wD//wD//wD///8A//8A//8A//8A//8A////AP//AP//AP//AP//AP///wD//wD//wD//wD//wD///8A//8A//8A//8A//8A////AP//AP//AP//AP//AP///wD//wD//wD//wD//wD///8A//8A//8A//8A//8A/w=="
+  },
+  {
+    "Id": "00000000-0000-0000-0000-000000000109",
+    "Name": "Diagonal Hatch",
+    "IsBuiltIn": true,
+    "TileTip": true,
+    "FormatVersion": 1,
+    "TipWidth": 16,
+    "TipHeight": 16,
+    "TipAlpha": "/wAAAP8AAAD/AAAA/wAAAAAAAP8AAAD/AAAA/wAAAP8AAP8AAAD/AAAA/wAAAP8AAP8AAAD/AAAA/wAAAP8AAP8AAAD/AAAA/wAAAP8AAAAAAAD/AAAA/wAAAP8AAAD/AAD/AAAA/wAAAP8AAAD/AAD/AAAA/wAAAP8AAAD/AAD/AAAA/wAAAP8AAAD/AAAAAAAA/wAAAP8AAAD/AAAA/wAA/wAAAP8AAAD/AAAA/wAA/wAAAP8AAAD/AAAA/wAA/wAAAP8AAAD/AAAA/wAAAAAAAP8AAAD/AAAA/wAAAP8AAP8AAAD/AAAA/wAAAP8AAP8AAAD/AAAA/wAAAP8AAA=="
+  }
+]

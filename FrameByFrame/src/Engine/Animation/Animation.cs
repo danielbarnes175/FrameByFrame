@@ -60,6 +60,9 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly Stack<PixelEdit> _undoHistory = new();
         private readonly Stack<PixelEdit> _redoHistory = new();
         private PixelEdit _pendingPixelEdit;
+        private readonly Dictionary<int, byte> _strokeCoverage = new();
+        private Point _strokePatternOrigin;
+        private bool _hasStrokePatternOrigin;
         private CanvasView _displayView;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
@@ -207,6 +210,8 @@ namespace FrameByFrame.src.Engine.Animation
             if (_pendingPixelEdit != null || CurrentFrame == null || SelectedLayer == null) return;
             _pendingPixelEdit = new PixelEdit(CurrentFrame, SelectedLayerId,
                 CurrentFrame.GetLayerPixels(SelectedLayerId), null);
+            _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
         }
 
         public void CommitPixelEdit()
@@ -216,6 +221,8 @@ namespace FrameByFrame.src.Engine.Animation
             Color[] after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
             PixelEdit completed = _pendingPixelEdit with { After = after };
             _pendingPixelEdit = null;
+            _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
             if (after == null || completed.Before.SequenceEqual(after)) return;
             _undoHistory.Push(completed);
             while (_undoHistory.Count > MaxHistoryEntries)
@@ -230,6 +237,8 @@ namespace FrameByFrame.src.Engine.Animation
         private void ClearEditHistory()
         {
             _pendingPixelEdit = null;
+            _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
             _undoHistory.Clear();
             _redoHistory.Clear();
         }
@@ -284,30 +293,34 @@ namespace FrameByFrame.src.Engine.Animation
         public void Stop() => _timeline.Stop();
         public void Start() => _timeline.Start();
 
-        public void DrawOnCurrentLayer(Color selectedColor, int brushSize)
+        public void DrawOnCurrentLayer(Color selectedColor, BrushPreset brush, int brushSize, bool erase)
         {
+            ArgumentNullException.ThrowIfNull(brush);
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
             Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
-
-            float xChange = mousePositionCur.X - mousePositionOld.X;
-            float yChange = mousePositionCur.Y - mousePositionOld.Y;
-            float distance = (float)Math.Sqrt(xChange * xChange + yChange * yChange);
-
-            // Only draw if there's movement or it's the first draw
-            if (distance < 1f && GlobalParameters.GlobalMouse.LeftClickHold()) 
+            Vector2 current = ToFramePosition(mousePositionCur);
+            Vector2 previous = ToFramePosition(mousePositionOld);
+            float distance = Vector2.Distance(current, previous);
+            if (!_hasStrokePatternOrigin)
             {
-                // Still draw a single point for initial click
-                DrawBrushAt(ToFramePosition(mousePositionCur), selectedColor, brushSize);
+                _strokePatternOrigin = new Point((int)current.X - brushSize, (int)current.Y - brushSize);
+                _hasStrokePatternOrigin = true;
+            }
+
+            if (GlobalParameters.GlobalMouse.LeftClick())
+            {
+                DrawBrushAt(current, selectedColor, brush, brushSize, erase);
                 return;
             }
 
-            // Use more efficient line drawing
-            int steps = Math.Max(1, (int)(distance / 2));
+            if (distance < .01f) return;
+
+            float spacing = Math.Max(1f, brushSize * .5f);
+            int steps = Math.Max(1, (int)Math.Ceiling(distance / spacing));
             for (int i = 0; i <= steps; i++)
             {
                 float t = steps > 0 ? i / (float)steps : 0;
-                Vector2 interpolatedPos = ToFramePosition(Vector2.Lerp(mousePositionOld, mousePositionCur, t));
-                DrawBrushAt(interpolatedPos, selectedColor, brushSize);
+                DrawBrushAt(Vector2.Lerp(previous, current, t), selectedColor, brush, brushSize, erase);
             }
         }
 
@@ -396,18 +409,16 @@ namespace FrameByFrame.src.Engine.Animation
             DrawingService.DrawCanvasOutline(view, UI.UITheme.Border);
         }
 
-        private void DrawBrushAt(Vector2 localPos, Color color, int brushSize)
+        private void DrawBrushAt(Vector2 localPos, Color color, BrushPreset brush, int brushSize, bool erase)
         {
             int centerX = (int)localPos.X;
             int centerY = (int)localPos.Y;
-            
             // Pre-calculate brush bounds to avoid repeated boundary checks
             int minX = Math.Max(0, centerX - brushSize);
             int maxX = Math.Min(CurrentFrame.width - 1, centerX + brushSize);
             int minY = Math.Max(0, centerY - brushSize);
             int maxY = Math.Min(CurrentFrame.height - 1, centerY + brushSize);
             
-            int brushSizeSquared = brushSize * brushSize;
             long availablePixels = Math.Max(0, MaxStoredPixels - StoredPixelCount);
             
             for (int x = minX; x <= maxX; x++)
@@ -417,11 +428,22 @@ namespace FrameByFrame.src.Engine.Animation
                     int dx = x - centerX;
                     int dy = y - centerY;
                     
-                    if (dx * dx + dy * dy <= brushSizeSquared)
+                    byte tipAlpha = BrushRasterizer.Sample(brush, dx, dy, brushSize,
+                        x - _strokePatternOrigin.X, y - _strokePatternOrigin.Y);
+                    if (tipAlpha > 0)
                     {
-                        bool canAddPixel = color == Color.Transparent || availablePixels > 0;
-                        if (CurrentFrame.SetPixel(SelectedLayerId, x, y, color, canAddPixel))
+                        int pixelIndex = x + y * CurrentFrame.width;
+                        if (_strokeCoverage.TryGetValue(pixelIndex, out byte appliedAlpha) &&
+                            appliedAlpha >= tipAlpha) continue;
+                        Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
+                        Color baseline = _pendingPixelEdit?.Before?[pixelIndex] ?? existing;
+                        Color result = BrushRasterizer.Apply(baseline, color, tipAlpha, erase);
+                        bool canAddPixel = result == Color.Transparent || existing != Color.Transparent || availablePixels > 0;
+                        if (CurrentFrame.SetPixel(SelectedLayerId, x, y, result, canAddPixel))
+                        {
+                            _strokeCoverage[pixelIndex] = tipAlpha;
                             availablePixels--;
+                        }
                     }
                 }
             }

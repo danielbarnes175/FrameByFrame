@@ -3,9 +3,11 @@ using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Selection;
+using FrameByFrame.src.Engine;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 
 static void Assert(bool condition, string message)
 {
@@ -172,6 +174,71 @@ slider.SetValue(-20);
 Assert(slider.Value == 1, "Sliders should clamp values to their minimum.");
 slider.SetValue(200);
 Assert(slider.Value == 50, "Sliders should clamp values to their maximum.");
+
+BrushPreset solidPen = BrushPreset.CreateSolidPen();
+BrushPreset checker = BrushPreset.CreateCheckerDither();
+Assert(BrushRasterizer.Sample(solidPen, 0, 0, 8, 0, 0) == byte.MaxValue &&
+       BrushRasterizer.Sample(solidPen, -8, -8, 8, -8, -8) == 0 &&
+       BrushRasterizer.Sample(checker, 0, 0, 8, 8, 8) !=
+           BrushRasterizer.Sample(checker, 1, 0, 8, 9, 8) &&
+       BrushRasterizer.Sample(checker, 0, 0, 8, 8, 8) ==
+           BrushRasterizer.Sample(checker, -1, 0, 8, 8, 8) &&
+       BrushRasterizer.Sample(checker, 0, 0, 32, 0, 0) ==
+           BrushRasterizer.Sample(checker, 1, 0, 32, 1, 0),
+    "Brush-tip masks should control the opacity and footprint of each stamp.");
+byte builtInAlpha = checker.AlphaAt(0, 0);
+Assert(checker.IsBuiltIn && !checker.SetAlpha(0, 0, (byte)(255 - builtInAlpha)) &&
+       checker.AlphaAt(0, 0) == builtInAlpha,
+    "Built-in brush presets should be immutable.");
+Color halfPaint = BrushRasterizer.Apply(Color.Transparent, Color.Red, 128, erase: false);
+Assert(halfPaint.R == 255 && halfPaint.A is >= 127 and <= 128,
+    "Brush-tip alpha should blend paint into transparent pixels.");
+Color halfErase = BrushRasterizer.Apply(Color.Blue, Color.Transparent, 128, erase: true);
+Assert(halfErase.B == 255 && halfErase.A is >= 127 and <= 128,
+    "The same brush-tip alpha should apply while erasing.");
+
+string brushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-brushes-{Guid.NewGuid():N}.json");
+try
+{
+    var brushes = new BrushPresetStore(brushSettings);
+    Assert(brushes.Presets.Count >= 9 &&
+           brushes.Presets.Any(preset => preset.Name == "Vertical Tone"),
+        "The built-in library should expose a useful range of pen, texture, and tone presets.");
+    Assert(File.Exists(Path.Combine(AppContext.BaseDirectory, "DefaultBrushes.json")) &&
+           brushes.Presets.Take(9).All(preset => preset.IsBuiltIn),
+        "The committed default library should load before custom brushes.");
+    Assert(!brushes.Remove(brushes.Presets[0].Id),
+        "Built-in brush presets should not be removable.");
+    BrushPreset custom = brushes.Add(brushes.Presets[0]);
+    custom.Name = "Custom stipple";
+    custom.SetAlpha(0, 0, 73);
+    byte[] sourceTip = (byte[])custom.TipAlpha.Clone();
+    BrushPreset oil = brushes.Presets.Single(preset => preset.Name == "Oil");
+    Guid oilId = oil.Id;
+    oil.TipAlpha[0] = byte.MaxValue;
+    brushes.Save();
+    using (JsonDocument customFile = JsonDocument.Parse(File.ReadAllText(brushSettings)))
+        Assert(customFile.RootElement.GetArrayLength() == 1 &&
+               customFile.RootElement[0].GetProperty("Name").GetString() == "Custom stipple",
+            "The custom library should persist only user-created brushes.");
+    var reloadedBrushes = new BrushPresetStore(brushSettings);
+    BrushPreset restoredOil = reloadedBrushes.Presets.Single(preset => preset.Name == "Oil");
+    Assert(restoredOil.Id == oilId && restoredOil.IsBuiltIn &&
+           restoredOil.TipAlpha.SequenceEqual(BrushPreset.CreateOil().TipAlpha),
+        "Loading should repair built-in presets changed by older editable versions.");
+    BrushPreset restored = reloadedBrushes.Presets.Single(preset => preset.Id == custom.Id);
+    Assert(restored.Name == "Custom stipple" && restored.TipWidth == BrushPreset.DefaultTipSize &&
+           restored.TipHeight == BrushPreset.DefaultTipSize && restored.TipAlpha.SequenceEqual(sourceTip),
+        "Custom brush-tip masks should persist and reload with stable identity.");
+    BrushPreset clone = restored.Clone("Clone");
+    clone.SetAlpha(0, 0, 255);
+    Assert(restored.AlphaAt(0, 0) == 73,
+        "Cloned presets should own independent brush-tip masks.");
+}
+finally
+{
+    File.Delete(brushSettings);
+}
 
 Color X = Color.Black;
 Color O = Color.Transparent;
