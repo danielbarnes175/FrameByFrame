@@ -80,14 +80,11 @@ namespace FrameByFrame.src.Engine
                     }
                 }
                 foreach (BrushPreset preset in _presets) preset.Normalize();
-                MarkRecognizedBuiltIns();
-                if (_presets.Count == 0)
-                {
-                    _presets.AddRange(BrushPreset.CreateBuiltIns());
-                }
+                bool repairedBuiltIns = RestoreBuiltIns();
                 if (_presets.Select(preset => preset.Id).Distinct().Count() != _presets.Count)
                     foreach (BrushPreset preset in _presets) preset.Id = Guid.NewGuid();
                 LastError = string.Empty;
+                if (repairedBuiltIns) Save();
             }
             catch (Exception ex)
             {
@@ -97,18 +94,30 @@ namespace FrameByFrame.src.Engine
             }
         }
 
-        private void MarkRecognizedBuiltIns()
+        private bool RestoreBuiltIns()
         {
-            foreach (BrushPreset preset in _presets)
+            bool changed = false;
             foreach (BrushPreset builtIn in BrushPreset.CreateBuiltIns())
-                if (string.Equals(preset.Name, builtIn.Name, StringComparison.OrdinalIgnoreCase) &&
-                    preset.TipWidth == builtIn.TipWidth && preset.TipHeight == builtIn.TipHeight &&
-                    preset.TipAlpha.SequenceEqual(builtIn.TipAlpha))
+            {
+                int index = _presets.FindIndex(preset => string.Equals(preset.Name, builtIn.Name,
+                    StringComparison.OrdinalIgnoreCase));
+                if (index < 0)
                 {
-                    preset.IsBuiltIn = true;
-                    preset.TileTip = builtIn.TileTip;
-                    break;
+                    _presets.Add(builtIn);
+                    changed = true;
+                    continue;
                 }
+
+                BrushPreset existing = _presets[index];
+                bool needsRepair = !existing.IsBuiltIn || existing.TileTip != builtIn.TileTip ||
+                    existing.TipWidth != builtIn.TipWidth || existing.TipHeight != builtIn.TipHeight ||
+                    !existing.TipAlpha.SequenceEqual(builtIn.TipAlpha);
+                if (!needsRepair) continue;
+                builtIn.Id = existing.Id;
+                _presets[index] = builtIn;
+                changed = true;
+            }
+            return changed;
         }
     }
 }

@@ -476,8 +476,8 @@ namespace FrameByFrame.src.UI.Components
 
         private IEnumerable<(int Index, Rectangle Bounds)> VisibleBrushPresetBounds()
         {
-            const int columns = 4;
-            const int visibleCount = 8;
+            const int columns = 5;
+            const int visibleCount = 10;
             const int gap = 6;
             Rectangle panel = _brushesPopover.Bounds;
             int start = _drawingTools.SelectedBrushIndex / visibleCount * visibleCount;

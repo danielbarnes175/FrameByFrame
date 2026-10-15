@@ -116,6 +116,14 @@ namespace FrameByFrame.src.Engine
             TipAlpha = CreatePatternTip(DefaultTipSize, (_, y) => y % 3 != 2)
         };
 
+        public static BrushPreset CreateVerticalTone() => new()
+        {
+            Name = "Vertical Tone",
+            IsBuiltIn = true,
+            TileTip = true,
+            TipAlpha = CreatePatternTip(DefaultTipSize, (x, _) => x % 3 != 2)
+        };
+
         public static BrushPreset CreateDiagonalHatch() => new()
         {
             Name = "Diagonal Hatch",
@@ -127,7 +135,8 @@ namespace FrameByFrame.src.Engine
         public static BrushPreset[] CreateBuiltIns() => new[]
         {
             CreateSolidPen(), CreatePencil(), CreateMarker(), CreateOil(),
-            CreateCheckerDither(), CreateSparseDither(), CreateHorizontalTone(), CreateDiagonalHatch()
+            CreateCheckerDither(), CreateSparseDither(), CreateHorizontalTone(), CreateVerticalTone(),
+            CreateDiagonalHatch()
         };
 
         private static byte[] CreateSolidTip(int width, int height)

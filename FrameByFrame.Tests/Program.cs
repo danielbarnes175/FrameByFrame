@@ -198,7 +198,8 @@ string brushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-brushes-{
 try
 {
     var brushes = new BrushPresetStore(brushSettings);
-    Assert(brushes.Presets.Count >= 8,
+    Assert(brushes.Presets.Count >= 9 &&
+           brushes.Presets.Any(preset => preset.Name == "Vertical Tone"),
         "The built-in library should expose a useful range of pen, texture, and tone presets.");
     Assert(!brushes.Remove(brushes.Presets[0].Id),
         "Built-in brush presets should not be removable.");
@@ -206,8 +207,15 @@ try
     custom.Name = "Custom stipple";
     custom.SetAlpha(0, 0, 73);
     byte[] sourceTip = (byte[])custom.TipAlpha.Clone();
+    BrushPreset oil = brushes.Presets.Single(preset => preset.Name == "Oil");
+    Guid oilId = oil.Id;
+    oil.TipAlpha[0] = byte.MaxValue;
     brushes.Save();
     var reloadedBrushes = new BrushPresetStore(brushSettings);
+    BrushPreset restoredOil = reloadedBrushes.Presets.Single(preset => preset.Name == "Oil");
+    Assert(restoredOil.Id == oilId && restoredOil.IsBuiltIn &&
+           restoredOil.TipAlpha.SequenceEqual(BrushPreset.CreateOil().TipAlpha),
+        "Loading should repair built-in presets changed by older editable versions.");
     BrushPreset restored = reloadedBrushes.Presets.Single(preset => preset.Id == custom.Id);
     Assert(restored.Name == "Custom stipple" && restored.TipWidth == BrushPreset.DefaultTipSize &&
            restored.TipHeight == BrushPreset.DefaultTipSize && restored.TipAlpha.SequenceEqual(sourceTip),
