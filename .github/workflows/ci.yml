@@ -23,6 +23,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Install content build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fonts-roboto
+          fc-match Roboto
       - name: Restore
         run: dotnet restore FrameByFrame.sln -p:BundleFfmpeg=false
       - name: Build
@@ -64,4 +69,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Install content build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fonts-roboto
+          fc-match Roboto
       - run: dotnet publish FrameByFrame/FrameByFrame.csproj --configuration Release --runtime linux-x64 --self-contained false -p:BundleFfmpeg=false
