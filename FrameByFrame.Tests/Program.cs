@@ -174,31 +174,39 @@ Assert(slider.Value == 1, "Sliders should clamp values to their minimum.");
 slider.SetValue(200);
 Assert(slider.Value == 50, "Sliders should clamp values to their maximum.");
 
-Assert(BrushRasterizer.Contains(BrushShape.Square, 4, 4, 4) &&
-       !BrushRasterizer.Contains(BrushShape.Round, 4, 4, 4),
-    "Custom brush shapes should produce distinct stamp footprints.");
-Color halfPaint = BrushRasterizer.Apply(Color.Transparent, Color.Red, 50, erase: false);
+BrushPreset solidPen = BrushPreset.CreateSolidPen();
+BrushPreset checker = BrushPreset.CreateCheckerDither();
+Assert(BrushRasterizer.Sample(solidPen, 0, 0, 8) == byte.MaxValue &&
+       BrushRasterizer.Sample(solidPen, -8, -8, 8) == 0 &&
+       BrushRasterizer.Sample(checker, 0, 0, 8) != BrushRasterizer.Sample(checker, 1, 0, 8),
+    "Brush-tip masks should control the opacity and footprint of each stamp.");
+Color halfPaint = BrushRasterizer.Apply(Color.Transparent, Color.Red, 128, erase: false);
 Assert(halfPaint.R == 255 && halfPaint.A is >= 127 and <= 128,
-    "Brush opacity should blend paint into transparent pixels.");
-Color halfErase = BrushRasterizer.Apply(Color.Blue, Color.Transparent, 50, erase: true);
+    "Brush-tip alpha should blend paint into transparent pixels.");
+Color halfErase = BrushRasterizer.Apply(Color.Blue, Color.Transparent, 128, erase: true);
 Assert(halfErase.B == 255 && halfErase.A is >= 127 and <= 128,
-    "The same custom brush opacity should apply while erasing.");
+    "The same brush-tip alpha should apply while erasing.");
 
 string brushSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-brushes-{Guid.NewGuid():N}.json");
 try
 {
     var brushes = new BrushPresetStore(brushSettings);
+    Assert(brushes.Presets.Count >= 8,
+        "The built-in library should expose a useful range of pen, texture, and tone presets.");
     BrushPreset custom = brushes.Add(brushes.Presets[0]);
-    custom.Shape = BrushShape.Square;
-    custom.Size = 17;
-    custom.OpacityPercent = 65;
-    custom.SpacingPercent = 80;
+    custom.Name = "Custom stipple";
+    custom.SetAlpha(0, 0, 73);
+    byte[] sourceTip = (byte[])custom.TipAlpha.Clone();
     brushes.Save();
     var reloadedBrushes = new BrushPresetStore(brushSettings);
     BrushPreset restored = reloadedBrushes.Presets.Single(preset => preset.Id == custom.Id);
-    Assert(restored.Shape == BrushShape.Square && restored.Size == 17 &&
-           restored.OpacityPercent == 65 && restored.SpacingPercent == 80,
-        "Configured custom brushes should persist and reload with stable identity.");
+    Assert(restored.Name == "Custom stipple" && restored.TipWidth == BrushPreset.DefaultTipSize &&
+           restored.TipHeight == BrushPreset.DefaultTipSize && restored.TipAlpha.SequenceEqual(sourceTip),
+        "Custom brush-tip masks should persist and reload with stable identity.");
+    BrushPreset clone = restored.Clone("Clone");
+    clone.SetAlpha(0, 0, 255);
+    Assert(restored.AlphaAt(0, 0) == 73,
+        "Cloned presets should own independent brush-tip masks.");
 }
 finally
 {

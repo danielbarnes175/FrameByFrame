@@ -25,6 +25,7 @@ namespace FrameByFrame.src.Engine
         private bool _pixelEditActive;
         private DrawingTool _selectedTool = DrawingTool.Draw;
         private int _selectedBrushIndex;
+        private int _brushSize = 5;
 
         public DrawingTools(Animation.Animation animation, BrushPresetStore brushStore = null)
         {
@@ -46,12 +47,8 @@ namespace FrameByFrame.src.Engine
 
         public int BrushSize
         {
-            get => SelectedBrush.Size;
-            set
-            {
-                SelectedBrush.Size = Math.Clamp(value, UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE);
-                _brushStore.Save();
-            }
+            get => _brushSize;
+            set => _brushSize = Math.Clamp(value, UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE);
         }
 
         public IReadOnlyList<BrushPreset> Brushes => _brushStore.Presets;
@@ -74,9 +71,17 @@ namespace FrameByFrame.src.Engine
             _selectedBrushIndex = Math.Clamp(_selectedBrushIndex, 0, Brushes.Count - 1);
         }
 
-        public void SetBrushShape(BrushShape shape) { SelectedBrush.Shape = shape; _brushStore.Save(); }
-        public void SetBrushOpacity(int value) { SelectedBrush.OpacityPercent = Math.Clamp(value, 1, 100); _brushStore.Save(); }
-        public void SetBrushSpacing(int value) { SelectedBrush.SpacingPercent = Math.Clamp(value, 5, 200); _brushStore.Save(); }
+        public void SetBrushTipAlpha(int x, int y, byte alpha)
+        {
+            if (!SelectedBrush.SetAlpha(x, y, alpha)) return;
+            _brushStore.Save();
+        }
+
+        public void FillBrushTip(byte alpha)
+        {
+            SelectedBrush.Fill(alpha);
+            _brushStore.Save();
+        }
 
         public void Update(Color selectedColor, Action<Color> selectColor, bool canDraw)
         {
@@ -99,11 +104,11 @@ namespace FrameByFrame.src.Engine
             {
                 case DrawingTool.Draw:
                     BeginStroke();
-                    _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, erase: false);
+                    _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, BrushSize, erase: false);
                     break;
                 case DrawingTool.Eraser:
                     BeginStroke();
-                    _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, erase: true);
+                    _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, BrushSize, erase: true);
                     break;
                 case DrawingTool.Fill when GlobalParameters.GlobalMouse.LeftClick():
                     _animation.BeginPixelEdit();

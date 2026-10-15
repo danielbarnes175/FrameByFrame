@@ -5,12 +5,20 @@ namespace FrameByFrame.src.Engine
 {
     public static class BrushRasterizer
     {
-        public static bool Contains(BrushShape shape, int x, int y, int radius) =>
-            shape == BrushShape.Square || x * x + y * y <= radius * radius;
-
-        public static Color Apply(Color existing, Color paint, int opacityPercent, bool erase)
+        public static byte Sample(BrushPreset brush, int x, int y, int radius)
         {
-            float strength = Math.Clamp(opacityPercent, 1, 100) / 100f;
+            ArgumentNullException.ThrowIfNull(brush);
+            radius = Math.Max(1, radius);
+            if (x < -radius || x > radius || y < -radius || y > radius) return 0;
+            int diameter = radius * 2 + 1;
+            int tipX = Math.Clamp((x + radius) * brush.TipWidth / diameter, 0, brush.TipWidth - 1);
+            int tipY = Math.Clamp((y + radius) * brush.TipHeight / diameter, 0, brush.TipHeight - 1);
+            return brush.AlphaAt(tipX, tipY);
+        }
+
+        public static Color Apply(Color existing, Color paint, byte tipAlpha, bool erase)
+        {
+            float strength = tipAlpha / 255f;
             if (erase)
             {
                 byte alpha = (byte)Math.Round(existing.A * (1f - strength));

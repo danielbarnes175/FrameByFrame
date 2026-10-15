@@ -284,13 +284,7 @@ namespace FrameByFrame.src.Engine.Animation
         public void Stop() => _timeline.Stop();
         public void Start() => _timeline.Start();
 
-        public void DrawOnCurrentLayer(Color selectedColor, int brushSize)
-        {
-            DrawOnCurrentLayer(selectedColor, new BrushPreset { Size = brushSize },
-                selectedColor == Color.Transparent);
-        }
-
-        public void DrawOnCurrentLayer(Color selectedColor, BrushPreset brush, bool erase)
+        public void DrawOnCurrentLayer(Color selectedColor, BrushPreset brush, int brushSize, bool erase)
         {
             ArgumentNullException.ThrowIfNull(brush);
             Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
@@ -301,18 +295,18 @@ namespace FrameByFrame.src.Engine.Animation
 
             if (GlobalParameters.GlobalMouse.LeftClick())
             {
-                DrawBrushAt(current, selectedColor, brush, erase);
+                DrawBrushAt(current, selectedColor, brush, brushSize, erase);
                 return;
             }
 
             if (distance < .01f) return;
 
-            float spacing = Math.Max(1f, brush.Size * 2f * brush.SpacingPercent / 100f);
+            float spacing = Math.Max(1f, brushSize * .5f);
             int steps = Math.Max(1, (int)Math.Ceiling(distance / spacing));
             for (int i = 0; i <= steps; i++)
             {
                 float t = steps > 0 ? i / (float)steps : 0;
-                DrawBrushAt(Vector2.Lerp(previous, current, t), selectedColor, brush, erase);
+                DrawBrushAt(Vector2.Lerp(previous, current, t), selectedColor, brush, brushSize, erase);
             }
         }
 
@@ -401,12 +395,10 @@ namespace FrameByFrame.src.Engine.Animation
             DrawingService.DrawCanvasOutline(view, UI.UITheme.Border);
         }
 
-        private void DrawBrushAt(Vector2 localPos, Color color, BrushPreset brush, bool erase)
+        private void DrawBrushAt(Vector2 localPos, Color color, BrushPreset brush, int brushSize, bool erase)
         {
             int centerX = (int)localPos.X;
             int centerY = (int)localPos.Y;
-            int brushSize = brush.Size;
-            
             // Pre-calculate brush bounds to avoid repeated boundary checks
             int minX = Math.Max(0, centerX - brushSize);
             int maxX = Math.Min(CurrentFrame.width - 1, centerX + brushSize);
@@ -422,10 +414,11 @@ namespace FrameByFrame.src.Engine.Animation
                     int dx = x - centerX;
                     int dy = y - centerY;
                     
-                    if (BrushRasterizer.Contains(brush.Shape, dx, dy, brushSize))
+                    byte tipAlpha = BrushRasterizer.Sample(brush, dx, dy, brushSize);
+                    if (tipAlpha > 0)
                     {
                         Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
-                        Color result = BrushRasterizer.Apply(existing, color, brush.OpacityPercent, erase);
+                        Color result = BrushRasterizer.Apply(existing, color, tipAlpha, erase);
                         bool canAddPixel = result == Color.Transparent || existing != Color.Transparent || availablePixels > 0;
                         if (CurrentFrame.SetPixel(SelectedLayerId, x, y, result, canAddPixel))
                             availablePixels--;

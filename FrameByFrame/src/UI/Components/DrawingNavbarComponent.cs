@@ -35,8 +35,8 @@ namespace FrameByFrame.src.UI.Components
             public const int ColorHeight = 200;
             public const int LayersWidth = 260;
             public const int LayersHeight = 300;
-            public const int BrushesWidth = 380;
-            public const int BrushesHeight = 320;
+            public const int BrushesWidth = 560;
+            public const int BrushesHeight = 490;
             public const int LayerToolbarHeight = 44;
             public const int LayerRowHeight = 42;
             public const int MaxPlaybackFps = 60;
@@ -70,10 +70,9 @@ namespace FrameByFrame.src.UI.Components
         private readonly UIActionButton _nextBrush;
         private readonly UIActionButton _newBrush;
         private readonly UIActionButton _deleteBrush;
-        private readonly UIActionButton _brushShape;
-        private readonly UISlider _brushEditorSize;
-        private readonly UISlider _brushOpacity;
-        private readonly UISlider _brushSpacing;
+        private readonly UIActionButton _clearBrushTip;
+        private readonly UIActionButton _fillBrushTip;
+        private readonly UISlider _brushTipAlpha;
         private readonly UIToggle _onionSkin;
         private readonly UIToggle _autosaveToggle;
         private readonly UIToggle _transparentBackgroundToggle;
@@ -104,6 +103,8 @@ namespace FrameByFrame.src.UI.Components
         private string _saveError = string.Empty;
         private int _helpScroll;
         private int _settingsScroll;
+        private int _brushTipAlphaPercent = 100;
+        private Rectangle _brushTipBounds;
 
         private static readonly string[] HelpShortcuts =
         {
@@ -164,13 +165,10 @@ namespace FrameByFrame.src.UI.Components
             _nextBrush = new UIActionButton(">", () => SelectBrush(1));
             _newBrush = new UIActionButton("New", _drawingTools.CreateBrush);
             _deleteBrush = new UIActionButton("Delete", _drawingTools.DeleteSelectedBrush);
-            _brushShape = new UIActionButton("Shape", ToggleBrushShape);
-            _brushEditorSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
-                _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
-            _brushOpacity = new UISlider(1, 100, _drawingTools.SelectedBrush.OpacityPercent,
-                _drawingTools.SetBrushOpacity);
-            _brushSpacing = new UISlider(5, 200, _drawingTools.SelectedBrush.SpacingPercent,
-                _drawingTools.SetBrushSpacing);
+            _clearBrushTip = new UIActionButton("Clear tip", () => _drawingTools.FillBrushTip(0));
+            _fillBrushTip = new UIActionButton("Fill tip", () => _drawingTools.FillBrushTip(byte.MaxValue));
+            _brushTipAlpha = new UISlider(0, 100, _brushTipAlphaPercent,
+                value => _brushTipAlphaPercent = value);
             _onionSkin = new UIToggle(_animation.isOnionSkinEnabled,
                 value => _animation.isOnionSkinEnabled = value);
             _autosaveToggle = new UIToggle(_autosave.IsEnabled, SetAutosave);
@@ -248,9 +246,6 @@ namespace FrameByFrame.src.UI.Components
             int count = _drawingTools.Brushes.Count;
             _drawingTools.SelectBrush((_drawingTools.SelectedBrushIndex + delta + count) % count);
         }
-
-        private void ToggleBrushShape() => _drawingTools.SetBrushShape(
-            _drawingTools.SelectedBrush.Shape == BrushShape.Round ? BrushShape.Square : BrushShape.Round);
 
         private void GoHome()
         {
@@ -348,14 +343,18 @@ namespace FrameByFrame.src.UI.Components
             int brushWidth = brushes.Width - 40;
             _previousBrush.Arrange(new Rectangle(brushLeft, brushes.Y + 34, 40, 28));
             _nextBrush.Arrange(new Rectangle(brushes.Right - 60, brushes.Y + 34, 40, 28));
-            var presetActions = UILayoutEngine.Stack(new Rectangle(brushLeft, brushes.Y + 66,
+            var presetActions = UILayoutEngine.Stack(new Rectangle(brushLeft, brushes.Y + 182,
                 brushWidth, 30), UIAxis.Horizontal, 2, 8);
             _newBrush.Arrange(presetActions[0]);
             _deleteBrush.Arrange(presetActions[1]);
-            _brushShape.Arrange(new Rectangle(brushLeft, brushes.Y + 100, brushWidth, 30));
-            _brushEditorSize.Arrange(new Rectangle(brushLeft, brushes.Y + 148, brushWidth, 32));
-            _brushOpacity.Arrange(new Rectangle(brushLeft, brushes.Y + 198, brushWidth, 32));
-            _brushSpacing.Arrange(new Rectangle(brushLeft, brushes.Y + 248, brushWidth, 32));
+            int editorSize = Math.Min(220, Math.Max(64, brushes.Height - 250));
+            Rectangle editorArea = new(brushLeft, brushes.Y + 220, editorSize, editorSize);
+            _brushTipBounds = FitBrushTip(editorArea, _drawingTools.SelectedBrush);
+            int tipControlX = editorArea.Right + 16;
+            int tipControlWidth = Math.Max(80, brushes.Right - 20 - tipControlX);
+            _brushTipAlpha.Arrange(new Rectangle(tipControlX, brushes.Y + 248, tipControlWidth, 34));
+            _fillBrushTip.Arrange(new Rectangle(tipControlX, brushes.Y + 306, tipControlWidth, 34));
+            _clearBrushTip.Arrange(new Rectangle(tipControlX, brushes.Y + 348, tipControlWidth, 34));
 
             _helpScroll = Math.Clamp(_helpScroll, 0,
                 Math.Max(0, Layout.HelpContentHeight - _helpPopover.Bounds.Height));
@@ -434,18 +433,66 @@ namespace FrameByFrame.src.UI.Components
         {
             BrushPreset brush = _drawingTools.SelectedBrush;
             _deleteBrush.IsEnabled = _drawingTools.Brushes.Count > 1;
-            _brushShape.Text = $"Shape: {brush.Shape}";
-            _brushEditorSize.SetValue(brush.Size);
-            _brushOpacity.SetValue(brush.OpacityPercent);
-            _brushSpacing.SetValue(brush.SpacingPercent);
             _previousBrush.Update();
             _nextBrush.Update();
             _newBrush.Update();
             _deleteBrush.Update();
-            _brushShape.Update();
-            _brushEditorSize.Update();
-            _brushOpacity.Update();
-            _brushSpacing.Update();
+            _brushTipAlpha.SetValue(_brushTipAlphaPercent);
+            _brushTipAlpha.Update();
+            _fillBrushTip.Update();
+            _clearBrushTip.Update();
+
+            Vector2 pointer = GlobalParameters.GlobalMouse.newMousePos;
+            if (GlobalParameters.GlobalMouse.LeftClick())
+            {
+                foreach ((int index, Rectangle bounds) in VisibleBrushPresetBounds())
+                    if (bounds.Contains(pointer))
+                    {
+                        _drawingTools.SelectBrush(index);
+                        brush = _drawingTools.SelectedBrush;
+                        break;
+                    }
+            }
+
+            int editorSize = Math.Min(220, Math.Max(64, _brushesPopover.Bounds.Height - 250));
+            Rectangle editorArea = new(_brushesPopover.Bounds.X + 20, _brushesPopover.Bounds.Y + 220,
+                editorSize, editorSize);
+            _brushTipBounds = FitBrushTip(editorArea, brush);
+            if (!_brushTipBounds.Contains(pointer) ||
+                (!GlobalParameters.GlobalMouse.LeftClickHold() && !GlobalParameters.GlobalMouse.RightClickHold())) return;
+            int tipX = Math.Clamp((int)((pointer.X - _brushTipBounds.X) * brush.TipWidth / _brushTipBounds.Width),
+                0, brush.TipWidth - 1);
+            int tipY = Math.Clamp((int)((pointer.Y - _brushTipBounds.Y) * brush.TipHeight / _brushTipBounds.Height),
+                0, brush.TipHeight - 1);
+            byte alpha = GlobalParameters.GlobalMouse.RightClickHold()
+                ? (byte)0
+                : (byte)Math.Clamp((int)Math.Round(_brushTipAlphaPercent / 100f * 255f), 0, 255);
+            _drawingTools.SetBrushTipAlpha(tipX, tipY, alpha);
+        }
+
+        private IEnumerable<(int Index, Rectangle Bounds)> VisibleBrushPresetBounds()
+        {
+            const int columns = 4;
+            const int visibleCount = 8;
+            const int gap = 6;
+            Rectangle panel = _brushesPopover.Bounds;
+            int start = _drawingTools.SelectedBrushIndex / visibleCount * visibleCount;
+            int width = (panel.Width - 40 - gap * (columns - 1)) / columns;
+            for (int index = start; index < Math.Min(_drawingTools.Brushes.Count, start + visibleCount); index++)
+            {
+                int slot = index - start;
+                yield return (index, new Rectangle(panel.X + 20 + slot % columns * (width + gap),
+                    panel.Y + 66 + slot / columns * 56, width, 50));
+            }
+        }
+
+        private static Rectangle FitBrushTip(Rectangle area, BrushPreset brush)
+        {
+            int cell = Math.Max(1, Math.Min(area.Width / brush.TipWidth, area.Height / brush.TipHeight));
+            int width = cell * brush.TipWidth;
+            int height = cell * brush.TipHeight;
+            return new Rectangle(area.X + (area.Width - width) / 2, area.Y + (area.Height - height) / 2,
+                width, height);
         }
 
         private void UpdateHelp()
@@ -692,18 +739,76 @@ namespace FrameByFrame.src.UI.Components
                 .Draw($"{brush.Name} ({_drawingTools.SelectedBrushIndex + 1}/{_drawingTools.Brushes.Count})", UITheme.Text, .65f);
             _previousBrush.Draw();
             _nextBrush.Draw();
+            foreach ((int index, Rectangle bounds) in VisibleBrushPresetBounds())
+                DrawBrushPresetCard(_drawingTools.Brushes[index], bounds,
+                    index == _drawingTools.SelectedBrushIndex);
             _newBrush.Draw();
             _deleteBrush.Draw();
-            _brushShape.Draw();
-            DrawBrushSettingLabel(_brushEditorSize.Bounds, "Size");
-            DrawBrushSettingLabel(_brushOpacity.Bounds, "Opacity %");
-            DrawBrushSettingLabel(_brushSpacing.Bounds, "Spacing %");
-            _brushEditorSize.Draw();
-            _brushOpacity.Draw();
-            _brushSpacing.Draw();
+            DrawBrushTip(brush);
+            DrawBrushSettingLabel(_brushTipAlpha.Bounds, $"Paint alpha: {_brushTipAlphaPercent}%");
+            _brushTipAlpha.Draw();
+            _fillBrushTip.Draw();
+            _clearBrushTip.Draw();
+            new UITextContainer { Bounds = new Rectangle(_brushTipAlpha.Bounds.X, _clearBrushTip.Bounds.Bottom + 8,
+                _brushTipAlpha.Bounds.Width, 58), Padding = 0, HorizontalAlignment = UIAlign.Start, MaxLines = 3 }
+                .Draw("Left drag paints\nRight drag erases", UITheme.TextMuted, .52f);
             if (!string.IsNullOrWhiteSpace(_drawingTools.BrushStoreError))
                 new UITextContainer { Bounds = new Rectangle(panel.X + 16, panel.Bottom - 22, panel.Width - 32, 18), MaxLines = 1 }
                     .Draw(_drawingTools.BrushStoreError, UITheme.Danger, .52f);
+        }
+
+        private static void DrawBrushPresetCard(BrushPreset brush, Rectangle bounds, bool selected)
+        {
+            UIRenderer.Fill(bounds, selected ? UITheme.SurfaceRaised : UITheme.Surface);
+            UIRenderer.Border(bounds, selected ? UITheme.Primary : UITheme.Border, selected ? 2 : 1);
+            Rectangle preview = new(bounds.X + 6, bounds.Y + 5, 40, 40);
+            UIRenderer.Fill(preview, UITheme.CanvasStage);
+            DrawBrushPreview(brush, preview, selected ? UITheme.Primary : UITheme.Text);
+            new UITextContainer
+            {
+                Bounds = new Rectangle(preview.Right + 5, bounds.Y + 2,
+                    Math.Max(1, bounds.Right - preview.Right - 8), bounds.Height - 4),
+                Padding = 0,
+                HorizontalAlignment = UIAlign.Start,
+                MaxLines = 2
+            }.Draw(brush.Name, selected ? UITheme.Primary : UITheme.Text, .46f);
+        }
+
+        private static void DrawBrushPreview(BrushPreset brush, Rectangle bounds, Color color)
+        {
+            for (int y = 0; y < brush.TipHeight; y++)
+            for (int x = 0; x < brush.TipWidth; x++)
+            {
+                byte alpha = brush.AlphaAt(x, y);
+                if (alpha == 0) continue;
+                int left = bounds.X + x * bounds.Width / brush.TipWidth;
+                int top = bounds.Y + y * bounds.Height / brush.TipHeight;
+                int right = bounds.X + (x + 1) * bounds.Width / brush.TipWidth;
+                int bottom = bounds.Y + (y + 1) * bounds.Height / brush.TipHeight;
+                UIRenderer.Fill(new Rectangle(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top)),
+                    color * (alpha / 255f));
+            }
+        }
+
+        private void DrawBrushTip(BrushPreset brush)
+        {
+            UIRenderer.Fill(_brushTipBounds, UITheme.CanvasStage);
+            for (int y = 0; y < brush.TipHeight; y++)
+            for (int x = 0; x < brush.TipWidth; x++)
+            {
+                int left = _brushTipBounds.X + x * _brushTipBounds.Width / brush.TipWidth;
+                int top = _brushTipBounds.Y + y * _brushTipBounds.Height / brush.TipHeight;
+                int right = _brushTipBounds.X + (x + 1) * _brushTipBounds.Width / brush.TipWidth;
+                int bottom = _brushTipBounds.Y + (y + 1) * _brushTipBounds.Height / brush.TipHeight;
+                Rectangle cell = new(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+                Color checker = (x + y) % 2 == 0 ? UITheme.Surface : UITheme.SurfaceRaised;
+                UIRenderer.Fill(cell, checker);
+                byte alpha = brush.AlphaAt(x, y);
+                if (alpha > 0) UIRenderer.Fill(cell, UITheme.Text * (alpha / 255f));
+                if (_brushTipBounds.Width / brush.TipWidth >= 5)
+                    UIRenderer.Border(cell, UITheme.Border * .45f);
+            }
+            UIRenderer.Border(_brushTipBounds, UITheme.Primary, 2);
         }
 
         private static void DrawBrushSettingLabel(Rectangle slider, string label) =>

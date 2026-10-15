@@ -64,12 +64,26 @@ namespace FrameByFrame.src.Engine
             {
                 if (File.Exists(_path))
                 {
+                    string json = File.ReadAllText(_path);
                     List<BrushPreset> loaded = JsonSerializer.Deserialize<List<BrushPreset>>(
-                        File.ReadAllText(_path));
+                        json);
                     if (loaded != null) _presets.AddRange(loaded.Where(candidate => candidate != null));
+
+                    // The original editor stored shape/size controls rather than a tip mask.
+                    // Preserve those user entries as editable masks and add the new visual library once.
+                    if (json.Contains("\"Shape\"", StringComparison.Ordinal))
+                    {
+                        foreach (BrushPreset builtIn in BrushPreset.CreateBuiltIns())
+                            if (!_presets.Any(preset => string.Equals(preset.Name, builtIn.Name,
+                                StringComparison.OrdinalIgnoreCase)))
+                                _presets.Add(builtIn);
+                    }
                 }
                 foreach (BrushPreset preset in _presets) preset.Normalize();
-                if (_presets.Count == 0) _presets.Add(new BrushPreset());
+                if (_presets.Count == 0)
+                {
+                    _presets.AddRange(BrushPreset.CreateBuiltIns());
+                }
                 if (_presets.Select(preset => preset.Id).Distinct().Count() != _presets.Count)
                     foreach (BrushPreset preset in _presets) preset.Id = Guid.NewGuid();
                 LastError = string.Empty;
@@ -77,7 +91,7 @@ namespace FrameByFrame.src.Engine
             catch (Exception ex)
             {
                 _presets.Clear();
-                _presets.Add(new BrushPreset());
+                _presets.AddRange(BrushPreset.CreateBuiltIns());
                 LastError = $"Brush presets could not be loaded: {ex.Message}";
             }
         }
