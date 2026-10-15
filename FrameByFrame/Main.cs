@@ -18,7 +18,7 @@ namespace FrameByFrame
     public class Main : Game
     {
         GraphicsDeviceManager graphics;
-        BasicTexture cursor;
+        BasicTexture cursor = null!;
 
         public Main()
         {
@@ -138,7 +138,7 @@ namespace FrameByFrame
             base.Draw(gameTime);
         }
 
-        private void OnResize(object sender, EventArgs e)
+        private void OnResize(object? sender, EventArgs e)
         {
             GlobalParameters.screenWidth = Math.Max(1, GraphicsDevice.Viewport.Width);
             GlobalParameters.screenHeight = Math.Max(1, GraphicsDevice.Viewport.Height);

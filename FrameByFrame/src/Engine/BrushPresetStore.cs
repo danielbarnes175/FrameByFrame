@@ -19,7 +19,7 @@ namespace FrameByFrame.src.Engine
         public IReadOnlyList<BrushPreset> Presets => _presets;
         public string LastError { get; private set; } = string.Empty;
 
-        public BrushPresetStore(string customPath = CustomLibraryFileName, string defaultPath = null)
+        public BrushPresetStore(string customPath = CustomLibraryFileName, string? defaultPath = null)
         {
             _customPath = Path.GetFullPath(customPath);
             _defaultPath = Path.GetFullPath(defaultPath ??
@@ -27,7 +27,7 @@ namespace FrameByFrame.src.Engine
             Load();
         }
 
-        public BrushPreset Add(BrushPreset source = null)
+        public BrushPreset Add(BrushPreset? source = null)
         {
             BrushPreset preset = source?.Clone($"Custom {_customPresets.Count + 1}") ??
                 new BrushPreset { Name = $"Custom {_customPresets.Count + 1}" };
@@ -53,7 +53,7 @@ namespace FrameByFrame.src.Engine
         {
             try
             {
-                string directory = Path.GetDirectoryName(_customPath);
+                string? directory = Path.GetDirectoryName(_customPath);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 string temporary = _customPath + ".tmp";
                 File.WriteAllText(temporary, JsonSerializer.Serialize(_customPresets,
@@ -121,7 +121,7 @@ namespace FrameByFrame.src.Engine
 
         private static List<BrushPreset> ReadPresets(string path)
         {
-            List<BrushPreset> loaded = JsonSerializer.Deserialize<List<BrushPreset>>(
+            List<BrushPreset>? loaded = JsonSerializer.Deserialize<List<BrushPreset>>(
                 File.ReadAllText(path));
             return loaded?.Where(candidate => candidate != null).ToList() ?? new List<BrushPreset>();
         }

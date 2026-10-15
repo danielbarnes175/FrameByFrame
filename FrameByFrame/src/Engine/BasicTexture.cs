@@ -7,7 +7,7 @@ namespace FrameByFrame.src.Engine
     {
         public float rotation;
         public Vector2 position, dimensions;
-        public Texture2D texture;
+        public Texture2D texture = null!;
 
         public BasicTexture(string path, Vector2 pos, Vector2 dimensions)
         {

@@ -12,10 +12,10 @@ namespace FrameByFrame.src.Engine.Selection
 
         private readonly Animation.Animation _animation;
         private readonly List<Vector2> _lassoPoints = new();
-        private static PixelSelection _clipboard;
-        private PixelSelection _selection;
-        private PixelSelection _underlay;
-        private Frame _selectedFrame;
+        private static PixelSelection? _clipboard;
+        private PixelSelection? _selection;
+        private PixelSelection? _underlay;
+        private Frame? _selectedFrame;
         private Guid _selectedLayerId;
         private Gesture _gesture;
         private Vector2 _gestureStart;
@@ -48,7 +48,7 @@ namespace FrameByFrame.src.Engine.Selection
                 if (isOnSelection)
                 {
                     _gesture = Gesture.Move;
-                    _previewBounds = _selection.Bounds;
+                    _previewBounds = _selection!.Bounds;
                 }
                 else
                 {
@@ -62,7 +62,7 @@ namespace FrameByFrame.src.Engine.Selection
             else if (_gesture == Gesture.Move)
             {
                 Point delta = (canvasPoint - _gestureStart).ToPoint();
-                _previewBounds = new Rectangle(_selection.Bounds.X + delta.X,
+                _previewBounds = new Rectangle(_selection!.Bounds.X + delta.X,
                     _selection.Bounds.Y + delta.Y, _selection.Width, _selection.Height);
             }
         }
@@ -144,7 +144,7 @@ namespace FrameByFrame.src.Engine.Selection
             _gesture = Gesture.None;
             if (completed == Gesture.Lasso)
             {
-                PixelSelection selected = SelectionOperations.ExtractFreeform(
+                PixelSelection? selected = SelectionOperations.ExtractFreeform(
                     _animation.GetCurrentLayerPixels(), _animation.CurrentFrame.width,
                     _animation.CurrentFrame.height, _lassoPoints);
                 if (selected == null) Clear(); else SetSelection(selected);
@@ -165,7 +165,7 @@ namespace FrameByFrame.src.Engine.Selection
             if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(transformed, underlay);
         }
 
-        private void SetSelection(PixelSelection selection, PixelSelection underlay = null)
+        private void SetSelection(PixelSelection selection, PixelSelection? underlay = null)
         {
             _selection = selection;
             _underlay = underlay;
@@ -182,7 +182,7 @@ namespace FrameByFrame.src.Engine.Selection
                     _animation.CurrentFrame.height, _underlay);
             else
                 SelectionOperations.Clear(pixels, _animation.CurrentFrame.width,
-                    _animation.CurrentFrame.height, _selection);
+                    _animation.CurrentFrame.height, _selection!);
         }
 
         private void EnsureCurrentTarget()

@@ -14,11 +14,28 @@ namespace FrameByFrame.src.Engine.Animation
     public class Animation : IDisposable
     {
         // Animation
-        public int fps;
+        private int _fps = 12;
+        public int fps
+        {
+            get => _fps;
+            set => _fps = value is >= 1 and <= MaxFramesPerSecond
+                ? value
+                : throw new ArgumentOutOfRangeException(nameof(value), $"FPS must be between 1 and {MaxFramesPerSecond}.");
+        }
         public bool IsPlaying => _timeline.IsPlaying;
 
-        public Vector2 frameSize;
-        public Vector2 framePosition;
+        private Vector2 _frameSize;
+        private Vector2 _framePosition;
+        public Vector2 frameSize
+        {
+            get => _frameSize;
+            private set => _frameSize = ProjectModelValidator.CanvasSize(value, nameof(frameSize));
+        }
+        public Vector2 framePosition
+        {
+            get => _framePosition;
+            private set => _framePosition = ProjectModelValidator.Position(value, nameof(framePosition));
+        }
 
         // Tools
         public bool isOnionSkinEnabled;
@@ -43,15 +60,20 @@ namespace FrameByFrame.src.Engine.Animation
         private readonly List<AnimationLayer> _layers;
         public IReadOnlyList<AnimationLayer> Layers => _layers;
         public Guid SelectedLayerId { get; private set; }
-        public AnimationLayer SelectedLayer => _layers.FirstOrDefault(layer => layer.Id == SelectedLayerId);
+        public AnimationLayer? SelectedLayer => _layers.FirstOrDefault(layer => layer.Id == SelectedLayerId);
 
         // Project Settings
-        public string projectName;
+        private string _projectName = null!;
+        public string projectName
+        {
+            get => _projectName;
+            set => _projectName = ProjectModelValidator.ProjectName(value, nameof(projectName));
+        }
         public bool IsCanvasBackgroundTransparent { get; private set; }
         public Color CanvasBackgroundColor { get; private set; } = Color.White;
 
         private readonly Timeline _timeline;
-        private Frame _thumbnailFrame;
+        private Frame? _thumbnailFrame;
         private readonly List<AudioTrack> _audioTracks = new();
         public IEnumerable<Frame> Frames => _timeline.Frames;
         public IReadOnlyList<AudioTrack> AudioTracks => _audioTracks;
@@ -59,13 +81,13 @@ namespace FrameByFrame.src.Engine.Animation
         private const int MaxHistoryEntries = 20;
         private readonly Stack<PixelEdit> _undoHistory = new();
         private readonly Stack<PixelEdit> _redoHistory = new();
-        private PixelEdit _pendingPixelEdit;
+        private PixelEdit? _pendingPixelEdit;
         private readonly Dictionary<int, byte> _strokeCoverage = new();
         private Point _strokePatternOrigin;
         private bool _hasStrokePatternOrigin;
-        private CanvasView _displayView;
+        private CanvasView? _displayView;
 
-        private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[] After);
+        private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[]? After);
 
         public int TotalFrames => _timeline.TotalFrames;
         public int CurrentFrameIndex => _timeline.CurrentFrameIndex;
@@ -84,15 +106,15 @@ namespace FrameByFrame.src.Engine.Animation
         public Rectangle DisplayBounds { get; private set; }
         public const int MinCanvasDimension = 64;
         public const int MaxCanvasDimension = 4096;
+        public const int MaxFramesPerSecond = 240;
         public const long MaxStoredPixels = 268_435_456;
         public long StoredPixelCount => Frames.Sum(frame => frame.NonTransparentPixelCount);
         public float ResourceBudgetRemaining => Math.Clamp(1f -
             (float)(StoredPixelCount / (double)MaxStoredPixels), 0f, 1f);
 
-        public Animation(string projectName, IEnumerable<AnimationLayer> layers = null)
+        public Animation(string projectName, IEnumerable<AnimationLayer>? layers = null)
         {
             this.projectName = projectName;
-            fps = 12;
             _layers = layers?.ToList() ??
                 [new AnimationLayer("Layer 1"), new AnimationLayer("Layer 2"), new AnimationLayer("Layer 3")];
             if (_layers.Count == 0) throw new ArgumentException("An animation must have at least one layer.", nameof(layers));
@@ -106,8 +128,6 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void InitializeFrames(int width = 1200, int height = 800)
         {
-            width = Math.Clamp(width, MinCanvasDimension, MaxCanvasDimension);
-            height = Math.Clamp(height, MinCanvasDimension, MaxCanvasDimension);
             frameSize = new Vector2(width, height);
             framePosition = new Vector2(
                 GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2,
@@ -120,9 +140,9 @@ namespace FrameByFrame.src.Engine.Animation
         {
             ArgumentNullException.ThrowIfNull(loadedFrames);
 
-            _timeline.Load(loadedFrames);
             framePosition = loadedFramePosition;
             frameSize = loadedFrameSize;
+            _timeline.Load(loadedFrames);
             ClearEditHistory();
         }
 
@@ -153,7 +173,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public bool RemoveAudioTrack(Guid id)
         {
-            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            AudioTrack? track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
             if (track == null) return false;
             _audioTracks.Remove(track);
             AudioRevision++;
@@ -162,29 +182,32 @@ namespace FrameByFrame.src.Engine.Animation
 
         public bool SetAudioTrackStart(Guid id, int frame)
         {
-            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            AudioTrack? track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
             if (track == null) return false;
-            int clamped = Math.Clamp(frame, 0, Math.Max(0, TotalFrames - 1));
-            if (track.StartFrame == clamped) return true;
-            track.StartFrame = clamped;
+            int lastFrame = Math.Max(0, TotalFrames - 1);
+            if (frame < 0 || frame > lastFrame)
+                throw new ArgumentOutOfRangeException(nameof(frame), $"Audio must start between frame 0 and {lastFrame}.");
+            if (track.StartFrame == frame) return true;
+            track.StartFrame = frame;
             AudioRevision++;
             return true;
         }
 
         public bool SetAudioTrackVolume(Guid id, float volume)
         {
-            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            AudioTrack? track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
             if (track == null) return false;
-            float clamped = Math.Clamp(volume, 0f, 1f);
-            if (Math.Abs(track.Volume - clamped) < .0001f) return true;
-            track.Volume = clamped;
+            if (!float.IsFinite(volume) || volume is < 0f or > 1f)
+                throw new ArgumentOutOfRangeException(nameof(volume), "Audio volume must be between zero and one.");
+            if (Math.Abs(track.Volume - volume) < .0001f) return true;
+            track.Volume = volume;
             AudioRevision++;
             return true;
         }
 
         public bool SetAudioTrackMuted(Guid id, bool isMuted)
         {
-            AudioTrack track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
+            AudioTrack? track = _audioTracks.FirstOrDefault(candidate => candidate.Id == id);
             if (track == null) return false;
             if (track.IsMuted == isMuted) return true;
             track.IsMuted = isMuted;
@@ -192,7 +215,7 @@ namespace FrameByFrame.src.Engine.Animation
             return true;
         }
 
-        public Frame GetFrameAtIndex(int index) => _timeline.GetFrameAtIndex(index);
+        public Frame? GetFrameAtIndex(int index) => _timeline.GetFrameAtIndex(index);
         public void FirstFrame() => _timeline.FirstFrame();
         public void LastFrame() => _timeline.LastFrame();
         public void NextFrame() => _timeline.NextFrame();
@@ -217,8 +240,8 @@ namespace FrameByFrame.src.Engine.Animation
         public void CommitPixelEdit()
         {
             if (_pendingPixelEdit == null) return;
-            Frame frame = _timeline.Contains(_pendingPixelEdit.Frame) ? _pendingPixelEdit.Frame : null;
-            Color[] after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
+            Frame? frame = _timeline.Contains(_pendingPixelEdit.Frame) ? _pendingPixelEdit.Frame : null;
+            Color[]? after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
             PixelEdit completed = _pendingPixelEdit with { After = after };
             _pendingPixelEdit = null;
             _strokeCoverage.Clear();
@@ -248,7 +271,7 @@ namespace FrameByFrame.src.Engine.Animation
             CommitPixelEdit();
             if (_undoHistory.Count == 0) return false;
             PixelEdit edit = _undoHistory.Peek();
-            Frame frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
+            Frame? frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
             if (!CanReplaceLayer(frame, edit.LayerId, edit.Before)) return false;
             _undoHistory.Pop();
@@ -264,9 +287,9 @@ namespace FrameByFrame.src.Engine.Animation
             CommitPixelEdit();
             if (_redoHistory.Count == 0) return false;
             PixelEdit edit = _redoHistory.Peek();
-            Frame frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
+            Frame? frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
-            if (!CanReplaceLayer(frame, edit.LayerId, edit.After)) return false;
+            if (edit.After == null || !CanReplaceLayer(frame, edit.LayerId, edit.After)) return false;
             _redoHistory.Pop();
             frame.SetLayerPixels(edit.LayerId, edit.After, true);
             SelectFrame(_timeline.IndexOf(frame));
@@ -399,16 +422,16 @@ namespace FrameByFrame.src.Engine.Animation
             {
                 for (int i = 1; i <= previousOnionFrames; i++)
                 {
-                    Frame frame = GetFrameAtIndex(CurrentFrameIndex - i);
+                    Frame? frame = GetFrameAtIndex(CurrentFrameIndex - i);
                     if (frame != null) frame.DrawLayers(view, baseOpacity * (previousOnionFrames - i + 1));
                 }
                 for (int i = 1; i <= nextOnionFrames; i++)
                 {
-                    Frame frame = GetFrameAtIndex(CurrentFrameIndex + i);
+                    Frame? frame = GetFrameAtIndex(CurrentFrameIndex + i);
                     if (frame != null) frame.DrawLayers(view, baseOpacity * (nextOnionFrames - i + 1));
                 }
             }
-            CurrentFrame?.DrawLayers(view, 1f);
+            CurrentFrame.DrawLayers(view, 1f);
             DrawingService.DrawCanvasOutline(view, UI.UITheme.Border);
         }
 
@@ -457,7 +480,7 @@ namespace FrameByFrame.src.Engine.Animation
             return CurrentFrame.GetLayerPixels(layerId);
         }
 
-        public Color[] GetCurrentLayerPixels() => CurrentFrame?.GetLayerPixels(SelectedLayerId);
+        public Color[] GetCurrentLayerPixels() => CurrentFrame.GetLayerPixels(SelectedLayerId);
 
         public bool ReplaceCurrentLayerPixels(Color[] pixels)
         {
@@ -517,7 +540,7 @@ namespace FrameByFrame.src.Engine.Animation
         public bool RenameLayer(Guid layerId, string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return false;
-            AnimationLayer layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
+            AnimationLayer? layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
             if (layer == null) return false;
             layer.Rename(name);
             return true;
@@ -533,7 +556,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public bool SetLayerVisibility(Guid layerId, bool isVisible)
         {
-            AnimationLayer layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
+            AnimationLayer? layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
             if (layer == null) return false;
             layer.IsVisible = isVisible;
             return true;

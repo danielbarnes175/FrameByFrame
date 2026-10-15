@@ -56,7 +56,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly Animation _animation;
         private readonly DrawingTools _drawingTools;
         private readonly AutosaveService _autosave;
-        private readonly UIFeedbackState _feedback;
+        private readonly UIFeedbackState? _feedback;
         private readonly UIActionButton _home;
         private readonly UIIconButton _help;
         private readonly UIIconButton _settings;
@@ -135,7 +135,7 @@ namespace FrameByFrame.src.UI.Components
         public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
         public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools, AutosaveService autosave,
-            UIFeedbackState feedback = null)
+            UIFeedbackState? feedback = null)
         {
             _animation = animation;
             _drawingTools = drawingTools;
@@ -439,7 +439,7 @@ namespace FrameByFrame.src.UI.Components
             DismissPopoverOnOutsideClick();
         }
 
-        private UIPopover ActivePopover() => _openPopover switch
+        private UIPopover? ActivePopover() => _openPopover switch
         {
             PopoverKind.Help => _helpPopover,
             PopoverKind.Settings => _settingsPopover,
@@ -671,7 +671,7 @@ namespace FrameByFrame.src.UI.Components
 
         private void DismissPopoverOnOutsideClick()
         {
-            UIPopover active = ActivePopover();
+            UIPopover? active = ActivePopover();
             if (active == null || !GlobalParameters.GlobalMouse.LeftClick()) return;
             if (active.Bounds.Contains(GlobalParameters.GlobalMouse.newMousePos)) return;
             Rectangle anchor = _openPopover switch

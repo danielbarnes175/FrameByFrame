@@ -23,7 +23,7 @@ namespace FrameByFrame.src.Engine.Export
         public string LastError { get; private set; } = string.Empty;
 
         public AutosaveService(string preferencesPath = "Settings.json", TimeSpan? interval = null,
-            Action<Animation.Animation> save = null)
+            Action<Animation.Animation>? save = null)
         {
             _preferencesPath = Path.GetFullPath(preferencesPath);
             _interval = interval ?? DefaultInterval;
@@ -72,7 +72,7 @@ namespace FrameByFrame.src.Engine.Export
             try
             {
                 if (!File.Exists(_preferencesPath)) return true;
-                Preferences preferences = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(_preferencesPath));
+                Preferences? preferences = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(_preferencesPath));
                 return preferences?.AutosaveEnabled ?? true;
             }
             catch
@@ -83,7 +83,7 @@ namespace FrameByFrame.src.Engine.Export
 
         private void SavePreference()
         {
-            string directory = Path.GetDirectoryName(_preferencesPath);
+            string? directory = Path.GetDirectoryName(_preferencesPath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
             string temporaryPath = _preferencesPath + ".tmp";

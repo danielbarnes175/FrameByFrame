@@ -23,13 +23,13 @@ namespace FrameByFrame.src.Engine
         private readonly Animation.Animation _animation;
         private readonly BrushPresetStore _brushStore;
         private bool _pixelEditActive;
-        private Frame _strokeFrame;
+        private Frame? _strokeFrame;
         private Guid _strokeLayerId;
         private DrawingTool _selectedTool = DrawingTool.Draw;
         private int _selectedBrushIndex;
         private int _brushSize = 5;
 
-        public DrawingTools(Animation.Animation animation, BrushPresetStore brushStore = null)
+        public DrawingTools(Animation.Animation animation, BrushPresetStore? brushStore = null)
         {
             _animation = animation ?? throw new ArgumentNullException(nameof(animation));
             Selection = new SelectionController(_animation);
@@ -144,8 +144,8 @@ namespace FrameByFrame.src.Engine
             _strokeLayerId = _animation.SelectedLayerId;
         }
 
-        internal static bool HasEditTargetChanged(bool editActive, object strokeFrame, Guid strokeLayerId,
-            object currentFrame, Guid currentLayerId) => editActive &&
+        internal static bool HasEditTargetChanged(bool editActive, object? strokeFrame, Guid strokeLayerId,
+            object? currentFrame, Guid currentLayerId) => editActive &&
             (!ReferenceEquals(strokeFrame, currentFrame) || strokeLayerId != currentLayerId);
     }
 }

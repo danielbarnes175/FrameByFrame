@@ -116,7 +116,7 @@ namespace FrameByFrame.src.Engine.Audio
                 }
                 else
                 {
-                    AudioTrack decoded = _animation.AudioTracks.FirstOrDefault(track => track.Id == item.Key);
+                    AudioTrack? decoded = _animation.AudioTracks.FirstOrDefault(track => track.Id == item.Key);
                     long decodedBytes = _animation.AudioTracks.Sum(track => (long)(track.PcmData?.Length ?? 0));
                     if (decoded != null && decodedBytes > AudioService.MaxDecodedProjectBytes)
                     {
@@ -157,7 +157,8 @@ namespace FrameByFrame.src.Engine.Audio
 
         private void FillBuffers(TrackPlayback playback)
         {
-            byte[] pcm = playback.Track.PcmData;
+            byte[]? pcm = playback.Track.PcmData;
+            if (pcm == null) return;
             while (playback.Instance.PendingBufferCount < TargetPendingBuffers && playback.Cursor < pcm.Length)
             {
                 int count = Math.Min(BufferSize, pcm.Length - playback.Cursor);

@@ -13,7 +13,7 @@ namespace FrameByFrame.src.Engine.Selection
         public int Width => Bounds.Width;
         public int Height => Bounds.Height;
 
-        public PixelSelection(Rectangle bounds, Color[] pixels, bool[] mask = null)
+        public PixelSelection(Rectangle bounds, Color[] pixels, bool[]? mask = null)
         {
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 throw new ArgumentOutOfRangeException(nameof(bounds));

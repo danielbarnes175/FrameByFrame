@@ -14,19 +14,19 @@ namespace FrameByFrame.src.Engine.Animation
         private bool _texturesNeedUpdate = true;
         private bool _previewNeedsUpdate = true;
         private bool _disposed;
-        private Texture2D _previewTexture;
+        private Texture2D? _previewTexture;
         private int _previewVisibilityHash;
 
         public IReadOnlyList<FrameLayer> Layers => _layers;
         public long NonTransparentPixelCount => _layers.Sum(layer => (long)layer.Pixels.Count);
         private readonly List<FrameLayer> _layers;
 
-        private static Texture2D _sharedBackgroundTexture;
+        private static Texture2D? _sharedBackgroundTexture;
 
         public int width { get; set; }
         public int height { get; set; }
 
-        public Frame(Vector2 givenPosition, Vector2 dimensions, IEnumerable<AnimationLayer> layers = null)
+        public Frame(Vector2 givenPosition, Vector2 dimensions, IEnumerable<AnimationLayer>? layers = null)
         {
             width = (int)dimensions.X;
             height = (int)dimensions.Y;
@@ -54,7 +54,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void RemoveLayer(Guid layerId)
         {
-            FrameLayer layer = FindLayer(layerId);
+            FrameLayer? layer = FindLayer(layerId);
             if (layer == null) return;
             layer.Dispose();
             _layers.Remove(layer);
@@ -73,7 +73,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public bool SetPixel(Guid layerId, int x, int y, Color color, bool allowNewOpaquePixel = true)
         {
-            FrameLayer layer = FindLayer(layerId);
+            FrameLayer? layer = FindLayer(layerId);
             if (layer == null || layer.Definition.IsLocked || x < 0 || x >= width || y < 0 || y >= height) return false;
             int index = y * width + x;
             bool wasOpaque = layer.Pixels.ContainsKey(index);
@@ -89,15 +89,14 @@ namespace FrameByFrame.src.Engine.Animation
 
         public Color GetLayerPixel(Guid layerId, int x, int y)
         {
-            FrameLayer layer = FindLayer(layerId);
+            FrameLayer? layer = FindLayer(layerId);
             if (layer == null || x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
             return layer.Pixels.TryGetValue(y * width + x, out Color color) ? color : Color.Transparent;
         }
 
         public Color[] GetLayerPixels(Guid layerId)
         {
-            FrameLayer layer = FindLayer(layerId);
-            if (layer == null) return null;
+            FrameLayer layer = FindLayer(layerId) ?? throw new ArgumentException("Unknown layer.", nameof(layerId));
             Color[] pixels = new Color[width * height];
             Array.Fill(pixels, Color.Transparent);
             foreach (var pixel in layer.Pixels) pixels[pixel.Key] = pixel.Value;
@@ -145,7 +144,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public bool FloodFill(Guid layerId, int startX, int startY, Color replacement, long availablePixels = long.MaxValue)
         {
-            FrameLayer layer = FindLayer(layerId);
+            FrameLayer? layer = FindLayer(layerId);
             if (layer == null || layer.Definition.IsLocked || startX < 0 || startX >= width || startY < 0 || startY >= height) return false;
             Color[] pixels = GetLayerPixels(layerId);
             FloodFillPixels(pixels, width, height, startX, startY, replacement);
@@ -186,14 +185,14 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void ClearLayer(Guid layerId)
         {
-            FrameLayer layer = FindLayer(layerId);
+            FrameLayer? layer = FindLayer(layerId);
             if (layer == null || layer.Definition.IsLocked) return;
             layer.Pixels.Clear();
             _texturesNeedUpdate = true;
             _previewNeedsUpdate = true;
         }
 
-        private FrameLayer FindLayer(Guid layerId) => _layers.FirstOrDefault(layer => layer.Id == layerId);
+        private FrameLayer? FindLayer(Guid layerId) => _layers.FirstOrDefault(layer => layer.Id == layerId);
 
         public void UpdateTextures()
         {

@@ -6,7 +6,7 @@ namespace FrameByFrame.src.Engine.Selection
 {
     public static class SelectionOperations
     {
-        public static PixelSelection ExtractFreeform(Color[] source, int canvasWidth, int canvasHeight,
+        public static PixelSelection? ExtractFreeform(Color[] source, int canvasWidth, int canvasHeight,
             IReadOnlyList<Vector2> polygon)
         {
             ValidateCanvas(source, canvasWidth, canvasHeight);

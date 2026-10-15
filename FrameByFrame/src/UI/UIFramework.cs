@@ -221,7 +221,7 @@ namespace FrameByFrame.src.UI
             Fill(new Rectangle(bounds.Right - thickness, bounds.Y, thickness, bounds.Height), color);
         }
 
-        public static void Text(string value, Vector2 position, Color? color = null,
+        public static void Text(string? value, Vector2 position, Color? color = null,
             UITextRole role = UITextRole.Body)
         {
             UITextMetrics metrics = UITheme.Typography(role);
@@ -229,12 +229,12 @@ namespace FrameByFrame.src.UI
                 color ?? UITheme.Text, 0f, Vector2.Zero, metrics.Scale, SpriteEffects.None, 0f);
         }
 
-        public static void CenteredText(string value, Rectangle bounds, Color? color = null,
+        public static void CenteredText(string? value, Rectangle bounds, Color? color = null,
             UITextRole role = UITextRole.Body)
         {
             UITextMetrics metrics = UITheme.Typography(role);
             Vector2 size = Font(role).MeasureString(value ?? string.Empty) * metrics.Scale;
-            Text(value, new Vector2(bounds.Center.X - size.X / 2, bounds.Center.Y - size.Y / 2), color, role);
+            Text(value ?? string.Empty, new Vector2(bounds.Center.X - size.X / 2, bounds.Center.Y - size.Y / 2), color, role);
         }
 
         public static void TextInContainer(string value, UITextContainer container, Color color,
@@ -360,7 +360,7 @@ namespace FrameByFrame.src.UI
     {
         private static readonly List<Rectangle> BlockingRegions = new();
         private static readonly object ClickCapture = new();
-        private static object _captureOwner;
+        private static object? _captureOwner;
         public static bool IsCaptured => _captureOwner != null;
 
         public static void BeginFrame()
@@ -398,12 +398,12 @@ namespace FrameByFrame.src.UI
     public sealed class UIActionButton : UIElement
     {
         public string Text { get; set; }
-        public string Tooltip { get; set; }
-        public Action OnClick { get; set; }
+        public string? Tooltip { get; set; }
+        public Action? OnClick { get; set; }
         public bool IsSelected { get; set; }
         public bool IsHovered => IsEnabled && UIPointerRouter.ContainsPointer(Bounds);
 
-        public UIActionButton(string text, Action onClick = null) { Text = text; OnClick = onClick; }
+        public UIActionButton(string text, Action? onClick = null) { Text = text; OnClick = onClick; }
 
         public override void Update()
         {
@@ -436,12 +436,12 @@ namespace FrameByFrame.src.UI
     public sealed class UIIconButton : UIElement
     {
         public Texture2D Icon { get; }
-        public Action OnClick { get; set; }
-        public string Tooltip { get; set; }
+        public Action? OnClick { get; set; }
+        public string? Tooltip { get; set; }
         public bool IsSelected { get; set; }
         public bool UseToolSelectionStyle { get; set; }
 
-        public UIIconButton(Texture2D icon, Action onClick = null)
+        public UIIconButton(Texture2D icon, Action? onClick = null)
         {
             Icon = icon;
             OnClick = onClick;
@@ -480,9 +480,9 @@ namespace FrameByFrame.src.UI
     public sealed class UIToggle : UIElement
     {
         public bool Value { get; set; }
-        public Action<bool> OnChanged { get; set; }
+        public Action<bool>? OnChanged { get; set; }
 
-        public UIToggle(bool initialValue, Action<bool> onChanged = null)
+        public UIToggle(bool initialValue, Action<bool>? onChanged = null)
         {
             Value = initialValue;
             OnChanged = onChanged;
@@ -511,9 +511,9 @@ namespace FrameByFrame.src.UI
         public int Minimum { get; }
         public int Maximum { get; }
         public int Value { get; private set; }
-        public Action<int> OnChanged { get; set; }
+        public Action<int>? OnChanged { get; set; }
 
-        public UISlider(int minimum, int maximum, int value, Action<int> onChanged = null)
+        public UISlider(int minimum, int maximum, int value, Action<int>? onChanged = null)
         {
             Minimum = minimum;
             Maximum = Math.Max(minimum + 1, maximum);

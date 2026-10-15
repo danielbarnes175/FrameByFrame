@@ -16,29 +16,29 @@ namespace FrameByFrame.src.Engine.Scenes
         private readonly List<string> _projectFiles = new();
         private readonly List<Animation.Animation> _animations = new();
         private readonly List<Rectangle> _projectCardBounds = new();
-        private UIActionButton _back;
-        private UIActionButton _previous;
-        private UIActionButton _next;
-        private UIActionButton _edit;
-        private UIActionButton _export;
-        private UIActionButton _rename;
-        private UIActionButton _confirmRename;
-        private UIActionButton _cancelRename;
-        private UIActionButton _exportStartDown;
-        private UIActionButton _exportStartUp;
-        private UIActionButton _exportEndDown;
-        private UIActionButton _exportEndUp;
-        private UIActionButton _exportFormatPrevious;
-        private UIActionButton _exportFormatNext;
-        private UIActionButton _confirmExport;
-        private UIActionButton _cancelExport;
-        private UIActionButton _chooseExportDirectory;
-        private UIActionButton _folder;
-        private UIActionButton _create;
+        private UIActionButton _back = null!;
+        private UIActionButton _previous = null!;
+        private UIActionButton _next = null!;
+        private UIActionButton _edit = null!;
+        private UIActionButton _export = null!;
+        private UIActionButton _rename = null!;
+        private UIActionButton _confirmRename = null!;
+        private UIActionButton _cancelRename = null!;
+        private UIActionButton _exportStartDown = null!;
+        private UIActionButton _exportStartUp = null!;
+        private UIActionButton _exportEndDown = null!;
+        private UIActionButton _exportEndUp = null!;
+        private UIActionButton _exportFormatPrevious = null!;
+        private UIActionButton _exportFormatNext = null!;
+        private UIActionButton _confirmExport = null!;
+        private UIActionButton _cancelExport = null!;
+        private UIActionButton _chooseExportDirectory = null!;
+        private UIActionButton _folder = null!;
+        private UIActionButton _create = null!;
         private int _selected = -1;
         private int _pageStart;
         private int _previewFrame;
-        private AudioPlaybackController _previewAudio;
+        private AudioPlaybackController? _previewAudio;
         private bool _isRenaming;
         private string _renameText = string.Empty;
         private string _renameError = string.Empty;
@@ -49,15 +49,15 @@ namespace FrameByFrame.src.Engine.Scenes
         private ExportFormat _exportFormat = ExportFormat.Gif;
         private string _exportDirectory = Path.GetFullPath("Projects");
         private string _exportMessage = string.Empty;
-        private SaveService.ExportOperation _exportOperation;
+        private SaveService.ExportOperation? _exportOperation;
         private bool _exportPending;
         private readonly Queue<string> _pendingProjectFiles = new();
         private readonly List<string> _projectLoadErrors = new();
         private readonly UIFeedbackState _feedback = new();
-        private UIFeedbackOverlay _feedbackOverlay;
+        private UIFeedbackOverlay _feedbackOverlay = null!;
         private int _projectLoadTotal;
         private int _projectLoadProcessed;
-        private string _pendingOpenFile;
+        private string? _pendingOpenFile;
 
         public override void LoadContent()
         {
@@ -494,8 +494,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void ProcessPendingProjectOpen()
         {
-            string file = _pendingOpenFile;
+            string? file = _pendingOpenFile;
             _pendingOpenFile = null;
+            if (string.IsNullOrWhiteSpace(file)) return;
             try
             {
                 Animation.Animation loaded = SaveService.LoadAnimation(file);
@@ -563,29 +564,31 @@ namespace FrameByFrame.src.Engine.Scenes
         private void AdvanceExport()
         {
             _previewAudio?.Stop();
-            if (_exportOperation.IsFailed)
+            SaveService.ExportOperation? operation = _exportOperation;
+            if (operation == null) return;
+            if (operation.IsFailed)
             {
-                string message = _exportOperation.Failure?.Message ?? _exportOperation.Status;
+                string message = operation.Failure?.Message ?? operation.Status;
                 _exportOperation = null;
                 _feedback.ShowError("Export failed", message,
                     "Check the destination permissions, available disk space, and export dependencies, then try again.");
                 return;
             }
-            if (_exportOperation.IsComplete)
+            if (operation.IsComplete)
             {
-                string outputPath = _exportOperation.OutputPath;
+                string outputPath = operation.OutputPath;
                 _exportOperation = null;
                 _feedback.ShowSuccess("Export complete", $"Animation exported to {outputPath}");
                 return;
             }
-            _feedback.ShowBusy("Exporting animation", _exportOperation.Status, _exportOperation.Progress);
+            _feedback.ShowBusy("Exporting animation", operation.Status, operation.Progress);
         }
         private void ChooseExportDirectory()
         {
             try
             {
                 using var dialog = new NativeFileDialog().SelectFolder();
-                DialogResult result = dialog.Open(out string[] output, _exportDirectory);
+                DialogResult result = dialog.Open(out string[]? output, _exportDirectory);
                 if (result == DialogResult.Okay && output is { Length: > 0 })
                 {
                     _exportDirectory = Path.GetFullPath(output[0]);
