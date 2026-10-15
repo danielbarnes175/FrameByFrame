@@ -89,7 +89,7 @@ Assert(!DrawingTools.HasEditTargetChanged(true, firstStrokeFrame, firstStrokeLay
            firstStrokeFrame, Guid.NewGuid()) &&
        !DrawingTools.HasEditTargetChanged(false, firstStrokeFrame, firstStrokeLayer,
            secondStrokeFrame, firstStrokeLayer),
-    "Active strokes should end only when their frame or layer edit target changes.");
+    "Held drawing gestures should split into a new stroke when their frame or layer target changes.");
 
 var feedback = new UIFeedbackState();
 feedback.ShowBusy("Loading", "Opening a project...", 2f);

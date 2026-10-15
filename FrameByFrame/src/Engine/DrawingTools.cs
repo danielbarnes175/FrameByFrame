@@ -23,7 +23,6 @@ namespace FrameByFrame.src.Engine
         private readonly Animation.Animation _animation;
         private readonly BrushPresetStore _brushStore;
         private bool _pixelEditActive;
-        private bool _waitForPointerRelease;
         private Frame _strokeFrame;
         private Guid _strokeLayerId;
         private DrawingTool _selectedTool = DrawingTool.Draw;
@@ -92,15 +91,9 @@ namespace FrameByFrame.src.Engine
             bool pointerHeld = GlobalParameters.GlobalMouse.LeftClickHold();
             if (HasEditTargetChanged(_pixelEditActive, _strokeFrame, _strokeLayerId,
                     _animation.CurrentFrame, _animation.SelectedLayerId))
-            {
                 EndStroke();
-                _waitForPointerRelease = true;
-            }
             if (!pointerHeld)
-            {
                 EndStroke();
-                _waitForPointerRelease = false;
-            }
             if (SelectedTool == DrawingTool.Selection)
             {
                 EndStroke();
@@ -108,7 +101,6 @@ namespace FrameByFrame.src.Engine
                 return;
             }
             if (!pointerHeld) return;
-            if (_waitForPointerRelease) return;
 
             if (!canDraw || UIPointerRouter.IsPointerBlocked() ||
                 !_animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos)) return;
