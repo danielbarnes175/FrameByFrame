@@ -90,7 +90,7 @@ namespace FrameByFrame.src.UI
         private Rectangle _detailsViewport;
         private int _detailScrollIndex;
         private int _displayedRevision = -1;
-        private const int DetailRowHeight = 52;
+        private const int DetailRowHeight = 68;
 
         public UIFeedbackOverlay(UIFeedbackState state)
         {
@@ -101,7 +101,8 @@ namespace FrameByFrame.src.UI
         public override void Arrange(Rectangle bounds)
         {
             base.Arrange(bounds);
-            int width = Math.Min(620, Math.Max(280, bounds.Width - 32));
+            int preferredWidth = _state.Details.Count > 0 ? 900 : 620;
+            int width = Math.Min(preferredWidth, Math.Max(280, bounds.Width - 32));
             int preferredHeight = _state.Details.Count > 0 ? 520 : 340;
             int height = Math.Min(preferredHeight, Math.Max(240, bounds.Height - 32));
             _dialog = new Rectangle(bounds.Center.X - width / 2, bounds.Center.Y - height / 2, width, height);
@@ -155,7 +156,8 @@ namespace FrameByFrame.src.UI
             {
                 int hintY = _state.Details.Count > 0 ? _dialog.Bottom - 124 : messageY + 76;
                 new UITextContainer { Bounds = new Rectangle(_dialog.X + 34, hintY,
-                    _dialog.Width - 68, 48), MaxLines = 2 }.Draw(_state.ActionHint, UITheme.TextMuted, UITextRole.Body);
+                    _dialog.Width - 68, 48), Padding = 0, MaxLines = 2 }.Draw(
+                        _state.ActionHint, UITheme.TextMuted, UITextRole.Body);
             }
             if (!_state.IsBusy) _dismiss.Draw(true);
         }
@@ -187,7 +189,7 @@ namespace FrameByFrame.src.UI
                     textWidth, DetailRowHeight - 4);
                 UIRenderer.Fill(row, slot % 2 == 0 ? UITheme.Surface : UITheme.SurfaceRaised);
                 new UITextContainer { Bounds = row, HorizontalAlignment = UIAlign.Start,
-                    Padding = 8, MaxLines = 2 }.Draw($"{index + 1}. {_state.Details[index]}", UITheme.Text, UITextRole.Body);
+                    Padding = 6, MaxLines = 2 }.Draw($"{index + 1}. {_state.Details[index]}", UITheme.Text, UITextRole.Body);
             }
 
             if (_state.Details.Count <= visibleRows) return;
