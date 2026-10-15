@@ -10,6 +10,8 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class DrawingScene : BaseScene
     {
+        private const float RotationDegreesPerPixel = .5f;
+
         public Animation.Animation animation;
         public DrawingTools drawingTools;
         private DrawingNavbarComponent _navbar;
@@ -17,7 +19,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private AudioPlaybackController _audioPlayback;
         private readonly AutosaveService _autosave = new();
         private readonly CanvasView _canvasView = new();
-        private CanvasViewControlsComponent _viewControls;
+        private bool _isPanning;
+        private bool _isRotating;
         public bool loadedScene;
 
         public DrawingScene() => InitializeDefaults();
@@ -49,7 +52,6 @@ namespace FrameByFrame.src.Engine.Scenes
             _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave);
             _audioPlayback = new AudioPlaybackController(animation);
             _timeline = new TimelineComponent(animation, _audioPlayback);
-            _viewControls = new CanvasViewControlsComponent(_canvasView);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
 
@@ -64,14 +66,9 @@ namespace FrameByFrame.src.Engine.Scenes
                 GlobalParameters.screenWidth, timelineHeight));
             Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
             _canvasView.Arrange(stage, (int)animation.frameSize.X, (int)animation.frameSize.Y);
-            int controlsWidth = Math.Max(1, Math.Min(300, stage.Width));
-            int controlsHeight = Math.Max(1, Math.Min(66, stage.Height));
-            _viewControls.Arrange(new Rectangle(stage.Right - controlsWidth,
-                stage.Bottom - controlsHeight, controlsWidth, controlsHeight));
             HandleKeyboardShortcuts();
             if (!_navbar.HasOpenPopover) _timeline.Update();
             _navbar.Update();
-            if (!_navbar.HasOpenPopover) _viewControls.Update();
             HandleCanvasViewInput(stage);
             HandleMouseShortcuts();
             animation.Animate(gameTime);
@@ -89,7 +86,6 @@ namespace FrameByFrame.src.Engine.Scenes
             animation.DrawCurrentFrame(_canvasView);
             _timeline.Draw();
             _navbar.Draw();
-            _viewControls.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
         }
 
@@ -104,10 +100,34 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void HandleCanvasViewInput(Rectangle stage)
         {
-            if (_navbar.HasOpenPopover || !stage.Contains(GlobalParameters.GlobalMouse.newMousePos) ||
-                UIPointerRouter.IsPointerBlocked()) return;
-            int scroll = GlobalParameters.GlobalMouse.ScrollDelta;
-            if (scroll != 0) _canvasView.ZoomBy(Math.Sign(scroll) * CanvasView.ZoomStep);
+            var mouse = GlobalParameters.GlobalMouse;
+            if (!mouse.MiddleClickHold()) _isPanning = false;
+            if (!mouse.RightClickHold()) _isRotating = false;
+
+            bool canStartGesture = !_navbar.HasOpenPopover &&
+                stage.Contains(mouse.newMousePos) && !UIPointerRouter.IsPointerBlocked();
+            if (canStartGesture)
+            {
+                if (mouse.MiddleClick())
+                {
+                    _isPanning = true;
+                    _isRotating = false;
+                }
+                else if (mouse.RightClick())
+                {
+                    _isRotating = true;
+                    _isPanning = false;
+                }
+
+                int scroll = mouse.ScrollDelta;
+                if (scroll != 0)
+                    _canvasView.ZoomAt(mouse.newMousePos, Math.Sign(scroll) * CanvasView.ZoomStep);
+            }
+
+            Vector2 mouseDelta = mouse.newMousePos - mouse.oldMousePos;
+            if (_isPanning && mouse.MiddleClickHold()) _canvasView.PanBy(mouseDelta);
+            if (_isRotating && mouse.RightClickHold())
+                _canvasView.RotateBy(mouseDelta.X * RotationDegreesPerPixel);
         }
 
         private void HandleMouseShortcuts()
@@ -171,15 +191,6 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("L")) _navbar.SaveAnimation();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("[")) drawingTools.BrushSize--;
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("]")) drawingTools.BrushSize++;
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.OemMinus))
-                _canvasView.ZoomBy(-CanvasView.ZoomStep);
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.OemPlus))
-                _canvasView.ZoomBy(CanvasView.ZoomStep);
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Left))
-                _canvasView.RotateBy(-CanvasView.RotationStep);
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Right))
-                _canvasView.RotateBy(CanvasView.RotationStep);
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.D0)) _canvasView.Reset();
         }
     }
 }

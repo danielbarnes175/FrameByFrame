@@ -9,7 +9,6 @@ namespace FrameByFrame.src.Engine
         public const float MinimumZoom = .25f;
         public const float MaximumZoom = 4f;
         public const float ZoomStep = .25f;
-        public const float RotationStep = 15f;
 
         private Rectangle _viewport;
         private int _canvasWidth = 1;
@@ -18,7 +17,8 @@ namespace FrameByFrame.src.Engine
         public float Zoom { get; private set; } = 1f;
         public float RotationDegrees { get; private set; }
         public float RotationRadians => MathHelper.ToRadians(RotationDegrees);
-        public Vector2 Center => _viewport.Center.ToVector2();
+        public Vector2 PanOffset { get; private set; }
+        public Vector2 Center => _viewport.Center.ToVector2() + PanOffset;
         public float Scale { get; private set; } = 1f;
         public int CanvasWidth => _canvasWidth;
         public int CanvasHeight => _canvasHeight;
@@ -34,7 +34,12 @@ namespace FrameByFrame.src.Engine
             Scale = Math.Max(.0001f, fitScale * Zoom);
         }
 
-        public void ZoomBy(float amount) => SetZoom(Zoom + amount);
+        public void ZoomAt(Vector2 screenPoint, float amount)
+        {
+            Vector2 canvasPoint = ScreenToCanvas(screenPoint);
+            SetZoom(Zoom + amount);
+            PanOffset += screenPoint - CanvasToScreen(canvasPoint);
+        }
 
         public void SetZoom(float zoom)
         {
@@ -44,10 +49,13 @@ namespace FrameByFrame.src.Engine
 
         public void RotateBy(float degrees) => RotationDegrees = NormalizeDegrees(RotationDegrees + degrees);
 
+        public void PanBy(Vector2 screenDelta) => PanOffset += screenDelta;
+
         public void Reset()
         {
             Zoom = 1f;
             RotationDegrees = 0f;
+            PanOffset = Vector2.Zero;
             Arrange(_viewport, _canvasWidth, _canvasHeight);
         }
 

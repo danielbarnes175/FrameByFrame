@@ -104,9 +104,9 @@ namespace FrameByFrame.src.UI.Components
             "Delete - Remove current frame",
             "O - Toggle onion skin",
             "[ / ] - Change brush size",
-            "Mouse wheel / Ctrl+- / Ctrl++ - Zoom canvas view",
-            "Ctrl+Left / Ctrl+Right - Rotate canvas view",
-            "Ctrl+0 - Reset canvas view",
+            "Middle mouse drag - Pan canvas view",
+            "Right mouse drag - Rotate canvas view",
+            "Mouse wheel - Zoom canvas view",
             "Backspace - Clear selected layer",
             "L - Save project",
             "Esc - Return home"

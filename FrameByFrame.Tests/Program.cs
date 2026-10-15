@@ -55,8 +55,17 @@ Assert(Vector2.Distance(canvasPoint, canvasView.ScreenToCanvas(screenPoint)) < .
 canvasView.SetZoom(100);
 Assert(canvasView.Zoom == FrameByFrame.src.Engine.CanvasView.MaximumZoom,
     "Canvas view zoom should clamp to its supported maximum.");
+Vector2 centerBeforePan = canvasView.Center;
+canvasView.PanBy(new Vector2(25, -10));
+Assert(canvasView.Center == centerBeforePan + new Vector2(25, -10),
+    "Panning should move the canvas view by the mouse delta.");
+Vector2 zoomAnchor = new(260, 190);
+Vector2 anchoredCanvasPoint = canvasView.ScreenToCanvas(zoomAnchor);
+canvasView.ZoomAt(zoomAnchor, -FrameByFrame.src.Engine.CanvasView.ZoomStep);
+Assert(Vector2.Distance(zoomAnchor, canvasView.CanvasToScreen(anchoredCanvasPoint)) < .001f,
+    "Mouse-wheel zoom should keep the canvas point beneath the cursor anchored.");
 canvasView.Reset();
-Assert(canvasView.Zoom == 1f && canvasView.RotationDegrees == 0f,
+Assert(canvasView.Zoom == 1f && canvasView.RotationDegrees == 0f && canvasView.PanOffset == Vector2.Zero,
     "Reset should restore the default editor-only canvas view.");
 
 string autosaveSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-autosave-{Guid.NewGuid():N}.json");
