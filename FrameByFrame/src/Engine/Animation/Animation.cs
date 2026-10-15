@@ -320,6 +320,17 @@ namespace FrameByFrame.src.Engine.Animation
                 (screenPosition.Y - DisplayBounds.Y) * frameSize.Y / DisplayBounds.Height);
         }
 
+        public Vector2 ToCanvasPosition(Vector2 screenPosition) => ToFramePosition(screenPosition);
+
+        public Vector2 ToScreenPosition(Vector2 canvasPosition)
+        {
+            if (_displayView != null) return _displayView.CanvasToScreen(canvasPosition);
+            if (DisplayBounds.Width <= 0 || DisplayBounds.Height <= 0) return canvasPosition + framePosition;
+            return new Vector2(
+                DisplayBounds.X + canvasPosition.X * DisplayBounds.Width / frameSize.X,
+                DisplayBounds.Y + canvasPosition.Y * DisplayBounds.Height / frameSize.Y);
+        }
+
         public bool IsScreenPointOnCanvas(Vector2 screenPosition) =>
             _displayView?.ContainsScreenPoint(screenPosition) ?? DisplayBounds.Contains(screenPosition);
 
@@ -419,6 +430,21 @@ namespace FrameByFrame.src.Engine.Animation
         public Color[] GetLayerPixels(Guid layerId)
         {
             return CurrentFrame.GetLayerPixels(layerId);
+        }
+
+        public Color[] GetCurrentLayerPixels() => CurrentFrame?.GetLayerPixels(SelectedLayerId);
+
+        public bool ReplaceCurrentLayerPixels(Color[] pixels)
+        {
+            ArgumentNullException.ThrowIfNull(pixels);
+            if (CurrentFrame == null || SelectedLayer == null || SelectedLayer.IsLocked ||
+                pixels.Length != CurrentFrame.width * CurrentFrame.height ||
+                !CanReplaceLayer(CurrentFrame, SelectedLayerId, pixels)) return false;
+            CommitPixelEdit();
+            BeginPixelEdit();
+            CurrentFrame.SetLayerPixels(SelectedLayerId, pixels);
+            CommitPixelEdit();
+            return true;
         }
 
         private bool CanReplaceLayer(Frame frame, Guid layerId, Color[] replacement)

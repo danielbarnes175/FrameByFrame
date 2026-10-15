@@ -2,6 +2,7 @@ using FrameByFrame.src.UI;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Audio;
+using FrameByFrame.src.Engine.Selection;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
@@ -188,6 +189,88 @@ Assert(fillPixels[3] == O && fillPixels[7] == O && fillPixels[11] == O,
     "Flood fill should not cross a separating boundary.");
 Assert(fillPixels[2] == X && fillPixels[5] == X,
     "Flood fill should preserve boundary colors.");
+
+Color[] selectionCanvas =
+{
+    Color.Red, Color.Green, Color.Transparent, Color.Transparent,
+    Color.Blue, Color.Yellow, Color.Transparent, Color.Transparent,
+    Color.Purple, Color.Orange, Color.Transparent, Color.Transparent
+};
+Vector2[] lasso =
+{
+    new(0, 0), new(2, 0), new(2, 1), new(1, 1), new(1, 3), new(0, 3)
+};
+PixelSelection selection = SelectionOperations.ExtractFreeform(selectionCanvas, 4, 3, lasso);
+Assert(selection.Width == 2 && selection.Height == 3 &&
+       selection.Pixels[0] == Color.Red && selection.Pixels[1] == Color.Green &&
+       selection.Pixels[2] == Color.Blue && selection.Pixels[4] == Color.Purple &&
+       !selection.Mask[3] && !selection.Mask[5],
+    "Free-form extraction should retain only pixels enclosed by the lasso.");
+Assert(selection.Contains(new Vector2(.5f, 2.5f)) && !selection.Contains(new Vector2(1.5f, 2.5f)),
+    "Selection hit testing should follow the free-form mask rather than its bounds.");
+PixelSelection rotatedSelection = SelectionOperations.RotateClockwise(selection);
+Assert(rotatedSelection.Width == 3 && rotatedSelection.Height == 2 &&
+       rotatedSelection.Pixels[0] == Color.Purple && rotatedSelection.Pixels[2] == Color.Red &&
+       rotatedSelection.Pixels[5] == Color.Green &&
+       rotatedSelection.Mask[0] && rotatedSelection.Mask[1] && rotatedSelection.Mask[2] &&
+       !rotatedSelection.Mask[3] && !rotatedSelection.Mask[4] && rotatedSelection.Mask[5],
+    "Selection rotation should turn the free-form mask and its pixels together.");
+PixelSelection resizedSelection = SelectionOperations.Resize(selection, 4, 6);
+Assert(resizedSelection.Pixels[0] == Color.Red && resizedSelection.Pixels[3] == Color.Green &&
+       resizedSelection.Pixels[20] == Color.Purple && !resizedSelection.Mask[^1],
+    "Selection resizing should preserve the free-form mask through nearest-neighbor scaling.");
+SelectionOperations.Clear(selectionCanvas, 4, 3, selection);
+PixelSelection movedSelection = SelectionOperations.Move(selection, 2, 0);
+SelectionOperations.Composite(selectionCanvas, 4, 3, movedSelection);
+Assert(selectionCanvas[0] == Color.Transparent && selectionCanvas[2] == Color.Red &&
+       selectionCanvas[3] == Color.Green && selectionCanvas[5] == Color.Yellow &&
+       selectionCanvas[9] == Color.Orange && selectionCanvas[10] == Color.Purple,
+    "Moving a free-form selection should preserve pixels outside the lasso's mask.");
+
+Color[] pasteTarget = { Color.Blue, Color.Green, Color.Yellow };
+PixelSelection clipboardSelection = new(new Rectangle(0, 0, 3, 1),
+    [Color.Transparent, Color.White, Color.Red]);
+PixelSelection preparedPaste = SelectionOperations.PrepareForPaste(clipboardSelection);
+SelectionOperations.Composite(pasteTarget, 3, 1, preparedPaste);
+Assert(pasteTarget[0] == Color.Blue && pasteTarget[1] == Color.Green && pasteTarget[2] == Color.Red,
+    "Pasting should preserve existing artwork beneath transparent and white clipboard pixels.");
+Assert(preparedPaste.Mask[0] && preparedPaste.Mask[1] && preparedPaste.Mask[2] &&
+       preparedPaste.Pixels[0] == Color.Transparent && preparedPaste.Pixels[1] == Color.Transparent,
+    "A pasted selection should retain its full mask while treating transparent and white pixels as empty content.");
+Color[] transformTarget = { Color.Transparent, Color.Transparent, Color.Transparent };
+SelectionOperations.Composite(transformTarget, 3, 1, clipboardSelection);
+Assert(transformTarget[1] == Color.White,
+    "Selection transforms should preserve intentionally drawn white pixels even though paste treats white as empty.");
+
+Color[] repeatedMoveTarget = { Color.Blue, Color.Green, Color.Yellow, Color.Orange };
+PixelSelection floatingSelection = new(new Rectangle(0, 0, 1, 1), [Color.Red]);
+PixelSelection selectionUnderlay = SelectionOperations.Capture(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Composite(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Restore(repeatedMoveTarget, 4, 1, selectionUnderlay);
+floatingSelection = SelectionOperations.Move(floatingSelection, 1, 0);
+selectionUnderlay = SelectionOperations.Capture(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Composite(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Restore(repeatedMoveTarget, 4, 1, selectionUnderlay);
+floatingSelection = SelectionOperations.Move(floatingSelection, 2, 0);
+selectionUnderlay = SelectionOperations.Capture(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Composite(repeatedMoveTarget, 4, 1, floatingSelection);
+Assert(repeatedMoveTarget[0] == Color.Blue && repeatedMoveTarget[1] == Color.Green &&
+       repeatedMoveTarget[2] == Color.Red && repeatedMoveTarget[3] == Color.Orange,
+    "Moving a floating selection repeatedly should restore the artwork beneath each previous position.");
+
+PixelSelection offCanvasSelection = new(new Rectangle(-1, 0, 2, 1), [Color.Red, Color.Green]);
+Color[] offCanvasTarget = { Color.Blue, Color.Yellow };
+PixelSelection offCanvasUnderlay = SelectionOperations.Capture(offCanvasTarget, 2, 1, offCanvasSelection);
+SelectionOperations.Composite(offCanvasTarget, 2, 1, offCanvasSelection);
+Assert(offCanvasTarget[0] == Color.Green && offCanvasTarget[1] == Color.Yellow,
+    "An out-of-bounds selection should composite only the portion inside the canvas.");
+SelectionOperations.Restore(offCanvasTarget, 2, 1, offCanvasUnderlay);
+Assert(offCanvasTarget[0] == Color.Blue && offCanvasTarget[1] == Color.Yellow,
+    "Restoring an out-of-bounds selection should preserve its in-canvas underlay.");
+Color[] reenteredTarget = { Color.Transparent, Color.Transparent };
+SelectionOperations.Composite(reenteredTarget, 2, 1, SelectionOperations.Move(offCanvasSelection, 0, 0));
+Assert(reenteredTarget[0] == Color.Red && reenteredTarget[1] == Color.Green,
+    "Selected pixels outside the canvas should remain available when the selection moves back in bounds.");
 
 Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
        !SaveService.FormatSupportsTransparency(ExportFormat.Mov),

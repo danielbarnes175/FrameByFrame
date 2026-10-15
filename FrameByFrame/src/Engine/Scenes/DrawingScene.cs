@@ -16,6 +16,7 @@ namespace FrameByFrame.src.Engine.Scenes
         public DrawingTools drawingTools;
         private DrawingNavbarComponent _navbar;
         private TimelineComponent _timeline;
+        private SelectionControlsComponent _selectionControls;
         private AudioPlaybackController _audioPlayback;
         private readonly AutosaveService _autosave = new();
         private readonly CanvasView _canvasView = new();
@@ -52,6 +53,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave);
             _audioPlayback = new AudioPlaybackController(animation);
             _timeline = new TimelineComponent(animation, _audioPlayback);
+            _selectionControls = new SelectionControlsComponent(drawingTools);
             _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
         }
 
@@ -66,9 +68,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 GlobalParameters.screenWidth, timelineHeight));
             Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
             _canvasView.Arrange(stage, (int)animation.frameSize.X, (int)animation.frameSize.Y);
+            int selectionWidth = Math.Max(1, Math.Min(500, GlobalParameters.screenWidth - 16));
+            _selectionControls.Arrange(new Rectangle(GlobalParameters.screenWidth - selectionWidth - 8,
+                _timeline.Bounds.Y - 70, selectionWidth, 62));
             HandleKeyboardShortcuts();
             if (!_navbar.HasOpenPopover) _timeline.Update();
             _navbar.Update();
+            if (!_navbar.HasOpenPopover) _selectionControls.Update();
             HandleCanvasViewInput(stage);
             HandleMouseShortcuts();
             animation.Animate(gameTime);
@@ -84,8 +90,10 @@ namespace FrameByFrame.src.Engine.Scenes
             Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
             _canvasView.Arrange(stage, (int)animation.frameSize.X, (int)animation.frameSize.Y);
             animation.DrawCurrentFrame(_canvasView);
+            if (drawingTools.SelectedTool == DrawingTool.Selection) drawingTools.Selection.DrawOverlay();
             _timeline.Draw();
             _navbar.Draw();
+            _selectionControls.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
         }
 
@@ -171,19 +179,37 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             bool control = GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.LeftControl)
                 || GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightControl);
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Z)) animation.Undo();
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Y)) animation.Redo();
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Z) && animation.Undo())
+                drawingTools.Selection.Clear();
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Y) && animation.Redo())
+                drawingTools.Selection.Clear();
             if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.D)) animation.DuplicateCurrentFrame();
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.C)) animation.CopyCurrentFrame();
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.V)) animation.PasteFrame();
+            bool selectionActive = drawingTools.SelectedTool == DrawingTool.Selection && drawingTools.Selection.HasSelection;
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.C))
+            {
+                if (selectionActive) drawingTools.Selection.Copy(); else animation.CopyCurrentFrame();
+            }
+            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.V))
+            {
+                if (drawingTools.SelectedTool == DrawingTool.Selection && drawingTools.Selection.CanPaste)
+                    drawingTools.Selection.Paste();
+                else animation.PasteFrame();
+            }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
             {
                 animation.Stop();
                 GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
             }
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE")) animation.DeleteFrame();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
+            {
+                if (selectionActive) drawingTools.Selection.Delete(); else animation.DeleteFrame();
+            }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("P")) animation.TogglePlaying();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("BACKSPACE")) animation.EraseCurrentLayer();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("BACKSPACE"))
+            {
+                animation.EraseCurrentLayer();
+                drawingTools.Selection.Clear();
+            }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("O")) animation.isOnionSkinEnabled = !animation.isOnionSkinEnabled;
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("M")) animation.NextFrame();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("N")) animation.PreviousFrame();
