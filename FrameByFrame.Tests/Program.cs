@@ -234,8 +234,9 @@ PixelSelection preparedPaste = SelectionOperations.PrepareForPaste(clipboardSele
 SelectionOperations.Composite(pasteTarget, 3, 1, preparedPaste);
 Assert(pasteTarget[0] == Color.Blue && pasteTarget[1] == Color.Green && pasteTarget[2] == Color.Red,
     "Pasting should preserve existing artwork beneath transparent and white clipboard pixels.");
-Assert(!preparedPaste.Mask[0] && !preparedPaste.Mask[1] && preparedPaste.Mask[2],
-    "A pasted selection should not treat transparent or white clipboard pixels as movable artwork.");
+Assert(preparedPaste.Mask[0] && preparedPaste.Mask[1] && preparedPaste.Mask[2] &&
+       preparedPaste.Pixels[0] == Color.Transparent && preparedPaste.Pixels[1] == Color.Transparent,
+    "A pasted selection should retain its full mask while treating transparent and white pixels as empty content.");
 Color[] transformTarget = { Color.Transparent, Color.Transparent, Color.Transparent };
 SelectionOperations.Composite(transformTarget, 3, 1, clipboardSelection);
 Assert(transformTarget[1] == Color.White,

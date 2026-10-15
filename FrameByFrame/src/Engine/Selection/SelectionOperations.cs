@@ -85,16 +85,14 @@ namespace FrameByFrame.src.Engine.Selection
         public static PixelSelection PrepareForPaste(PixelSelection selection)
         {
             ArgumentNullException.ThrowIfNull(selection);
-            bool[] mask = (bool[])selection.Mask.Clone();
-            bool hasPixels = false;
-            for (int i = 0; i < mask.Length; i++)
+            Color[] pixels = (Color[])selection.Pixels.Clone();
+            for (int i = 0; i < pixels.Length; i++)
             {
-                Color color = selection.Pixels[i];
+                Color color = pixels[i];
                 bool isWhite = color.R == byte.MaxValue && color.G == byte.MaxValue && color.B == byte.MaxValue;
-                mask[i] = mask[i] && color.A > 0 && !isWhite;
-                hasPixels |= mask[i];
+                if (color.A == 0 || isWhite) pixels[i] = Color.Transparent;
             }
-            return hasPixels ? new PixelSelection(selection.Bounds, selection.Pixels, mask) : null;
+            return new PixelSelection(selection.Bounds, pixels, selection.Mask);
         }
 
         public static PixelSelection Capture(Color[] source, int canvasWidth, int canvasHeight,
