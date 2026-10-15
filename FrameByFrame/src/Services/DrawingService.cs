@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using FrameByFrame.src.Engine.Animation;
@@ -120,82 +119,5 @@ namespace FrameByFrame.src.Engine.Services
             return texture;
         }
 
-        // Update SetColors to work with Color[] and width/height
-        public static void SetColors(Color[] layerPixels, Texture2D texture, Vector2 pointPosition, Shapes shape, int brushSize, int width, int height, Color color)
-        {
-            int px = (int)pointPosition.X;
-            int py = (int)pointPosition.Y;
-            for (int dx = -brushSize; dx <= brushSize; dx++)
-            {
-                for (int dy = -brushSize; dy <= brushSize; dy++)
-                {
-                    int tx = px + dx;
-                    int ty = py + dy;
-                    if (tx >= 0 && tx < width && ty >= 0 && ty < height)
-                    {
-                        if (shape == Shapes.CIRCLE)
-                        {
-                            if (dx * dx + dy * dy <= brushSize * brushSize)
-                            {
-                                int idx = ty * width + tx;
-                                layerPixels[idx] = color;
-                            }
-                        }
-                        else if (shape == Shapes.RECTANGLE)
-                        {
-                            int idx = ty * width + tx;
-                            layerPixels[idx] = color;
-                        }
-                    }
-                }
-            }
-            texture.SetData(layerPixels);
-        }
-
-        public static RenderTarget2D CombineTextures(Animation.Animation animation, Frame givenFrame,
-            Color? backgroundOverride = null)
-        {
-            ArgumentNullException.ThrowIfNull(animation);
-            ArgumentNullException.ThrowIfNull(givenFrame);
-
-            RenderTarget2D renderTarget = new RenderTarget2D(
-                GlobalParameters.GlobalGraphics, givenFrame.width, givenFrame.height);
-            RenderTargetBinding[] previousTargets = GlobalParameters.GlobalGraphics.GetRenderTargets();
-            bool spriteBatchBegun = false;
-
-            try
-            {
-                GlobalParameters.GlobalGraphics.SetRenderTarget(renderTarget);
-                GlobalParameters.GlobalGraphics.Clear(backgroundOverride ??
-                    (animation.IsCanvasBackgroundTransparent ? Color.Transparent : animation.CanvasBackgroundColor));
-                GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend,
-                    SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullCounterClockwise);
-                spriteBatchBegun = true;
-
-                Rectangle canvasBounds = new Rectangle(0, 0, givenFrame.width, givenFrame.height);
-                givenFrame.DrawLayers(canvasBounds, 1.0f);
-
-                GlobalParameters.GlobalSpriteBatch.End();
-                spriteBatchBegun = false;
-            }
-            catch
-            {
-                renderTarget.Dispose();
-                throw;
-            }
-            finally
-            {
-                try
-                {
-                    if (spriteBatchBegun) GlobalParameters.GlobalSpriteBatch.End();
-                }
-                finally
-                {
-                    GlobalParameters.GlobalGraphics.SetRenderTargets(previousTargets);
-                }
-            }
-
-            return renderTarget;
-        }
     }
 }

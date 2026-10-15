@@ -18,26 +18,10 @@ namespace FrameByFrame.src.Engine.Input
     {
         private KeyboardState _currentKeyboard, _previousKeyboard;
 
-        public KeyboardController()
-        {
-
-        }
-
         public virtual void Update()
         {
             _previousKeyboard = _currentKeyboard;
             _currentKeyboard = Microsoft.Xna.Framework.Input.Keyboard.GetState();
-        }
-
-        public void UpdateOld()
-        {
-
-        }
-
-        public bool GetPress(string KEY)
-        {
-            Keys key = GetKeyFromString(KEY);
-            return IsKeyHeldDown(key);
         }
 
         public bool GetPressSingle(string KEY)
@@ -64,11 +48,6 @@ namespace FrameByFrame.src.Engine.Input
         public Keys[] GetNewlyPressedKeys() => _currentKeyboard.GetPressedKeys()
             .Where(key => _previousKeyboard.IsKeyUp(key))
             .ToArray();
-
-        public virtual void GetPressedKeys()
-        {
-
-        }
 
         public virtual Microsoft.Xna.Framework.Input.Keys GetKeyFromString(string KEY)
         {

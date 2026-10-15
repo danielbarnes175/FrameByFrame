@@ -18,8 +18,6 @@ namespace FrameByFrame
     public class Main : Game
     {
         GraphicsDeviceManager graphics;
-        SpriteBatch spriteBatch;
-
         BasicTexture cursor;
 
         public Main()
@@ -80,10 +78,7 @@ namespace FrameByFrame
             GlobalParameters.font = Content.Load<SpriteFont>("Roboto");
             GlobalParameters.uiFont = Content.Load<SpriteFont>("UIFont");
 
-            // Create a new SpriteBatch, which can be used to draw textures.
-            spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            cursor = new BasicTexture("Static\\pencil-cursor", new Vector2(0, 0), new Vector2(28, 28));
+            cursor = new BasicTexture("pencil-cursor", new Vector2(0, 0), new Vector2(28, 28));
 
             foreach (KeyValuePair<string, BaseScene> scene in GlobalParameters.Scenes)
             {
@@ -116,7 +111,6 @@ namespace FrameByFrame
             
             GlobalParameters.GlobalMouse.Update();
             GlobalParameters.GlobalKeyboard.Update();
-            GlobalParameters.GlobalKeyboard.UpdateOld();
 
             GlobalParameters.CurrentScene.Update(gameTime);
 
