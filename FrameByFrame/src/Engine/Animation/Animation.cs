@@ -322,20 +322,17 @@ namespace FrameByFrame.src.Engine.Animation
 
         public Vector2 ToCanvasPosition(Vector2 screenPosition) => ToFramePosition(screenPosition);
 
+        public Vector2 ToScreenPosition(Vector2 canvasPosition)
+        {
+            if (_displayView != null) return _displayView.CanvasToScreen(canvasPosition);
+            if (DisplayBounds.Width <= 0 || DisplayBounds.Height <= 0) return canvasPosition + framePosition;
+            return new Vector2(
+                DisplayBounds.X + canvasPosition.X * DisplayBounds.Width / frameSize.X,
+                DisplayBounds.Y + canvasPosition.Y * DisplayBounds.Height / frameSize.Y);
+        }
+
         public bool IsScreenPointOnCanvas(Vector2 screenPosition) =>
             _displayView?.ContainsScreenPoint(screenPosition) ?? DisplayBounds.Contains(screenPosition);
-
-        public Rectangle ToScreenRectangle(Rectangle canvasBounds)
-        {
-            if (DisplayBounds.Width <= 0 || DisplayBounds.Height <= 0) return canvasBounds;
-            float scaleX = DisplayBounds.Width / frameSize.X;
-            float scaleY = DisplayBounds.Height / frameSize.Y;
-            return new Rectangle(
-                DisplayBounds.X + (int)Math.Floor(canvasBounds.X * scaleX),
-                DisplayBounds.Y + (int)Math.Floor(canvasBounds.Y * scaleY),
-                Math.Max(1, (int)Math.Ceiling(canvasBounds.Width * scaleX)),
-                Math.Max(1, (int)Math.Ceiling(canvasBounds.Height * scaleY)));
-        }
 
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {

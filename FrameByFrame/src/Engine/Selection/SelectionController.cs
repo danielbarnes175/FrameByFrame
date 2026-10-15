@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
@@ -7,9 +8,10 @@ namespace FrameByFrame.src.Engine.Selection
 {
     public sealed class SelectionController
     {
-        private enum Gesture { None, Marquee, Move }
+        private enum Gesture { None, Lasso, Move }
 
         private readonly Animation.Animation _animation;
+        private readonly List<Vector2> _lassoPoints = new();
         private static PixelSelection _clipboard;
         private PixelSelection _selection;
         private Frame _selectedFrame;
@@ -23,7 +25,7 @@ namespace FrameByFrame.src.Engine.Selection
 
         public bool HasSelection { get { EnsureCurrentTarget(); return _selection != null; } }
         public bool CanPaste => _clipboard != null;
-        public Rectangle Bounds => _gesture == Gesture.None ? _selection?.Bounds ?? Rectangle.Empty : _previewBounds;
+        public Rectangle Bounds => _gesture == Gesture.Move ? _previewBounds : _selection?.Bounds ?? Rectangle.Empty;
 
         public void Update(bool canEdit)
         {
@@ -33,20 +35,28 @@ namespace FrameByFrame.src.Engine.Selection
                 if (_gesture != Gesture.None) CompleteGesture();
                 return;
             }
-            if (!canEdit || UIPointerRouter.IsPointerBlocked()) return;
+            if (!canEdit || UIPointerRouter.IsPointerBlocked() || _animation.CurrentFrame == null) return;
 
-            Vector2 canvasPoint = _animation.ToCanvasPosition(GlobalParameters.GlobalMouse.newMousePos);
+            Vector2 canvasPoint = ClampCanvasPoint(
+                _animation.ToCanvasPosition(GlobalParameters.GlobalMouse.newMousePos));
             if (GlobalParameters.GlobalMouse.LeftClick())
             {
                 if (!_animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos)) return;
                 _gestureStart = canvasPoint;
-                _gesture = _selection != null && _selection.Bounds.Contains(canvasPoint)
-                    ? Gesture.Move
-                    : Gesture.Marquee;
-                _previewBounds = _gesture == Gesture.Move ? _selection.Bounds : RectangleFrom(_gestureStart, canvasPoint);
+                if (_selection != null && _selection.Contains(canvasPoint))
+                {
+                    _gesture = Gesture.Move;
+                    _previewBounds = _selection.Bounds;
+                }
+                else
+                {
+                    _gesture = Gesture.Lasso;
+                    _lassoPoints.Clear();
+                    _lassoPoints.Add(canvasPoint);
+                }
             }
-            else if (_gesture == Gesture.Marquee)
-                _previewBounds = RectangleFrom(_gestureStart, canvasPoint);
+            else if (_gesture == Gesture.Lasso)
+                AddLassoPoint(canvasPoint);
             else if (_gesture == Gesture.Move)
             {
                 Point delta = (canvasPoint - _gestureStart).ToPoint();
@@ -79,7 +89,7 @@ namespace FrameByFrame.src.Engine.Selection
             if (_selection == null) return;
             Color[] pixels = _animation.GetLayerPixels(_animation.SelectedLayerId);
             SelectionOperations.Clear(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
-                _selection.Bounds);
+                _selection);
             if (_animation.ReplaceCurrentLayerPixels(pixels)) Clear();
         }
 
@@ -103,32 +113,43 @@ namespace FrameByFrame.src.Engine.Selection
             _selection = null;
             _selectedFrame = null;
             _gesture = Gesture.None;
+            _lassoPoints.Clear();
             _previewBounds = Rectangle.Empty;
         }
 
         public void DrawOverlay()
         {
             EnsureCurrentTarget();
-            Rectangle bounds = Bounds;
-            if (bounds.Width <= 0 || bounds.Height <= 0) return;
-            Rectangle screen = _animation.ToScreenRectangle(bounds);
-            DrawDashedBorder(screen, UITheme.ToolSelected);
+            if (_gesture == Gesture.Lasso)
+            {
+                DrawLasso();
+                return;
+            }
+            if (_selection == null) return;
+
+            Rectangle bounds = _gesture == Gesture.Move ? _previewBounds : _selection.Bounds;
+            foreach ((Vector2 start, Vector2 end) in _selection.Boundary)
+            {
+                Vector2 offset = bounds.Location.ToVector2();
+                UIRenderer.Line(_animation.ToScreenPosition(offset + start),
+                    _animation.ToScreenPosition(offset + end), UITheme.ToolSelected, 2f);
+            }
         }
 
         private void CompleteGesture()
         {
             Gesture completed = _gesture;
             _gesture = Gesture.None;
-            if (completed == Gesture.Marquee)
+            if (completed == Gesture.Lasso)
             {
-                Rectangle clipped = ClampBounds(_previewBounds);
-                PixelSelection selected = SelectionOperations.Extract(
+                PixelSelection selected = SelectionOperations.ExtractFreeform(
                     _animation.GetLayerPixels(_animation.SelectedLayerId), _animation.CurrentFrame.width,
-                    _animation.CurrentFrame.height, clipped);
+                    _animation.CurrentFrame.height, _lassoPoints);
                 if (selected == null) Clear(); else SetSelection(selected);
             }
             else if (completed == Gesture.Move && _selection != null && _previewBounds != _selection.Bounds)
                 ApplyTransform(SelectionOperations.Move(_selection, _previewBounds.X, _previewBounds.Y));
+            _lassoPoints.Clear();
         }
 
         private void ApplyTransform(PixelSelection transformed)
@@ -137,7 +158,7 @@ namespace FrameByFrame.src.Engine.Selection
             transformed = transformed.Clone(ClampBounds(transformed.Bounds));
             Color[] pixels = _animation.GetLayerPixels(_animation.SelectedLayerId);
             SelectionOperations.Clear(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
-                _selection.Bounds);
+                _selection);
             SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
                 transformed);
             if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(transformed);
@@ -149,6 +170,7 @@ namespace FrameByFrame.src.Engine.Selection
             _selectedFrame = _animation.CurrentFrame;
             _selectedLayerId = _animation.SelectedLayerId;
             _previewBounds = selection.Bounds;
+            _lassoPoints.Clear();
         }
 
         private void EnsureCurrentTarget()
@@ -156,6 +178,27 @@ namespace FrameByFrame.src.Engine.Selection
             if (_selection != null && (!ReferenceEquals(_selectedFrame, _animation.CurrentFrame) ||
                 _selectedLayerId != _animation.SelectedLayerId)) Clear();
         }
+
+        private void AddLassoPoint(Vector2 canvasPoint)
+        {
+            if (_lassoPoints.Count == 0 || Vector2.DistanceSquared(_lassoPoints[^1], canvasPoint) >= .25f)
+                _lassoPoints.Add(canvasPoint);
+        }
+
+        private void DrawLasso()
+        {
+            if (_lassoPoints.Count < 2) return;
+            for (int i = 1; i < _lassoPoints.Count; i++)
+                UIRenderer.Line(_animation.ToScreenPosition(_lassoPoints[i - 1]),
+                    _animation.ToScreenPosition(_lassoPoints[i]), UITheme.ToolSelected, 2f);
+            if (_lassoPoints.Count > 2)
+                UIRenderer.Line(_animation.ToScreenPosition(_lassoPoints[^1]),
+                    _animation.ToScreenPosition(_lassoPoints[0]), UITheme.ToolSelected, 2f);
+        }
+
+        private Vector2 ClampCanvasPoint(Vector2 point) => new(
+            Math.Clamp(point.X, 0f, _animation.CurrentFrame.width),
+            Math.Clamp(point.Y, 0f, _animation.CurrentFrame.height));
 
         private Rectangle ClampBounds(Rectangle bounds)
         {
@@ -174,30 +217,6 @@ namespace FrameByFrame.src.Engine.Selection
             return SelectionOperations.Resize(selection,
                 Math.Max(1, (int)Math.Floor(selection.Width * fit)),
                 Math.Max(1, (int)Math.Floor(selection.Height * fit)));
-        }
-
-        private static Rectangle RectangleFrom(Vector2 first, Vector2 second)
-        {
-            int left = (int)Math.Floor(Math.Min(first.X, second.X));
-            int top = (int)Math.Floor(Math.Min(first.Y, second.Y));
-            int right = (int)Math.Ceiling(Math.Max(first.X, second.X)) + 1;
-            int bottom = (int)Math.Ceiling(Math.Max(first.Y, second.Y)) + 1;
-            return new Rectangle(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
-        }
-
-        private static void DrawDashedBorder(Rectangle bounds, Color color)
-        {
-            const int dash = 7;
-            for (int x = bounds.Left; x < bounds.Right; x += dash * 2)
-            {
-                UIRenderer.Fill(new Rectangle(x, bounds.Top, Math.Min(dash, bounds.Right - x), 2), color);
-                UIRenderer.Fill(new Rectangle(x, bounds.Bottom - 2, Math.Min(dash, bounds.Right - x), 2), color);
-            }
-            for (int y = bounds.Top; y < bounds.Bottom; y += dash * 2)
-            {
-                UIRenderer.Fill(new Rectangle(bounds.Left, y, 2, Math.Min(dash, bounds.Bottom - y)), color);
-                UIRenderer.Fill(new Rectangle(bounds.Right - 2, y, 2, Math.Min(dash, bounds.Bottom - y)), color);
-            }
         }
     }
 }

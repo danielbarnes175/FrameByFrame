@@ -164,6 +164,16 @@ namespace FrameByFrame.src.UI
         public static void Fill(Rectangle bounds, Color color) =>
             GlobalParameters.GlobalSpriteBatch.Draw(Pixel, bounds, color);
 
+        public static void Line(Vector2 start, Vector2 end, Color color, float thickness = 1f)
+        {
+            Vector2 delta = end - start;
+            float length = delta.Length();
+            if (length <= 0f) return;
+            GlobalParameters.GlobalSpriteBatch.Draw(Pixel, start, null, color,
+                (float)Math.Atan2(delta.Y, delta.X), Vector2.Zero,
+                new Vector2(length, Math.Max(1f, thickness)), SpriteEffects.None, 0f);
+        }
+
         public static void Border(Rectangle bounds, Color color, int thickness = 1)
         {
             Fill(new Rectangle(bounds.X, bounds.Y, bounds.Width, thickness), color);

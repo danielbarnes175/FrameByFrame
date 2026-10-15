@@ -62,7 +62,7 @@ namespace FrameByFrame.src.UI.Components
             UIRenderer.Border(Bounds, UITheme.Border, 2);
             new UITextContainer { Bounds = new Rectangle(Bounds.X + 6, Bounds.Y + 3, Bounds.Width - 12, 20),
                 Padding = 0, MaxLines = 1 }.Draw(
-                _tools.Selection.HasSelection ? "Selection actions" : "Drag on the canvas to select artwork",
+                _tools.Selection.HasSelection ? "Selection actions" : "Draw around artwork to select it",
                 UITheme.TextMuted, .55f);
             _copy.Draw();
             _paste.Draw();

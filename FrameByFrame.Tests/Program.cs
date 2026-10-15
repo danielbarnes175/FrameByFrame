@@ -196,24 +196,36 @@ Color[] selectionCanvas =
     Color.Blue, Color.Yellow, Color.Transparent, Color.Transparent,
     Color.Purple, Color.Orange, Color.Transparent, Color.Transparent
 };
-PixelSelection selection = SelectionOperations.Extract(selectionCanvas, 4, 3, new Rectangle(0, 0, 2, 3));
-Assert(selection.Width == 2 && selection.Height == 3 && selection.Pixels[5] == Color.Orange,
-    "Marquee extraction should retain the selected rectangular artwork.");
+Vector2[] lasso =
+{
+    new(0, 0), new(2, 0), new(2, 1), new(1, 1), new(1, 3), new(0, 3)
+};
+PixelSelection selection = SelectionOperations.ExtractFreeform(selectionCanvas, 4, 3, lasso);
+Assert(selection.Width == 2 && selection.Height == 3 &&
+       selection.Pixels[0] == Color.Red && selection.Pixels[1] == Color.Green &&
+       selection.Pixels[2] == Color.Blue && selection.Pixels[4] == Color.Purple &&
+       !selection.Mask[3] && !selection.Mask[5],
+    "Free-form extraction should retain only pixels enclosed by the lasso.");
+Assert(selection.Contains(new Vector2(.5f, 2.5f)) && !selection.Contains(new Vector2(1.5f, 2.5f)),
+    "Selection hit testing should follow the free-form mask rather than its bounds.");
 PixelSelection rotatedSelection = SelectionOperations.RotateClockwise(selection);
 Assert(rotatedSelection.Width == 3 && rotatedSelection.Height == 2 &&
        rotatedSelection.Pixels[0] == Color.Purple && rotatedSelection.Pixels[2] == Color.Red &&
-       rotatedSelection.Pixels[3] == Color.Orange && rotatedSelection.Pixels[5] == Color.Green,
-    "Selection rotation should turn pixels clockwise without losing artwork.");
+       rotatedSelection.Pixels[5] == Color.Green &&
+       rotatedSelection.Mask[0] && rotatedSelection.Mask[1] && rotatedSelection.Mask[2] &&
+       !rotatedSelection.Mask[3] && !rotatedSelection.Mask[4] && rotatedSelection.Mask[5],
+    "Selection rotation should turn the free-form mask and its pixels together.");
 PixelSelection resizedSelection = SelectionOperations.Resize(selection, 4, 6);
 Assert(resizedSelection.Pixels[0] == Color.Red && resizedSelection.Pixels[3] == Color.Green &&
-       resizedSelection.Pixels[^1] == Color.Orange,
-    "Selection resizing should preserve edge pixels through nearest-neighbor scaling.");
-SelectionOperations.Clear(selectionCanvas, 4, 3, selection.Bounds);
+       resizedSelection.Pixels[20] == Color.Purple && !resizedSelection.Mask[^1],
+    "Selection resizing should preserve the free-form mask through nearest-neighbor scaling.");
+SelectionOperations.Clear(selectionCanvas, 4, 3, selection);
 PixelSelection movedSelection = SelectionOperations.Move(selection, 2, 0);
 SelectionOperations.Composite(selectionCanvas, 4, 3, movedSelection);
 Assert(selectionCanvas[0] == Color.Transparent && selectionCanvas[2] == Color.Red &&
-       selectionCanvas[11] == Color.Orange,
-    "Moving a selection should clear its source and composite it at the destination.");
+       selectionCanvas[3] == Color.Green && selectionCanvas[5] == Color.Yellow &&
+       selectionCanvas[9] == Color.Orange && selectionCanvas[10] == Color.Purple,
+    "Moving a free-form selection should preserve pixels outside the lasso's mask.");
 
 Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
        !SaveService.FormatSupportsTransparency(ExportFormat.Mov),
