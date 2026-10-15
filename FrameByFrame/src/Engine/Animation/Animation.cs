@@ -432,6 +432,8 @@ namespace FrameByFrame.src.Engine.Animation
             return CurrentFrame.GetLayerPixels(layerId);
         }
 
+        public Color[] GetCurrentLayerPixels() => CurrentFrame?.GetLayerPixels(SelectedLayerId);
+
         public bool ReplaceCurrentLayerPixels(Color[] pixels)
         {
             ArgumentNullException.ThrowIfNull(pixels);

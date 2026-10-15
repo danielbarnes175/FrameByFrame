@@ -67,6 +67,18 @@ namespace FrameByFrame.src.Engine.Selection
         public static void Composite(Color[] destination, int canvasWidth, int canvasHeight,
             PixelSelection selection)
         {
+            Composite(destination, canvasWidth, canvasHeight, selection, ignoreWhite: false);
+        }
+
+        public static void Paste(Color[] destination, int canvasWidth, int canvasHeight,
+            PixelSelection selection)
+        {
+            Composite(destination, canvasWidth, canvasHeight, selection, ignoreWhite: true);
+        }
+
+        private static void Composite(Color[] destination, int canvasWidth, int canvasHeight,
+            PixelSelection selection, bool ignoreWhite)
+        {
             ValidateCanvas(destination, canvasWidth, canvasHeight);
             ArgumentNullException.ThrowIfNull(selection);
             for (int y = 0; y < selection.Height; y++)
@@ -78,7 +90,9 @@ namespace FrameByFrame.src.Engine.Selection
                 int targetY = selection.Bounds.Y + y;
                 if (targetX < 0 || targetX >= canvasWidth || targetY < 0 || targetY >= canvasHeight) continue;
                 Color color = selection.Pixels[sourceIndex];
-                if (color != Color.Transparent) destination[targetX + targetY * canvasWidth] = color;
+                bool isWhite = color.R == byte.MaxValue && color.G == byte.MaxValue && color.B == byte.MaxValue;
+                if (color.A > 0 && (!ignoreWhite || !isWhite))
+                    destination[targetX + targetY * canvasWidth] = color;
             }
         }
 

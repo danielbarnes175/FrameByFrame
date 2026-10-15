@@ -227,6 +227,17 @@ Assert(selectionCanvas[0] == Color.Transparent && selectionCanvas[2] == Color.Re
        selectionCanvas[9] == Color.Orange && selectionCanvas[10] == Color.Purple,
     "Moving a free-form selection should preserve pixels outside the lasso's mask.");
 
+Color[] pasteTarget = { Color.Blue, Color.Green, Color.Yellow };
+PixelSelection clipboardSelection = new(new Rectangle(0, 0, 3, 1),
+    [Color.Transparent, Color.White, Color.Red]);
+SelectionOperations.Paste(pasteTarget, 3, 1, clipboardSelection);
+Assert(pasteTarget[0] == Color.Blue && pasteTarget[1] == Color.Green && pasteTarget[2] == Color.Red,
+    "Pasting should preserve existing artwork beneath transparent and white clipboard pixels.");
+Color[] transformTarget = { Color.Transparent, Color.Transparent, Color.Transparent };
+SelectionOperations.Composite(transformTarget, 3, 1, clipboardSelection);
+Assert(transformTarget[1] == Color.White,
+    "Selection transforms should preserve intentionally drawn white pixels even though paste treats white as empty.");
+
 Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
        !SaveService.FormatSupportsTransparency(ExportFormat.Mov),
     "Video exports should flatten transparent canvas backgrounds.");

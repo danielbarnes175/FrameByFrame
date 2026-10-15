@@ -77,8 +77,8 @@ namespace FrameByFrame.src.Engine.Selection
             if (_clipboard == null || _animation.CurrentFrame == null) return;
             PixelSelection pasted = FitWithinCanvas(_clipboard.Clone());
             pasted = pasted.Clone(ClampBounds(pasted.Bounds));
-            Color[] pixels = _animation.GetLayerPixels(_animation.SelectedLayerId);
-            SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height, pasted);
+            Color[] pixels = _animation.GetCurrentLayerPixels();
+            SelectionOperations.Paste(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height, pasted);
             if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(pasted);
         }
 
@@ -86,7 +86,7 @@ namespace FrameByFrame.src.Engine.Selection
         {
             EnsureCurrentTarget();
             if (_selection == null) return;
-            Color[] pixels = _animation.GetLayerPixels(_animation.SelectedLayerId);
+            Color[] pixels = _animation.GetCurrentLayerPixels();
             SelectionOperations.Clear(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
                 _selection);
             if (_animation.ReplaceCurrentLayerPixels(pixels)) Clear();
@@ -142,7 +142,7 @@ namespace FrameByFrame.src.Engine.Selection
             if (completed == Gesture.Lasso)
             {
                 PixelSelection selected = SelectionOperations.ExtractFreeform(
-                    _animation.GetLayerPixels(_animation.SelectedLayerId), _animation.CurrentFrame.width,
+                    _animation.GetCurrentLayerPixels(), _animation.CurrentFrame.width,
                     _animation.CurrentFrame.height, _lassoPoints);
                 if (selected == null) Clear(); else SetSelection(selected);
             }
@@ -155,7 +155,7 @@ namespace FrameByFrame.src.Engine.Selection
         {
             transformed = FitWithinCanvas(transformed);
             transformed = transformed.Clone(ClampBounds(transformed.Bounds));
-            Color[] pixels = _animation.GetLayerPixels(_animation.SelectedLayerId);
+            Color[] pixels = _animation.GetCurrentLayerPixels();
             SelectionOperations.Clear(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
                 _selection);
             SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
