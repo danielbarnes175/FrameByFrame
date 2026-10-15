@@ -4,11 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Animation;
-using FrameByFrame.src.Engine.Services;
 using ImageMagick;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace FrameByFrame.src.Engine.Export
 {
@@ -27,93 +26,99 @@ namespace FrameByFrame.src.Engine.Export
 
         public sealed class ExportOperation
         {
-            private readonly Animation.Animation _animation;
+            private readonly object _stateLock = new();
+            private readonly ExportSnapshot _snapshot;
             private readonly string _projectName;
             private readonly string _exportRoot;
             private readonly string _projectDirectory;
             private readonly ExportFormat _format;
-            private readonly int _startFrameIndex;
-            private readonly int _frameCount;
-            private int _exportedFrameCount;
-            private bool _isFinalizing;
+            private readonly Task _worker;
+            private bool _isComplete;
+            private float _progress;
+            private string _status = "Preparing export...";
+            private string _outputPath;
+            private Exception _failure;
 
-            internal ExportOperation(Animation.Animation animation, string projectName, string exportRoot,
-                string projectDirectory, ExportFormat format, int startFrameIndex, int frameCount)
+            internal ExportOperation(ExportSnapshot snapshot, string projectName, string exportRoot,
+                string projectDirectory, ExportFormat format)
             {
-                _animation = animation;
+                _snapshot = snapshot;
                 _projectName = projectName;
                 _exportRoot = exportRoot;
                 _projectDirectory = projectDirectory;
                 _format = format;
-                _startFrameIndex = startFrameIndex;
-                _frameCount = frameCount;
-                OutputPath = GetOutputPath(projectName, exportRoot, projectDirectory, format);
+                _outputPath = GetOutputPath(projectName, exportRoot, projectDirectory, format);
+                _worker = Task.Factory.StartNew(ExportOnWorker,
+                    System.Threading.CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
 
-            public bool IsComplete { get; private set; }
-            public bool IsFailed => Failure != null;
-            public float Progress { get; private set; }
-            public string Status { get; private set; } = "Preparing export...";
-            public string OutputPath { get; private set; }
-            public Exception Failure { get; private set; }
+            public bool IsComplete { get { lock (_stateLock) return _isComplete; } }
+            public bool IsFailed { get { lock (_stateLock) return _failure != null; } }
+            public float Progress { get { lock (_stateLock) return _progress; } }
+            public string Status { get { lock (_stateLock) return _status; } }
+            public string OutputPath { get { lock (_stateLock) return _outputPath; } }
+            public Exception Failure { get { lock (_stateLock) return _failure; } }
 
-            public void Step()
+            internal void WaitForCompletion() => _worker.GetAwaiter().GetResult();
+
+            private void ExportOnWorker()
             {
-                if (IsComplete || IsFailed) return;
                 try
                 {
-                    if (_exportedFrameCount < _frameCount)
+                    for (int i = 0; i < _snapshot.Frames.Count; i++)
                     {
-                        int sourceIndex = _startFrameIndex + _exportedFrameCount;
-                        Color? backgroundOverride = _animation.IsCanvasBackgroundTransparent &&
-                            !FormatSupportsTransparency(_format)
-                                ? Color.White
-                                : null;
-                        using RenderTarget2D texture = DrawingService.CombineTextures(
-                            _animation, _animation.GetFrameAtIndex(sourceIndex), backgroundOverride);
-                        string frameFilename = Path.Combine(_projectDirectory, $"Frame_{_exportedFrameCount}.png");
-                        SaveTextureAsPng(frameFilename, texture);
-                        _exportedFrameCount++;
-                        Progress = .9f * _exportedFrameCount / _frameCount;
-                        Status = $"Exporting frame {_exportedFrameCount} of {_frameCount}...";
-                        return;
+                        string frameFilename = Path.Combine(_projectDirectory, $"Frame_{i}.png");
+                        SaveFrameAsPng(frameFilename, _snapshot, _snapshot.Frames[i]);
+                        UpdateState(.9f * (i + 1) / _snapshot.Frames.Count,
+                            $"Exporting frame {i + 1} of {_snapshot.Frames.Count}...");
                     }
 
-                    if (!_isFinalizing)
+                    UpdateState(.95f, _format switch
                     {
-                        _isFinalizing = true;
-                        Progress = .95f;
-                        Status = _format switch
-                        {
-                            ExportFormat.Gif => "Creating GIF...",
-                            ExportFormat.Mov => "Encoding MOV...",
-                            ExportFormat.Mp4 => "Encoding MP4...",
-                            ExportFormat.PngSequence => "Finishing PNG export...",
-                            ExportFormat.SpriteSheet => "Creating spritesheet...",
-                            _ => "Finishing export..."
-                        };
-                        return;
-                    }
-                    RemoveObsoleteFrameFiles(_projectDirectory, _frameCount);
-                    OutputPath = _format switch
+                        ExportFormat.Gif => "Creating GIF...",
+                        ExportFormat.Mov => "Encoding MOV...",
+                        ExportFormat.Mp4 => "Encoding MP4...",
+                        ExportFormat.PngSequence => "Finishing PNG export...",
+                        ExportFormat.SpriteSheet => "Creating spritesheet...",
+                        _ => "Finishing export..."
+                    });
+                    RemoveObsoleteFrameFiles(_projectDirectory, _snapshot.Frames.Count);
+                    string outputPath = _format switch
                     {
-                        ExportFormat.Gif => CreateGif(_animation, _projectName, _exportRoot, _projectDirectory, _frameCount),
+                        ExportFormat.Gif => CreateGif(_snapshot.FramesPerSecond, _projectName, _exportRoot,
+                            _projectDirectory, _snapshot.Frames.Count),
                         ExportFormat.Mov or ExportFormat.Mp4 =>
-                            CreateVideo(_animation, _projectName, _exportRoot, _projectDirectory, _format,
-                                _startFrameIndex, _frameCount),
+                            CreateVideo(_snapshot, _projectName, _exportRoot, _projectDirectory, _format),
                         ExportFormat.PngSequence => _projectDirectory,
                         ExportFormat.SpriteSheet =>
-                            CreateSpriteSheet(_animation, _projectName, _exportRoot, _projectDirectory, _frameCount),
+                            CreateSpriteSheet(_snapshot.Width, _snapshot.Height, _projectName, _exportRoot,
+                                _projectDirectory, _snapshot.Frames.Count),
                         _ => throw new ArgumentOutOfRangeException(nameof(_format), _format, "Unsupported export format.")
                     };
-                    Progress = 1f;
-                    Status = $"Export complete: {OutputPath}";
-                    IsComplete = true;
+                    lock (_stateLock)
+                    {
+                        _outputPath = outputPath;
+                        _progress = 1f;
+                        _status = $"Export complete: {outputPath}";
+                        _isComplete = true;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Failure = ex;
-                    Status = $"Export failed: {ex.Message}";
+                    lock (_stateLock)
+                    {
+                        _failure = ex;
+                        _status = $"Export failed: {ex.Message}";
+                    }
+                }
+            }
+
+            private void UpdateState(float progress, string status)
+            {
+                lock (_stateLock)
+                {
+                    _progress = progress;
+                    _status = status;
                 }
             }
 
@@ -128,6 +133,14 @@ namespace FrameByFrame.src.Engine.Export
                 _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.")
             };
         }
+
+        internal sealed record ExportSnapshot(int Width, int Height, int FramesPerSecond,
+            int StartFrameIndex, Color BackgroundColor, IReadOnlyList<ExportFrameSnapshot> Frames,
+            IReadOnlyList<AudioTrack> AudioTracks);
+
+        internal sealed record ExportFrameSnapshot(IReadOnlyList<ExportLayerSnapshot> Layers);
+
+        internal sealed record ExportLayerSnapshot(IReadOnlyList<KeyValuePair<int, Color>> Pixels);
 
         public static void SaveAnimation(Animation.Animation animation)
         {
@@ -204,7 +217,7 @@ namespace FrameByFrame.src.Engine.Export
 
         private static void RunToCompletion(ExportOperation operation)
         {
-            while (!operation.IsComplete && !operation.IsFailed) operation.Step();
+            operation.WaitForCompletion();
             if (operation.IsFailed)
                 throw new InvalidOperationException(operation.Status, operation.Failure);
         }
@@ -238,9 +251,8 @@ namespace FrameByFrame.src.Engine.Export
             Directory.CreateDirectory(exportRoot);
             string projectDirectory = Path.Combine(exportRoot, projectName);
             Directory.CreateDirectory(projectDirectory);
-            int exportedFrameCount = endFrameIndex - startFrameIndex + 1;
-            return new ExportOperation(animation, projectName, exportRoot, projectDirectory,
-                format, startFrameIndex, exportedFrameCount);
+            ExportSnapshot snapshot = CaptureExportSnapshot(animation, startFrameIndex, endFrameIndex, format);
+            return new ExportOperation(snapshot, projectName, exportRoot, projectDirectory, format);
         }
 
         public static bool FormatSupportsTransparency(ExportFormat format) => format switch
@@ -264,17 +276,97 @@ namespace FrameByFrame.src.Engine.Export
             }
         }
 
-        private static void SaveTextureAsPng(string filename, RenderTarget2D texture)
+        private static ExportSnapshot CaptureExportSnapshot(Animation.Animation animation, int startFrameIndex,
+            int endFrameIndex, ExportFormat format)
         {
-            using FileStream setStream = File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.None);
-            texture.SaveAsPng(setStream, texture.Width, texture.Height);
+            Color background = animation.IsCanvasBackgroundTransparent
+                ? FormatSupportsTransparency(format) ? Color.Transparent : Color.White
+                : animation.CanvasBackgroundColor;
+            Guid[] visibleLayerIds = animation.Layers.Where(layer => layer.IsVisible).Select(layer => layer.Id).ToArray();
+            var frames = new List<ExportFrameSnapshot>(endFrameIndex - startFrameIndex + 1);
+            for (int frameIndex = startFrameIndex; frameIndex <= endFrameIndex; frameIndex++)
+            {
+                Frame frame = animation.GetFrameAtIndex(frameIndex);
+                var layers = new List<ExportLayerSnapshot>(visibleLayerIds.Length);
+                foreach (Guid layerId in visibleLayerIds)
+                    layers.Add(new ExportLayerSnapshot(frame.GetSparseLayerPixels(layerId).ToArray()));
+                frames.Add(new ExportFrameSnapshot(layers));
+            }
+
+            IReadOnlyList<AudioTrack> audioTracks = format is ExportFormat.Mov or ExportFormat.Mp4
+                ? animation.AudioTracks.Select(track => new AudioTrack(track.SourceName, track.SourceExtension,
+                    track.EncodedData.ToArray(), track.StartFrame, track.DurationSeconds,
+                    id: track.Id, volume: track.Volume, isMuted: track.IsMuted)).ToArray()
+                : Array.Empty<AudioTrack>();
+            Frame firstFrame = animation.GetFrameAtIndex(startFrameIndex);
+            return new ExportSnapshot(firstFrame.width, firstFrame.height, animation.fps, startFrameIndex,
+                background, frames, audioTracks);
         }
 
-        private static string CreateGif(Animation.Animation animation, string projectName,
+        private static void SaveFrameAsPng(string filename, ExportSnapshot snapshot, ExportFrameSnapshot frame)
+        {
+            byte[] pixels = ComposeFramePixels(snapshot, frame);
+            var settings = new PixelReadSettings((uint)snapshot.Width, (uint)snapshot.Height,
+                StorageType.Char, PixelMapping.RGBA);
+            using var image = new MagickImage(pixels, settings) { Format = MagickFormat.Png };
+            image.Write(filename);
+        }
+
+        internal static byte[] ComposeFramePixels(ExportSnapshot snapshot, ExportFrameSnapshot frame)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
+            ArgumentNullException.ThrowIfNull(frame);
+
+            byte[] pixels = new byte[checked(snapshot.Width * snapshot.Height * 4)];
+            for (int index = 0; index < snapshot.Width * snapshot.Height; index++)
+                WriteColor(pixels, index, snapshot.BackgroundColor);
+
+            for (int layerIndex = frame.Layers.Count - 1; layerIndex >= 0; layerIndex--)
+            {
+                foreach (KeyValuePair<int, Color> pixel in frame.Layers[layerIndex].Pixels)
+                {
+                    if ((uint)pixel.Key >= (uint)(snapshot.Width * snapshot.Height)) continue;
+                    BlendColor(pixels, pixel.Key, pixel.Value);
+                }
+            }
+            return pixels;
+        }
+
+        private static void WriteColor(byte[] pixels, int pixelIndex, Color color)
+        {
+            int offset = pixelIndex * 4;
+            pixels[offset] = color.R;
+            pixels[offset + 1] = color.G;
+            pixels[offset + 2] = color.B;
+            pixels[offset + 3] = color.A;
+        }
+
+        private static void BlendColor(byte[] pixels, int pixelIndex, Color source)
+        {
+            if (source.A == 0) return;
+            int offset = pixelIndex * 4;
+            if (source.A == byte.MaxValue)
+            {
+                WriteColor(pixels, pixelIndex, source);
+                return;
+            }
+
+            int inverseAlpha = byte.MaxValue - source.A;
+            pixels[offset] = (byte)Math.Min(byte.MaxValue,
+                source.R + (pixels[offset] * inverseAlpha + 127) / byte.MaxValue);
+            pixels[offset + 1] = (byte)Math.Min(byte.MaxValue,
+                source.G + (pixels[offset + 1] * inverseAlpha + 127) / byte.MaxValue);
+            pixels[offset + 2] = (byte)Math.Min(byte.MaxValue,
+                source.B + (pixels[offset + 2] * inverseAlpha + 127) / byte.MaxValue);
+            pixels[offset + 3] = (byte)Math.Min(byte.MaxValue,
+                source.A + (pixels[offset + 3] * inverseAlpha + 127) / byte.MaxValue);
+        }
+
+        private static string CreateGif(int framesPerSecond, string projectName,
             string exportRoot, string projectDirectory, int frameCount)
         {
             string filename = Path.Combine(exportRoot, $"{projectName}.gif");
-            uint frameDelay = (uint)Math.Max(1, Math.Round(100d / animation.fps));
+            uint frameDelay = (uint)Math.Max(1, Math.Round(100d / framesPerSecond));
 
             using MagickImageCollection collection = new MagickImageCollection();
             for (int i = 0; i < frameCount; i++)
@@ -289,8 +381,8 @@ namespace FrameByFrame.src.Engine.Export
             return filename;
         }
 
-        private static string CreateVideo(Animation.Animation animation, string projectName,
-            string exportRoot, string projectDirectory, ExportFormat format, int startFrameIndex, int frameCount)
+        private static string CreateVideo(ExportSnapshot snapshot, string projectName,
+            string exportRoot, string projectDirectory, ExportFormat format)
         {
             string extension = format == ExportFormat.Mov ? ".mov" : ".mp4";
             string filename = Path.Combine(exportRoot, projectName + extension);
@@ -307,18 +399,18 @@ namespace FrameByFrame.src.Engine.Export
                 };
                 startInfo.ArgumentList.Add("-y");
                 startInfo.ArgumentList.Add("-framerate");
-                startInfo.ArgumentList.Add(animation.fps.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                startInfo.ArgumentList.Add(snapshot.FramesPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 startInfo.ArgumentList.Add("-start_number");
                 startInfo.ArgumentList.Add("0");
                 startInfo.ArgumentList.Add("-i");
                 startInfo.ArgumentList.Add(Path.Combine(projectDirectory, "Frame_%d.png"));
 
-                double rangeStart = startFrameIndex / (double)animation.fps;
-                double duration = frameCount / (double)animation.fps;
+                double rangeStart = snapshot.StartFrameIndex / (double)snapshot.FramesPerSecond;
+                double duration = snapshot.Frames.Count / (double)snapshot.FramesPerSecond;
                 double rangeEnd = rangeStart + duration;
-                var audibleTracks = animation.AudioTracks.Where(track => !track.IsMuted && track.Volume > 0 &&
-                    track.StartFrame / (double)animation.fps < rangeEnd &&
-                    track.StartFrame / (double)animation.fps + track.DurationSeconds > rangeStart).ToList();
+                var audibleTracks = snapshot.AudioTracks.Where(track => !track.IsMuted && track.Volume > 0 &&
+                    track.StartFrame / (double)snapshot.FramesPerSecond < rangeEnd &&
+                    track.StartFrame / (double)snapshot.FramesPerSecond + track.DurationSeconds > rangeStart).ToList();
                 if (audibleTracks.Count > 0)
                 {
                     Directory.CreateDirectory(audioDirectory);
@@ -330,7 +422,8 @@ namespace FrameByFrame.src.Engine.Export
                         startInfo.ArgumentList.Add(input);
                     }
                     startInfo.ArgumentList.Add("-filter_complex");
-                    startInfo.ArgumentList.Add(BuildAudioFilter(animation, audibleTracks, rangeStart, rangeEnd, duration));
+                    startInfo.ArgumentList.Add(BuildAudioFilter(snapshot.FramesPerSecond, audibleTracks,
+                        rangeStart, rangeEnd, duration));
                     startInfo.ArgumentList.Add("-map");
                     startInfo.ArgumentList.Add("0:v:0");
                     startInfo.ArgumentList.Add("-map");
@@ -375,6 +468,11 @@ namespace FrameByFrame.src.Engine.Export
         internal static string BuildAudioFilter(Animation.Animation animation,
             System.Collections.Generic.IReadOnlyList<AudioTrack> tracks,
             double rangeStart, double rangeEnd, double duration)
+            => BuildAudioFilter(animation.fps, tracks, rangeStart, rangeEnd, duration);
+
+        private static string BuildAudioFilter(int framesPerSecond,
+            System.Collections.Generic.IReadOnlyList<AudioTrack> tracks,
+            double rangeStart, double rangeEnd, double duration)
         {
             var filter = new StringBuilder();
             var labels = new List<string>(tracks.Count);
@@ -382,7 +480,7 @@ namespace FrameByFrame.src.Engine.Export
             {
                 AudioTrack track = tracks[i];
                 string label = $"track{i}";
-                long delayMilliseconds = (long)Math.Round(track.StartFrame * 1000d / animation.fps);
+                long delayMilliseconds = (long)Math.Round(track.StartFrame * 1000d / framesPerSecond);
                 filter.Append('[').Append(i + 1).Append(":a]")
                     .Append("aresample=44100,aformat=sample_fmts=s16:channel_layouts=stereo,volume=")
                     .Append(track.Volume.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture))
@@ -402,20 +500,19 @@ namespace FrameByFrame.src.Engine.Export
             return filter.ToString();
         }
 
-        private static string CreateSpriteSheet(Animation.Animation animation, string projectName,
+        private static string CreateSpriteSheet(int frameWidth, int frameHeight, string projectName,
             string exportRoot, string projectDirectory, int frameCount)
         {
-            Frame firstFrame = animation.GetFrameAtIndex(0);
             int columns = (int)Math.Ceiling(Math.Sqrt(frameCount));
             int rows = (int)Math.Ceiling(frameCount / (double)columns);
-            uint width = checked((uint)(firstFrame.width * columns));
-            uint height = checked((uint)(firstFrame.height * rows));
+            uint width = checked((uint)(frameWidth * columns));
+            uint height = checked((uint)(frameHeight * rows));
             using var sheet = new MagickImage(MagickColors.Transparent, width, height);
             for (int i = 0; i < frameCount; i++)
             {
                 using var frame = new MagickImage(Path.Combine(projectDirectory, $"Frame_{i}.png"));
-                int x = i % columns * firstFrame.width;
-                int y = i / columns * firstFrame.height;
+                int x = i % columns * frameWidth;
+                int y = i / columns * frameHeight;
                 sheet.Composite(frame, x, y, CompositeOperator.Over);
             }
             string filename = Path.Combine(exportRoot, $"{projectName}_spritesheet.png");

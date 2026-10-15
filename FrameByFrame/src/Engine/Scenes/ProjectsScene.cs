@@ -566,7 +566,6 @@ namespace FrameByFrame.src.Engine.Scenes
         private void AdvanceExport()
         {
             _previewAudio?.Stop();
-            _exportOperation.Step();
             if (_exportOperation.IsFailed)
             {
                 string message = _exportOperation.Failure?.Message ?? _exportOperation.Status;

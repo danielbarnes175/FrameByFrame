@@ -369,6 +369,33 @@ Assert(SaveService.FormatSupportsTransparency(ExportFormat.Gif) &&
        SaveService.FormatSupportsTransparency(ExportFormat.SpriteSheet),
     "Alpha-capable export formats should retain canvas transparency.");
 
+var exportFrame = new SaveService.ExportFrameSnapshot([
+    new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Red)]),
+    new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Blue)])
+]);
+var exportSnapshot = new SaveService.ExportSnapshot(1, 1, 12, 0, Color.White,
+    [exportFrame], Array.Empty<AudioTrack>());
+byte[] exportedPixel = SaveService.ComposeFramePixels(exportSnapshot, exportFrame);
+Assert(exportedPixel.SequenceEqual(new byte[] { 255, 0, 0, 255 }),
+    "Background export compositing should preserve the same top-to-bottom layer order as the canvas.");
+
+string asyncExportRoot = Path.Combine(Path.GetTempPath(), $"framebyframe-worker-export-{Guid.NewGuid():N}");
+string asyncProjectDirectory = Path.Combine(asyncExportRoot, "Worker export test");
+try
+{
+    Directory.CreateDirectory(asyncProjectDirectory);
+    var operation = new SaveService.ExportOperation(exportSnapshot, "Worker export test", asyncExportRoot,
+        asyncProjectDirectory, ExportFormat.PngSequence);
+    operation.WaitForCompletion();
+    Assert(operation.IsComplete && !operation.IsFailed &&
+           File.Exists(Path.Combine(asyncProjectDirectory, "Frame_0.png")),
+        "PNG sequence encoding should complete successfully on the export worker.");
+}
+finally
+{
+    if (Directory.Exists(asyncExportRoot)) Directory.Delete(asyncExportRoot, recursive: true);
+}
+
 Console.WriteLine("FrameByFrame UI contract tests passed.");
 
 sealed class TestElement : UIElement { }
