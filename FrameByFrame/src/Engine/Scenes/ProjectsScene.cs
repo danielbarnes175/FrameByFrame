@@ -115,10 +115,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             int columns = GalleryColumnCount(GlobalParameters.screenWidth);
             int pageSize = columns * 2;
-            if (_selected >= 0 && _animations.Count > 0)
-                _pageStart = Math.Clamp((_selected / pageSize) * pageSize, 0,
-                    ((_animations.Count - 1) / pageSize) * pageSize);
-            else _pageStart = 0;
+            _pageStart = ResolvePageStart(_pageStart, _selected, _animations.Count, pageSize);
             Rectangle gallery = new(margin, navigationY + S(50),
                 Math.Max(1, GlobalParameters.screenWidth - margin * 2),
                 Math.Max(1, actionY - S(14) - (navigationY + S(50))));
@@ -148,6 +145,18 @@ namespace FrameByFrame.src.Engine.Scenes
         }
 
         private static int GalleryColumnCount(int width) => width >= 1000 ? 3 : width >= 600 ? 2 : 1;
+
+        internal static int ResolvePageStart(int currentPageStart, int selectedIndex,
+            int itemCount, int pageSize)
+        {
+            if (itemCount <= 0) return 0;
+            pageSize = Math.Max(1, pageSize);
+            int maxPageStart = ((itemCount - 1) / pageSize) * pageSize;
+            if (selectedIndex >= 0 && selectedIndex < itemCount)
+                return Math.Clamp(selectedIndex / pageSize * pageSize, 0, maxPageStart);
+            int clamped = Math.Clamp(currentPageStart, 0, maxPageStart);
+            return clamped / pageSize * pageSize;
+        }
 
         public override void Update(GameTime gameTime)
         {
@@ -470,8 +479,8 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             if (_animations.Count == 0) return;
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
-            int maxPageStart = ((_animations.Count - 1) / pageSize) * pageSize;
-            int nextPageStart = Math.Clamp(_pageStart + delta * pageSize, 0, maxPageStart);
+            int nextPageStart = ResolvePageStart(_pageStart + delta * pageSize,
+                -1, _animations.Count, pageSize);
             if (nextPageStart == _pageStart) return;
             DeselectProject();
             _pageStart = nextPageStart;

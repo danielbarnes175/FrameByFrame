@@ -4,6 +4,7 @@ using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Selection;
 using FrameByFrame.src.Engine;
+using FrameByFrame.src.Engine.Scenes;
 using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
@@ -36,6 +37,12 @@ Assert(grid.Count == 6 && grid[0] == new Rectangle(0, 0, 200, 205),
     "Grid layout should size the first project card consistently.");
 Assert(grid[2].X == 420 && grid[3].Y == 215,
     "Grid layout should place six project cards in two rows of three.");
+
+Assert(ProjectsScene.ResolvePageStart(6, -1, 14, 6) == 6 &&
+       ProjectsScene.ResolvePageStart(12, -1, 14, 6) == 12,
+    "Project pagination should retain the chosen page when no project is selected.");
+Assert(ProjectsScene.ResolvePageStart(6, 2, 14, 6) == 0,
+    "Project pagination should bring an explicitly selected project into view.");
 
 UIBox box = new(new Rectangle(10, 20, 100, 80), 8);
 Assert(box.Content == new Rectangle(18, 28, 84, 64), "UIBox padding should produce stable content bounds.");
