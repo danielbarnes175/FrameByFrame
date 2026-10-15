@@ -215,6 +215,19 @@ namespace FrameByFrame.src.Engine.Animation
         }
 
         public void DrawLayers(Rectangle destination, float opacity) => DrawLayersCore(destination, opacity);
+        public void DrawLayers(CanvasView view, float opacity)
+        {
+            ArgumentNullException.ThrowIfNull(view);
+            if (_texturesNeedUpdate) UpdateTextures();
+            Vector2 origin = new(width / 2f, height / 2f);
+            for (int i = _layers.Count - 1; i >= 0; i--)
+            {
+                FrameLayer layer = _layers[i];
+                if (layer.Definition.IsVisible && layer.Pixels.Count > 0 && layer.Texture != null)
+                    GlobalParameters.GlobalSpriteBatch.Draw(layer.Texture, view.Center, null, Color.White * opacity,
+                        view.RotationRadians, origin, view.Scale, SpriteEffects.None, 0f);
+            }
+        }
         public virtual void DrawLayers(float opacity) => DrawLayersCore(drawRectangle, opacity);
 
         private void DrawLayersCore(Rectangle destination, float opacity)

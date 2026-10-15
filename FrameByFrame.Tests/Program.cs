@@ -42,6 +42,23 @@ element.Arrange(new Rectangle(12, 18, 140, 44));
 Assert(element.Bounds == new Rectangle(12, 18, 140, 44), "UI elements should retain arranged bounds.");
 Assert(element.Measure(new Point(100, 30)) == new Point(100, 30), "UI measurement should respect available space.");
 
+var canvasView = new FrameByFrame.src.Engine.CanvasView();
+canvasView.Arrange(new Rectangle(100, 50, 800, 600), 400, 200);
+Vector2 canvasPoint = new(75, 125);
+Vector2 screenPoint = canvasView.CanvasToScreen(canvasPoint);
+Assert(Vector2.Distance(canvasPoint, canvasView.ScreenToCanvas(screenPoint)) < .001f,
+    "Canvas view transforms should round-trip drawing coordinates.");
+canvasView.RotateBy(90);
+screenPoint = canvasView.CanvasToScreen(canvasPoint);
+Assert(Vector2.Distance(canvasPoint, canvasView.ScreenToCanvas(screenPoint)) < .001f,
+    "Rotated canvas views should preserve inverse coordinate mapping.");
+canvasView.SetZoom(100);
+Assert(canvasView.Zoom == FrameByFrame.src.Engine.CanvasView.MaximumZoom,
+    "Canvas view zoom should clamp to its supported maximum.");
+canvasView.Reset();
+Assert(canvasView.Zoom == 1f && canvasView.RotationDegrees == 0f,
+    "Reset should restore the default editor-only canvas view.");
+
 string autosaveSettings = Path.Combine(Path.GetTempPath(), $"framebyframe-autosave-{Guid.NewGuid():N}.json");
 try
 {
