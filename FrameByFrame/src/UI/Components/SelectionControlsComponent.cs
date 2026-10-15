@@ -17,12 +17,12 @@ namespace FrameByFrame.src.UI.Components
         public SelectionControlsComponent(DrawingTools tools)
         {
             _tools = tools ?? throw new ArgumentNullException(nameof(tools));
-            _copy = new UIActionButton("Copy", _tools.Selection.Copy);
-            _paste = new UIActionButton("Paste", _tools.Selection.Paste);
-            _delete = new UIActionButton("Delete", _tools.Selection.Delete);
-            _shrink = new UIActionButton("Size -", () => _tools.Selection.Resize(.8f));
-            _grow = new UIActionButton("Size +", () => _tools.Selection.Resize(1.25f));
-            _rotate = new UIActionButton("Rotate", _tools.Selection.RotateClockwise);
+            _copy = new UIActionButton("Copy", _tools.Selection.Copy) { Tooltip = "Copy selection - Ctrl+C" };
+            _paste = new UIActionButton("Paste", _tools.Selection.Paste) { Tooltip = "Paste selection - Ctrl+V" };
+            _delete = new UIActionButton("Delete", _tools.Selection.Delete) { Tooltip = "Delete selection - Delete" };
+            _shrink = new UIActionButton("Size -", () => _tools.Selection.Resize(.8f)) { Tooltip = "Shrink selection" };
+            _grow = new UIActionButton("Size +", () => _tools.Selection.Resize(1.25f)) { Tooltip = "Grow selection" };
+            _rotate = new UIActionButton("Rotate", _tools.Selection.RotateClockwise) { Tooltip = "Rotate selection clockwise" };
         }
 
         public bool ShouldShow => _tools.SelectedTool == DrawingTool.Selection;
@@ -64,12 +64,18 @@ namespace FrameByFrame.src.UI.Components
                 Padding = 0, MaxLines = 1 }.Draw(
                 _tools.Selection.HasSelection ? "Selection actions" : "Draw around artwork to select it",
                 UITheme.TextMuted, .55f);
-            _copy.Draw();
-            _paste.Draw();
-            _delete.Draw();
-            _shrink.Draw();
-            _grow.Draw();
-            _rotate.Draw();
+            _copy.Draw(drawTooltip: false);
+            _paste.Draw(drawTooltip: false);
+            _delete.Draw(drawTooltip: false);
+            _shrink.Draw(drawTooltip: false);
+            _grow.Draw(drawTooltip: false);
+            _rotate.Draw(drawTooltip: false);
+            _copy.DrawTooltip();
+            _paste.DrawTooltip();
+            _delete.DrawTooltip();
+            _shrink.DrawTooltip();
+            _grow.DrawTooltip();
+            _rotate.DrawTooltip();
         }
     }
 }
