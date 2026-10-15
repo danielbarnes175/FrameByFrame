@@ -67,18 +67,6 @@ namespace FrameByFrame.src.Engine.Selection
         public static void Composite(Color[] destination, int canvasWidth, int canvasHeight,
             PixelSelection selection)
         {
-            Composite(destination, canvasWidth, canvasHeight, selection, ignoreWhite: false);
-        }
-
-        public static void Paste(Color[] destination, int canvasWidth, int canvasHeight,
-            PixelSelection selection)
-        {
-            Composite(destination, canvasWidth, canvasHeight, selection, ignoreWhite: true);
-        }
-
-        private static void Composite(Color[] destination, int canvasWidth, int canvasHeight,
-            PixelSelection selection, bool ignoreWhite)
-        {
             ValidateCanvas(destination, canvasWidth, canvasHeight);
             ArgumentNullException.ThrowIfNull(selection);
             for (int y = 0; y < selection.Height; y++)
@@ -90,9 +78,58 @@ namespace FrameByFrame.src.Engine.Selection
                 int targetY = selection.Bounds.Y + y;
                 if (targetX < 0 || targetX >= canvasWidth || targetY < 0 || targetY >= canvasHeight) continue;
                 Color color = selection.Pixels[sourceIndex];
+                if (color.A > 0) destination[targetX + targetY * canvasWidth] = color;
+            }
+        }
+
+        public static PixelSelection PrepareForPaste(PixelSelection selection)
+        {
+            ArgumentNullException.ThrowIfNull(selection);
+            bool[] mask = (bool[])selection.Mask.Clone();
+            bool hasPixels = false;
+            for (int i = 0; i < mask.Length; i++)
+            {
+                Color color = selection.Pixels[i];
                 bool isWhite = color.R == byte.MaxValue && color.G == byte.MaxValue && color.B == byte.MaxValue;
-                if (color.A > 0 && (!ignoreWhite || !isWhite))
-                    destination[targetX + targetY * canvasWidth] = color;
+                mask[i] = mask[i] && color.A > 0 && !isWhite;
+                hasPixels |= mask[i];
+            }
+            return hasPixels ? new PixelSelection(selection.Bounds, selection.Pixels, mask) : null;
+        }
+
+        public static PixelSelection Capture(Color[] source, int canvasWidth, int canvasHeight,
+            PixelSelection shape)
+        {
+            ValidateCanvas(source, canvasWidth, canvasHeight);
+            ArgumentNullException.ThrowIfNull(shape);
+            Color[] pixels = new Color[shape.Width * shape.Height];
+            for (int y = 0; y < shape.Height; y++)
+            for (int x = 0; x < shape.Width; x++)
+            {
+                int index = x + y * shape.Width;
+                if (!shape.Mask[index]) continue;
+                int sourceX = shape.Bounds.X + x;
+                int sourceY = shape.Bounds.Y + y;
+                if (sourceX >= 0 && sourceX < canvasWidth && sourceY >= 0 && sourceY < canvasHeight)
+                    pixels[index] = source[sourceX + sourceY * canvasWidth];
+            }
+            return new PixelSelection(shape.Bounds, pixels, shape.Mask);
+        }
+
+        public static void Restore(Color[] destination, int canvasWidth, int canvasHeight,
+            PixelSelection underlay)
+        {
+            ValidateCanvas(destination, canvasWidth, canvasHeight);
+            ArgumentNullException.ThrowIfNull(underlay);
+            for (int y = 0; y < underlay.Height; y++)
+            for (int x = 0; x < underlay.Width; x++)
+            {
+                int index = x + y * underlay.Width;
+                if (!underlay.Mask[index]) continue;
+                int targetX = underlay.Bounds.X + x;
+                int targetY = underlay.Bounds.Y + y;
+                if (targetX >= 0 && targetX < canvasWidth && targetY >= 0 && targetY < canvasHeight)
+                    destination[targetX + targetY * canvasWidth] = underlay.Pixels[index];
             }
         }
 

@@ -230,13 +230,32 @@ Assert(selectionCanvas[0] == Color.Transparent && selectionCanvas[2] == Color.Re
 Color[] pasteTarget = { Color.Blue, Color.Green, Color.Yellow };
 PixelSelection clipboardSelection = new(new Rectangle(0, 0, 3, 1),
     [Color.Transparent, Color.White, Color.Red]);
-SelectionOperations.Paste(pasteTarget, 3, 1, clipboardSelection);
+PixelSelection preparedPaste = SelectionOperations.PrepareForPaste(clipboardSelection);
+SelectionOperations.Composite(pasteTarget, 3, 1, preparedPaste);
 Assert(pasteTarget[0] == Color.Blue && pasteTarget[1] == Color.Green && pasteTarget[2] == Color.Red,
     "Pasting should preserve existing artwork beneath transparent and white clipboard pixels.");
+Assert(!preparedPaste.Mask[0] && !preparedPaste.Mask[1] && preparedPaste.Mask[2],
+    "A pasted selection should not treat transparent or white clipboard pixels as movable artwork.");
 Color[] transformTarget = { Color.Transparent, Color.Transparent, Color.Transparent };
 SelectionOperations.Composite(transformTarget, 3, 1, clipboardSelection);
 Assert(transformTarget[1] == Color.White,
     "Selection transforms should preserve intentionally drawn white pixels even though paste treats white as empty.");
+
+Color[] repeatedMoveTarget = { Color.Blue, Color.Green, Color.Yellow, Color.Orange };
+PixelSelection floatingSelection = new(new Rectangle(0, 0, 1, 1), [Color.Red]);
+PixelSelection selectionUnderlay = SelectionOperations.Capture(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Composite(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Restore(repeatedMoveTarget, 4, 1, selectionUnderlay);
+floatingSelection = SelectionOperations.Move(floatingSelection, 1, 0);
+selectionUnderlay = SelectionOperations.Capture(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Composite(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Restore(repeatedMoveTarget, 4, 1, selectionUnderlay);
+floatingSelection = SelectionOperations.Move(floatingSelection, 2, 0);
+selectionUnderlay = SelectionOperations.Capture(repeatedMoveTarget, 4, 1, floatingSelection);
+SelectionOperations.Composite(repeatedMoveTarget, 4, 1, floatingSelection);
+Assert(repeatedMoveTarget[0] == Color.Blue && repeatedMoveTarget[1] == Color.Green &&
+       repeatedMoveTarget[2] == Color.Red && repeatedMoveTarget[3] == Color.Orange,
+    "Moving a floating selection repeatedly should restore the artwork beneath each previous position.");
 
 Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
        !SaveService.FormatSupportsTransparency(ExportFormat.Mov),

@@ -14,6 +14,7 @@ namespace FrameByFrame.src.Engine.Selection
         private readonly List<Vector2> _lassoPoints = new();
         private static PixelSelection _clipboard;
         private PixelSelection _selection;
+        private PixelSelection _underlay;
         private Frame _selectedFrame;
         private Guid _selectedLayerId;
         private Gesture _gesture;
@@ -77,9 +78,13 @@ namespace FrameByFrame.src.Engine.Selection
             if (_clipboard == null || _animation.CurrentFrame == null) return;
             PixelSelection pasted = FitWithinCanvas(_clipboard.Clone());
             pasted = pasted.Clone(ClampBounds(pasted.Bounds));
+            pasted = SelectionOperations.PrepareForPaste(pasted);
+            if (pasted == null) return;
             Color[] pixels = _animation.GetCurrentLayerPixels();
-            SelectionOperations.Paste(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height, pasted);
-            if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(pasted);
+            PixelSelection underlay = SelectionOperations.Capture(pixels, _animation.CurrentFrame.width,
+                _animation.CurrentFrame.height, pasted);
+            SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height, pasted);
+            if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(pasted, underlay);
         }
 
         public void Delete()
@@ -87,8 +92,7 @@ namespace FrameByFrame.src.Engine.Selection
             EnsureCurrentTarget();
             if (_selection == null) return;
             Color[] pixels = _animation.GetCurrentLayerPixels();
-            SelectionOperations.Clear(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
-                _selection);
+            RemoveSelectionFrom(pixels);
             if (_animation.ReplaceCurrentLayerPixels(pixels)) Clear();
         }
 
@@ -110,6 +114,7 @@ namespace FrameByFrame.src.Engine.Selection
         public void Clear()
         {
             _selection = null;
+            _underlay = null;
             _selectedFrame = null;
             _gesture = Gesture.None;
             _lassoPoints.Clear();
@@ -156,20 +161,32 @@ namespace FrameByFrame.src.Engine.Selection
             transformed = FitWithinCanvas(transformed);
             transformed = transformed.Clone(ClampBounds(transformed.Bounds));
             Color[] pixels = _animation.GetCurrentLayerPixels();
-            SelectionOperations.Clear(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
-                _selection);
+            RemoveSelectionFrom(pixels);
+            PixelSelection underlay = SelectionOperations.Capture(pixels, _animation.CurrentFrame.width,
+                _animation.CurrentFrame.height, transformed);
             SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
                 transformed);
-            if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(transformed);
+            if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(transformed, underlay);
         }
 
-        private void SetSelection(PixelSelection selection)
+        private void SetSelection(PixelSelection selection, PixelSelection underlay = null)
         {
             _selection = selection;
+            _underlay = underlay;
             _selectedFrame = _animation.CurrentFrame;
             _selectedLayerId = _animation.SelectedLayerId;
             _previewBounds = selection.Bounds;
             _lassoPoints.Clear();
+        }
+
+        private void RemoveSelectionFrom(Color[] pixels)
+        {
+            if (_underlay != null)
+                SelectionOperations.Restore(pixels, _animation.CurrentFrame.width,
+                    _animation.CurrentFrame.height, _underlay);
+            else
+                SelectionOperations.Clear(pixels, _animation.CurrentFrame.width,
+                    _animation.CurrentFrame.height, _selection);
         }
 
         private void EnsureCurrentTarget()
