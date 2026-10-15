@@ -35,7 +35,7 @@ namespace FrameByFrame.src.Engine
             string memoryInfo = GetAnimationMemoryInfo(animation);
             if (!string.IsNullOrEmpty(memoryInfo))
             {
-                UIRenderer.Text(memoryInfo, position, color, .55f);
+                UIRenderer.Text(memoryInfo, position, color, UITextRole.Debug);
             }
         }
     }

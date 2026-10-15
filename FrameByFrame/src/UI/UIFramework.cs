@@ -39,10 +39,26 @@ namespace FrameByFrame.src.UI
         public const int DefaultScreenHeight = 900;
         public const int MinWidth = 320;
         public const int MinHeight = 480;
+
+        public static UITextMetrics Typography(UITextRole role) => role switch
+        {
+            UITextRole.Display => new(1.45f, true),
+            UITextRole.Title => new(1f, true),
+            UITextRole.Heading => new(.82f, true),
+            UITextRole.Button => new(.72f, true),
+            UITextRole.Body => new(.76f, false),
+            UITextRole.Label => new(.62f, true),
+            UITextRole.Caption => new(.66f, false),
+            UITextRole.Tooltip => new(.66f, false),
+            UITextRole.Debug => new(.55f, false),
+            _ => new(.76f, false)
+        };
     }
 
     public enum UIAxis { Horizontal, Vertical }
     public enum UIAlign { Start, Center, End, Stretch }
+    public enum UITextRole { Display, Title, Heading, Button, Body, Label, Caption, Tooltip, Debug }
+    public readonly record struct UITextMetrics(float Scale, bool Bold);
 
     public abstract class UIElement
     {
@@ -76,9 +92,9 @@ namespace FrameByFrame.src.UI
 
         public Rectangle ContentBounds => new UIBox(Bounds, Padding).Content;
 
-        public void Draw(string value, Color color, float scale = 1f)
+        public void Draw(string value, Color color, UITextRole role = UITextRole.Body)
         {
-            UIRenderer.TextInContainer(value, this, color, scale);
+            UIRenderer.TextInContainer(value, this, color, role);
         }
     }
 
@@ -154,12 +170,35 @@ namespace FrameByFrame.src.UI
             }
             return new Rectangle(bounds.Center.X - width / 2, bounds.Center.Y - height / 2, width, height);
         }
+
+        public static Rectangle PlaceFloatingPanel(Rectangle anchor, Point requestedSize,
+            Rectangle viewport, bool preferBelow)
+        {
+            int width = Math.Clamp(requestedSize.X, 1, Math.Max(1, viewport.Width));
+            int height = Math.Clamp(requestedSize.Y, 1, Math.Max(1, viewport.Height));
+            int x = Math.Clamp(anchor.X, viewport.X, Math.Max(viewport.X, viewport.Right - width));
+            int preferredY = preferBelow ? anchor.Bottom + UITheme.SpaceSm : anchor.Y;
+            int alternateY = preferBelow
+                ? anchor.Y - height - UITheme.SpaceSm
+                : anchor.Bottom + UITheme.SpaceSm;
+            int y = preferredY >= viewport.Y && preferredY + height <= viewport.Bottom
+                ? preferredY
+                : alternateY;
+            y = Math.Clamp(y, viewport.Y, Math.Max(viewport.Y, viewport.Bottom - height));
+            return new Rectangle(x, y, width, height);
+        }
     }
 
     public static class UIRenderer
     {
         private static Texture2D Pixel => TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, Color.White, 1);
-        private static SpriteFont Font => GlobalParameters.uiFont ?? GlobalParameters.font;
+        private static SpriteFont Font(UITextRole role)
+        {
+            UITextMetrics metrics = UITheme.Typography(role);
+            return metrics.Bold
+                ? GlobalParameters.uiFont ?? GlobalParameters.font
+                : GlobalParameters.font ?? GlobalParameters.uiFont;
+        }
 
         public static void Fill(Rectangle bounds, Color color) =>
             GlobalParameters.GlobalSpriteBatch.Draw(Pixel, bounds, color);
@@ -182,32 +221,41 @@ namespace FrameByFrame.src.UI
             Fill(new Rectangle(bounds.Right - thickness, bounds.Y, thickness, bounds.Height), color);
         }
 
-        public static void Text(string value, Vector2 position, Color? color = null, float scale = 1f) =>
-            GlobalParameters.GlobalSpriteBatch.DrawString(Font, value, position, color ?? UITheme.Text,
-                0f, Vector2.Zero, Math.Max(.55f, scale), SpriteEffects.None, 0f);
-
-        public static void CenteredText(string value, Rectangle bounds, Color? color = null, float scale = 1f)
+        public static void Text(string value, Vector2 position, Color? color = null,
+            UITextRole role = UITextRole.Body)
         {
-            scale = Math.Max(.55f, scale);
-            Vector2 size = Font.MeasureString(value) * scale;
-            Text(value, new Vector2(bounds.Center.X - size.X / 2, bounds.Center.Y - size.Y / 2), color, scale);
+            UITextMetrics metrics = UITheme.Typography(role);
+            GlobalParameters.GlobalSpriteBatch.DrawString(Font(role), value ?? string.Empty, position,
+                color ?? UITheme.Text, 0f, Vector2.Zero, metrics.Scale, SpriteEffects.None, 0f);
         }
 
-        public static void TextInContainer(string value, UITextContainer container, Color color, float scale = 1f)
+        public static void CenteredText(string value, Rectangle bounds, Color? color = null,
+            UITextRole role = UITextRole.Body)
         {
-            scale = Math.Max(.55f, scale);
+            UITextMetrics metrics = UITheme.Typography(role);
+            Vector2 size = Font(role).MeasureString(value ?? string.Empty) * metrics.Scale;
+            Text(value, new Vector2(bounds.Center.X - size.X / 2, bounds.Center.Y - size.Y / 2), color, role);
+        }
+
+        public static void TextInContainer(string value, UITextContainer container, Color color,
+            UITextRole role = UITextRole.Body)
+        {
+            SpriteFont font = Font(role);
+            float scale = UITheme.Typography(role).Scale;
             Rectangle content = container.ContentBounds;
             List<string> lines = container.Wrap
-                ? WrapText(value ?? string.Empty, content.Width, scale)
+                ? WrapText(value ?? string.Empty, content.Width, font, scale)
                 : new List<string> { value ?? string.Empty };
-            int lineHeight = (int)Math.Ceiling(Font.LineSpacing * scale);
+            int lineHeight = (int)Math.Ceiling(font.LineSpacing * scale);
             int capacity = Math.Max(1, content.Height / Math.Max(1, lineHeight));
             int maxLines = container.MaxLines > 0 ? Math.Min(container.MaxLines, capacity) : capacity;
             if (lines.Count > maxLines)
             {
                 lines = lines.Take(maxLines).ToList();
-                lines[^1] = Ellipsize(lines[^1], content.Width, scale);
+                lines[^1] = Ellipsize(lines[^1], content.Width, font, scale);
             }
+            else if (!container.Wrap && lines.Count == 1)
+                lines[0] = Ellipsize(lines[0], content.Width, font, scale, onlyWhenNeeded: true);
 
             int blockHeight = lines.Count * lineHeight;
             float y = container.VerticalAlignment switch
@@ -219,19 +267,20 @@ namespace FrameByFrame.src.UI
 
             foreach (string line in lines)
             {
-                float width = Font.MeasureString(line).X * scale;
+                float width = font.MeasureString(line).X * scale;
                 float x = container.HorizontalAlignment switch
                 {
                     UIAlign.End => content.Right - width,
                     UIAlign.Center => content.X + (content.Width - width) / 2f,
                     _ => content.X
                 };
-                Text(line, new Vector2(x, y), color, scale);
+                GlobalParameters.GlobalSpriteBatch.DrawString(font, line, new Vector2(x, y), color,
+                    0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
                 y += lineHeight;
             }
         }
 
-        public static List<string> WrapText(string value, int maxWidth, float scale = 1f)
+        private static List<string> WrapText(string value, int maxWidth, SpriteFont font, float scale)
         {
             List<string> lines = new();
             if (maxWidth <= 0) return lines;
@@ -240,10 +289,10 @@ namespace FrameByFrame.src.UI
                 string current = string.Empty;
                 foreach (string rawWord in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                 {
-                    foreach (string word in BreakWord(rawWord, maxWidth, scale))
+                    foreach (string word in BreakWord(rawWord, maxWidth, font, scale))
                     {
                         string candidate = string.IsNullOrEmpty(current) ? word : current + " " + word;
-                        if (Font.MeasureString(candidate).X * scale <= maxWidth) current = candidate;
+                        if (font.MeasureString(candidate).X * scale <= maxWidth) current = candidate;
                         else
                         {
                             if (!string.IsNullOrEmpty(current)) lines.Add(current);
@@ -257,13 +306,13 @@ namespace FrameByFrame.src.UI
             return lines;
         }
 
-        private static IEnumerable<string> BreakWord(string word, int maxWidth, float scale)
+        private static IEnumerable<string> BreakWord(string word, int maxWidth, SpriteFont font, float scale)
         {
-            if (Font.MeasureString(word).X * scale <= maxWidth) { yield return word; yield break; }
+            if (font.MeasureString(word).X * scale <= maxWidth) { yield return word; yield break; }
             StringBuilder part = new();
             foreach (char character in word)
             {
-                if (part.Length > 0 && Font.MeasureString(part.ToString() + character).X * scale > maxWidth)
+                if (part.Length > 0 && font.MeasureString(part.ToString() + character).X * scale > maxWidth)
                 {
                     yield return part.ToString(); part.Clear();
                 }
@@ -272,12 +321,38 @@ namespace FrameByFrame.src.UI
             if (part.Length > 0) yield return part.ToString();
         }
 
-        private static string Ellipsize(string value, int maxWidth, float scale)
+        private static string Ellipsize(string value, int maxWidth, SpriteFont font, float scale,
+            bool onlyWhenNeeded = false)
         {
             const string suffix = "...";
-            while (value.Length > 0 && Font.MeasureString(value + suffix).X * scale > maxWidth)
+            if (onlyWhenNeeded && font.MeasureString(value).X * scale <= maxWidth) return value;
+            if (font.MeasureString(suffix).X * scale > maxWidth) return string.Empty;
+            while (value.Length > 0 && font.MeasureString(value + suffix).X * scale > maxWidth)
                 value = value[..^1];
             return value + suffix;
+        }
+
+        public static void Tooltip(string value, Rectangle anchor, bool preferBelow, Color border)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            UITextRole role = UITextRole.Tooltip;
+            SpriteFont font = Font(role);
+            float scale = UITheme.Typography(role).Scale;
+            Rectangle viewport = new(8, 8, Math.Max(1, GlobalParameters.screenWidth - 16),
+                Math.Max(1, GlobalParameters.screenHeight - 16));
+            int width = Math.Min(420, viewport.Width);
+            List<string> lines = WrapText(value, Math.Max(1, width - 16), font, scale);
+            int lineHeight = (int)Math.Ceiling(font.LineSpacing * scale);
+            int contentWidth = lines.Count == 0 ? 1 : (int)Math.Ceiling(lines.Max(line =>
+                font.MeasureString(line).X * scale));
+            width = Math.Min(width, Math.Max(40, contentWidth + 16));
+            int height = Math.Max(30, lines.Count * lineHeight + 10);
+            Rectangle bounds = UILayoutEngine.PlaceFloatingPanel(anchor, new Point(width, height),
+                viewport, preferBelow);
+            Fill(bounds, UITheme.Surface);
+            Border(bounds, border, 1);
+            new UITextContainer { Bounds = bounds, Padding = 8, HorizontalAlignment = UIAlign.Start,
+                MaxLines = Math.Max(1, lines.Count) }.Draw(value, UITheme.Text, role);
         }
     }
 
@@ -344,21 +419,15 @@ namespace FrameByFrame.src.UI
             UIRenderer.Fill(Bounds, color);
             UIRenderer.Border(Bounds, IsSelected ? UITheme.Secondary : UITheme.Border, IsSelected ? 2 : 1);
             new UITextContainer { Bounds = Bounds, Padding = UILayoutEngine.Scale(10), MaxLines = 2 }.Draw(
-                Text, primary ? Color.White : UITheme.Text, .9f);
+                Text, primary ? Color.White : UITheme.Text, UITextRole.Button);
             if (drawTooltip) DrawTooltip();
         }
 
         public void DrawTooltip()
         {
             if (UIPointerRouter.ContainsPointer(Bounds) && !string.IsNullOrWhiteSpace(Tooltip))
-            {
-                Vector2 size = (GlobalParameters.uiFont ?? GlobalParameters.font).MeasureString(Tooltip) * .9f;
-                Rectangle tip = new(Bounds.Right + 8, Bounds.Y, (int)size.X + 16, 34);
-                if (tip.Right > GlobalParameters.screenWidth) tip.X = Bounds.X - tip.Width - 8;
-                UIRenderer.Fill(tip, UITheme.SurfaceRaised);
-                UIRenderer.Border(tip, UITheme.Border);
-                UIRenderer.Text(Tooltip, new Vector2(tip.X + 8, tip.Y + 5), UITheme.Text, .9f);
-            }
+                UIRenderer.Tooltip(Tooltip, new Rectangle(Bounds.Right + 8, Bounds.Y, 1, Bounds.Height),
+                    preferBelow: false, border: UITheme.Border);
         }
 
         public override void Draw() => Draw(false);
@@ -402,12 +471,7 @@ namespace FrameByFrame.src.UI
         public void DrawTooltip()
         {
             if (!IsEnabled || !UIPointerRouter.ContainsPointer(Bounds) || string.IsNullOrWhiteSpace(Tooltip)) return;
-            Vector2 size = (GlobalParameters.uiFont ?? GlobalParameters.font).MeasureString(Tooltip) * .72f;
-            Rectangle tip = new(Bounds.X, Bounds.Bottom + 8, (int)size.X + 16, 30);
-            if (tip.Right > GlobalParameters.screenWidth) tip.X = GlobalParameters.screenWidth - tip.Width - 8;
-            UIRenderer.Fill(tip, UITheme.Surface);
-            UIRenderer.Border(tip, UITheme.Primary, 2);
-            UIRenderer.Text(Tooltip, new Vector2(tip.X + 8, tip.Y + 4), UITheme.Text, .72f);
+            UIRenderer.Tooltip(Tooltip, Bounds, preferBelow: true, border: UITheme.Primary);
         }
 
         public override void Draw() => Draw(true);
@@ -483,7 +547,7 @@ namespace FrameByFrame.src.UI
             UIRenderer.Fill(new Rectangle(x - 6, track.Y - 5, 12, 14), Color.White);
             UIRenderer.Border(new Rectangle(x - 6, track.Y - 5, 12, 14), UITheme.Primary);
             new UITextContainer { Bounds = new Rectangle(Bounds.X, Bounds.Y, Bounds.Width, Bounds.Height - 12), MaxLines = 1 }
-                .Draw(Value.ToString(), UITheme.Text, .6f);
+                .Draw(Value.ToString(), UITheme.Text, UITextRole.Label);
         }
     }
 

@@ -59,7 +59,7 @@ namespace FrameByFrame.src.Engine
             string perfInfo = GetPerformanceInfo();
             if (!string.IsNullOrEmpty(perfInfo))
             {
-                UIRenderer.Text(perfInfo, position, color, .55f);
+                UIRenderer.Text(perfInfo, position, color, UITextRole.Debug);
             }
         }
     }

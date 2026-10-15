@@ -735,14 +735,15 @@ namespace FrameByFrame.src.UI.Components
             _brushEditor.Draw(drawTooltip: false);
 
             UIRenderer.Fill(_frameCounterBounds, UITheme.Primary);
-            new UITextContainer { Bounds = _frameCounterBounds, MaxLines = 1 }.Draw($"{_animation.CurrentFrameIndex + 1} / {_animation.TotalFrames}", Color.White, .78f);
+            new UITextContainer { Bounds = _frameCounterBounds, MaxLines = 1 }.Draw(
+                $"{_animation.CurrentFrameIndex + 1} / {_animation.TotalFrames}", Color.White, UITextRole.Label);
 
             if (GlobalParameters.screenWidth >= Layout.ProjectLabelMinScreenWidth)
             {
                 int labelX = _brushSize.Bounds.Right + 8;
                 int labelWidth = Math.Max(1, _tools[0].Bounds.X - labelX - 8);
                 new UITextContainer { Bounds = new Rectangle(labelX, 4, labelWidth, 28), MaxLines = 1, HorizontalAlignment = UIAlign.Start }
-                    .Draw(_animation.projectName, UITheme.TextMuted, .72f);
+                    .Draw(_animation.projectName, UITheme.TextMuted, UITextRole.Label);
                 DrawSizeBar(new Rectangle(labelX, 34, labelWidth, 20));
             }
 
@@ -776,10 +777,11 @@ namespace FrameByFrame.src.UI.Components
             Rectangle panel = _brushesPopover.Bounds;
             BrushPreset brush = _drawingTools.SelectedBrush;
             new UITextContainer { Bounds = new Rectangle(panel.X + 20, panel.Y + 4, panel.Width - 40, 28), MaxLines = 1 }
-                .Draw("Custom brush editor", UITheme.Primary, .85f);
+                .Draw("Custom brush editor", UITheme.Primary, UITextRole.Heading);
             new UITextContainer { Bounds = new Rectangle(_previousBrush.Bounds.Right, panel.Y + 34,
                 Math.Max(1, _nextBrush.Bounds.X - _previousBrush.Bounds.Right), 28), MaxLines = 1 }
-                .Draw($"{brush.Name} ({_drawingTools.SelectedBrushIndex + 1}/{_drawingTools.Brushes.Count})", UITheme.Text, .65f);
+                .Draw($"{brush.Name} ({_drawingTools.SelectedBrushIndex + 1}/{_drawingTools.Brushes.Count})",
+                    UITheme.Text, UITextRole.Label);
             _previousBrush.Draw();
             _nextBrush.Draw();
             foreach ((int index, Rectangle bounds) in VisibleBrushPresetBounds())
@@ -795,10 +797,10 @@ namespace FrameByFrame.src.UI.Components
             new UITextContainer { Bounds = new Rectangle(_brushTipAlpha.Bounds.X, _clearBrushTip.Bounds.Bottom + 8,
                 _brushTipAlpha.Bounds.Width, 58), Padding = 0, HorizontalAlignment = UIAlign.Start, MaxLines = 3 }
                 .Draw(brush.IsBuiltIn ? "Preset is read-only\nChoose New to edit a copy"
-                    : "Left drag paints\nRight drag erases", UITheme.TextMuted, .52f);
+                    : "Left drag paints\nRight drag erases", UITheme.TextMuted, UITextRole.Caption);
             if (!string.IsNullOrWhiteSpace(_drawingTools.BrushStoreError))
                 new UITextContainer { Bounds = new Rectangle(panel.X + 16, panel.Bottom - 22, panel.Width - 32, 18), MaxLines = 1 }
-                    .Draw(_drawingTools.BrushStoreError, UITheme.Danger, .52f);
+                    .Draw(_drawingTools.BrushStoreError, UITheme.Danger, UITextRole.Caption);
         }
 
         private static void DrawBrushPresetCard(BrushPreset brush, Rectangle bounds, bool selected)
@@ -815,7 +817,7 @@ namespace FrameByFrame.src.UI.Components
                 Padding = 0,
                 HorizontalAlignment = UIAlign.Start,
                 MaxLines = 2
-            }.Draw(brush.Name, selected ? UITheme.Primary : UITheme.Text, .46f);
+            }.Draw(brush.Name, selected ? UITheme.Primary : UITheme.Text, UITextRole.Caption);
         }
 
         private static void DrawBrushPreview(BrushPreset brush, Rectangle bounds, Color color)
@@ -857,7 +859,8 @@ namespace FrameByFrame.src.UI.Components
 
         private static void DrawBrushSettingLabel(Rectangle slider, string label) =>
             new UITextContainer { Bounds = new Rectangle(slider.X, slider.Y - 20, slider.Width, 20),
-                Padding = 0, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }.Draw(label, UITheme.TextMuted, .55f);
+                Padding = 0, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }.Draw(
+                    label, UITheme.TextMuted, UITextRole.Caption);
 
         private void DrawHelp()
         {
@@ -865,13 +868,13 @@ namespace FrameByFrame.src.UI.Components
             Rectangle panel = _helpPopover.Bounds;
             Rectangle viewport = HelpViewport(panel);
             new UITextContainer { Bounds = new Rectangle(panel.X + 22, panel.Y + 18, panel.Width - 44, 48), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Keyboard shortcuts", UITheme.Primary, 1.05f);
+                .Draw("Keyboard shortcuts", UITheme.Primary, UITextRole.Title);
             for (int i = 0; i < HelpShortcuts.Length; i++)
             {
                 Rectangle row = new(panel.X + 22, panel.Y + 72 + i * 24 - _helpScroll, panel.Width - 44, 24);
                 if (FullyVisible(row, viewport))
                     new UITextContainer { Bounds = row, HorizontalAlignment = UIAlign.Start, Padding = 4, MaxLines = 1 }
-                        .Draw(HelpShortcuts[i], UITheme.Text, .85f);
+                        .Draw(HelpShortcuts[i], UITheme.Text, UITextRole.Body);
             }
         }
 
@@ -882,42 +885,53 @@ namespace FrameByFrame.src.UI.Components
             Rectangle viewport = SettingsViewport(panel);
             int scroll = _settingsScroll;
             new UITextContainer { Bounds = new Rectangle(panel.X + 24, panel.Y + 16, panel.Width - 48, 48), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Animation settings", UITheme.Primary, .72f);
-            void TextIfVisible(Rectangle bounds, string text, Color color, float scale, UIAlign alignment = UIAlign.Center)
+                .Draw("Animation settings", UITheme.Primary, UITextRole.Heading);
+            void TextIfVisible(Rectangle bounds, string text, Color color, UITextRole role,
+                UIAlign alignment = UIAlign.Center)
             {
                 if (FullyVisible(bounds, viewport))
-                    new UITextContainer { Bounds = bounds, HorizontalAlignment = alignment, MaxLines = 1 }.Draw(text, color, scale);
+                    new UITextContainer { Bounds = bounds, HorizontalAlignment = alignment, MaxLines = 1 }
+                        .Draw(text, color, role);
             }
             if (FullyVisible(_onionSkin.Bounds, viewport)) _onionSkin.Draw();
             TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 89 - scroll, panel.Width - 112, 42),
-                $"Onion skin: {(_animation.isOnionSkinEnabled ? "On" : "Off")}", UITheme.Text, .6f, UIAlign.Start);
-            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 130 - scroll, 120, 44), "Onion opacity", UITheme.Text, .6f, UIAlign.Start);
+                $"Onion skin: {(_animation.isOnionSkinEnabled ? "On" : "Off")}", UITheme.Text,
+                UITextRole.Body, UIAlign.Start);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 130 - scroll, 120, 44),
+                "Onion opacity", UITheme.Text, UITextRole.Body, UIAlign.Start);
             if (FullyVisible(_onionOpacity.Bounds, viewport)) _onionOpacity.Draw();
             TextIfVisible(new Rectangle(_onionOpacity.Bounds.X, panel.Y + 164 - scroll, _onionOpacity.Bounds.Width, 24),
-                $"{(int)Math.Round(_animation.OnionSkinOpacity * 100)}%", UITheme.TextMuted, .55f);
-            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 190 - scroll, 120, 38), "Previous frames", UITheme.Text, .6f, UIAlign.Start);
+                $"{(int)Math.Round(_animation.OnionSkinOpacity * 100)}%", UITheme.TextMuted, UITextRole.Caption);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 190 - scroll, 120, 38),
+                "Previous frames", UITheme.Text, UITextRole.Body, UIAlign.Start);
             if (FullyVisible(_previousOnionDown.Bounds, viewport)) _previousOnionDown.Draw();
             if (FullyVisible(_previousOnionUp.Bounds, viewport)) _previousOnionUp.Draw();
             TextIfVisible(new Rectangle(_previousOnionDown.Bounds.Right, panel.Y + 190 - scroll,
-                Math.Max(1, _previousOnionUp.Bounds.X - _previousOnionDown.Bounds.Right), 38), _animation.PreviousOnionFrames.ToString(), UITheme.Primary, .65f);
-            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 236 - scroll, 120, 38), "Next frames", UITheme.Text, .6f, UIAlign.Start);
+                Math.Max(1, _previousOnionUp.Bounds.X - _previousOnionDown.Bounds.Right), 38),
+                _animation.PreviousOnionFrames.ToString(), UITheme.Primary, UITextRole.Label);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 236 - scroll, 120, 38),
+                "Next frames", UITheme.Text, UITextRole.Body, UIAlign.Start);
             if (FullyVisible(_nextOnionDown.Bounds, viewport)) _nextOnionDown.Draw();
             if (FullyVisible(_nextOnionUp.Bounds, viewport)) _nextOnionUp.Draw();
             TextIfVisible(new Rectangle(_nextOnionDown.Bounds.Right, panel.Y + 236 - scroll,
-                Math.Max(1, _nextOnionUp.Bounds.X - _nextOnionDown.Bounds.Right), 38), _animation.NextOnionFrames.ToString(), UITheme.Primary, .65f);
-            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 290 - scroll, 120, 42), "Playback FPS", UITheme.Text, .6f, UIAlign.Start);
+                Math.Max(1, _nextOnionUp.Bounds.X - _nextOnionDown.Bounds.Right), 38),
+                _animation.NextOnionFrames.ToString(), UITheme.Primary, UITextRole.Label);
+            TextIfVisible(new Rectangle(panel.X + 28, panel.Y + 290 - scroll, 120, 42),
+                "Playback FPS", UITheme.Text, UITextRole.Body, UIAlign.Start);
             if (FullyVisible(_fpsDown.Bounds, viewport)) _fpsDown.Draw();
             if (FullyVisible(_fpsUp.Bounds, viewport)) _fpsUp.Draw();
             TextIfVisible(new Rectangle(_fpsDown.Bounds.Right, panel.Y + 290 - scroll,
-                Math.Max(1, _fpsUp.Bounds.X - _fpsDown.Bounds.Right), 42), _animation.fps.ToString(), UITheme.Primary, .65f);
+                Math.Max(1, _fpsUp.Bounds.X - _fpsDown.Bounds.Right), 42),
+                _animation.fps.ToString(), UITheme.Primary, UITextRole.Label);
             if (FullyVisible(_autosaveToggle.Bounds, viewport)) _autosaveToggle.Draw();
             TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 339 - scroll, panel.Width - 112, 42),
-                $"Autosave: {(_autosave.IsEnabled ? "On" : "Off")}", UITheme.Text, .6f, UIAlign.Start);
+                $"Autosave: {(_autosave.IsEnabled ? "On" : "Off")}", UITheme.Text,
+                UITextRole.Body, UIAlign.Start);
             if (FullyVisible(_transparentBackgroundToggle.Bounds, viewport))
                 _transparentBackgroundToggle.Draw();
             TextIfVisible(new Rectangle(panel.X + 88, panel.Y + 387 - scroll, panel.Width - 112, 42),
                 $"Canvas background: {(_animation.IsCanvasBackgroundTransparent ? "Transparent" : "Solid")}",
-                UITheme.Text, .6f, UIAlign.Start);
+                UITheme.Text, UITextRole.Body, UIAlign.Start);
             if (FullyVisible(_useBrushColorForBackground.Bounds, viewport))
             {
                 _useBrushColorForBackground.Draw();
@@ -932,7 +946,8 @@ namespace FrameByFrame.src.UI.Components
             {
                 Rectangle errorBounds = new(panel.X + 24, panel.Y + 522 - scroll, panel.Width - 48, 28);
                 if (FullyVisible(errorBounds, viewport))
-                    new UITextContainer { Bounds = errorBounds, MaxLines = 2 }.Draw(saveError, Color.IndianRed, .52f);
+                    new UITextContainer { Bounds = errorBounds, MaxLines = 2 }.Draw(
+                        saveError, Color.IndianRed, UITextRole.Caption);
             }
             if (FullyVisible(_save.Bounds, viewport)) _save.Draw(true);
         }
@@ -943,7 +958,7 @@ namespace FrameByFrame.src.UI.Components
             const int labelWidth = 58;
             const int maxTrackWidth = 140;
             new UITextContainer { Bounds = new Rectangle(bounds.X, bounds.Y, labelWidth, bounds.Height), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Size", UITheme.TextMuted, .55f);
+                .Draw("Size", UITheme.TextMuted, UITextRole.Caption);
             Rectangle track = new(bounds.X + labelWidth, bounds.Y + (bounds.Height - 8) / 2,
                 Math.Max(1, Math.Min(maxTrackWidth, bounds.Width - labelWidth - 38)), 8);
             UIRenderer.Fill(track, UITheme.Surface);
@@ -952,7 +967,7 @@ namespace FrameByFrame.src.UI.Components
                 (int)Math.Round(Math.Max(0, track.Width - 2) * _animation.ResourceBudgetRemaining), Math.Max(1, track.Height - 2));
             UIRenderer.Fill(remaining, percent <= 10 ? Color.IndianRed : percent <= 25 ? Color.Orange : UITheme.Primary);
             new UITextContainer { Bounds = new Rectangle(track.Right + 6, bounds.Y, 52, bounds.Height), Padding = 0, MaxLines = 1 }
-                .Draw($"{percent}%", UITheme.TextMuted, .5f);
+                .Draw($"{percent}%", UITheme.TextMuted, UITextRole.Caption);
         }
 
         private void DrawLayers()
@@ -975,7 +990,7 @@ namespace FrameByFrame.src.UI.Components
                 Rectangle nameBounds = new(row.X + 44, row.Y, row.Width - 44, row.Height);
                 string status = $"{(layer.IsLocked ? "Locked - " : "")}{layer.Name}";
                 new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                    .Draw(status, selected ? Color.White : UITheme.Text, .75f);
+                    .Draw(status, selected ? Color.White : UITheme.Text, UITextRole.Label);
             }
             Rectangle toolbar = new(panel.X + 8, panel.Bottom - Layout.LayerToolbarHeight, panel.Width - 16, 36);
             IReadOnlyList<Rectangle> actions = UILayoutEngine.Stack(toolbar, UIAxis.Horizontal, 4, 6);
@@ -984,7 +999,8 @@ namespace FrameByFrame.src.UI.Components
             {
                 UIRenderer.Fill(actions[i], UITheme.SurfaceRaised);
                 UIRenderer.Border(actions[i], UITheme.Border, 2);
-                UIRenderer.CenteredText(labels[i], actions[i], i == 1 ? UITheme.Danger : UITheme.Text, .8f);
+                UIRenderer.CenteredText(labels[i], actions[i], i == 1 ? UITheme.Danger : UITheme.Text,
+                    UITextRole.Button);
             }
             UIRenderer.Border(panel, UITheme.Primary, 3);
         }
