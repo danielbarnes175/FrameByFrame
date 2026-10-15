@@ -38,13 +38,14 @@ namespace FrameByFrame.src.Engine.Selection
             }
             if (!canEdit || UIPointerRouter.IsPointerBlocked() || _animation.CurrentFrame == null) return;
 
-            Vector2 canvasPoint = ClampCanvasPoint(
-                _animation.ToCanvasPosition(GlobalParameters.GlobalMouse.newMousePos));
+            Vector2 canvasPoint = _animation.ToCanvasPosition(GlobalParameters.GlobalMouse.newMousePos);
             if (GlobalParameters.GlobalMouse.LeftClick())
             {
-                if (!_animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos)) return;
+                bool isOnCanvas = _animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos);
+                bool isOnSelection = _selection != null && _selection.Contains(canvasPoint);
+                if (!isOnCanvas && !isOnSelection) return;
                 _gestureStart = canvasPoint;
-                if (_selection != null && _selection.Contains(canvasPoint))
+                if (isOnSelection)
                 {
                     _gesture = Gesture.Move;
                     _previewBounds = _selection.Bounds;
@@ -53,16 +54,16 @@ namespace FrameByFrame.src.Engine.Selection
                 {
                     _gesture = Gesture.Lasso;
                     _lassoPoints.Clear();
-                    _lassoPoints.Add(canvasPoint);
+                    _lassoPoints.Add(ClampCanvasPoint(canvasPoint));
                 }
             }
             else if (_gesture == Gesture.Lasso)
-                AddLassoPoint(canvasPoint);
+                AddLassoPoint(ClampCanvasPoint(canvasPoint));
             else if (_gesture == Gesture.Move)
             {
                 Point delta = (canvasPoint - _gestureStart).ToPoint();
-                _previewBounds = ClampBounds(new Rectangle(_selection.Bounds.X + delta.X,
-                    _selection.Bounds.Y + delta.Y, _selection.Width, _selection.Height));
+                _previewBounds = new Rectangle(_selection.Bounds.X + delta.X,
+                    _selection.Bounds.Y + delta.Y, _selection.Width, _selection.Height);
             }
         }
 
@@ -76,9 +77,7 @@ namespace FrameByFrame.src.Engine.Selection
         {
             EnsureCurrentTarget();
             if (_clipboard == null || _animation.CurrentFrame == null) return;
-            PixelSelection pasted = FitWithinCanvas(_clipboard.Clone());
-            pasted = pasted.Clone(ClampBounds(pasted.Bounds));
-            pasted = SelectionOperations.PrepareForPaste(pasted);
+            PixelSelection pasted = SelectionOperations.PrepareForPaste(_clipboard.Clone());
             Color[] pixels = _animation.GetCurrentLayerPixels();
             PixelSelection underlay = SelectionOperations.Capture(pixels, _animation.CurrentFrame.width,
                 _animation.CurrentFrame.height, pasted);
@@ -157,8 +156,6 @@ namespace FrameByFrame.src.Engine.Selection
 
         private void ApplyTransform(PixelSelection transformed)
         {
-            transformed = FitWithinCanvas(transformed);
-            transformed = transformed.Clone(ClampBounds(transformed.Bounds));
             Color[] pixels = _animation.GetCurrentLayerPixels();
             RemoveSelectionFrom(pixels);
             PixelSelection underlay = SelectionOperations.Capture(pixels, _animation.CurrentFrame.width,
@@ -215,23 +212,5 @@ namespace FrameByFrame.src.Engine.Selection
             Math.Clamp(point.X, 0f, _animation.CurrentFrame.width),
             Math.Clamp(point.Y, 0f, _animation.CurrentFrame.height));
 
-        private Rectangle ClampBounds(Rectangle bounds)
-        {
-            int width = Math.Min(Math.Max(1, bounds.Width), _animation.CurrentFrame.width);
-            int height = Math.Min(Math.Max(1, bounds.Height), _animation.CurrentFrame.height);
-            return new Rectangle(Math.Clamp(bounds.X, 0, _animation.CurrentFrame.width - width),
-                Math.Clamp(bounds.Y, 0, _animation.CurrentFrame.height - height), width, height);
-        }
-
-        private PixelSelection FitWithinCanvas(PixelSelection selection)
-        {
-            if (selection.Width <= _animation.CurrentFrame.width &&
-                selection.Height <= _animation.CurrentFrame.height) return selection;
-            float fit = Math.Min(_animation.CurrentFrame.width / (float)selection.Width,
-                _animation.CurrentFrame.height / (float)selection.Height);
-            return SelectionOperations.Resize(selection,
-                Math.Max(1, (int)Math.Floor(selection.Width * fit)),
-                Math.Max(1, (int)Math.Floor(selection.Height * fit)));
-        }
     }
 }

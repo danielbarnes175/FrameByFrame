@@ -258,6 +258,20 @@ Assert(repeatedMoveTarget[0] == Color.Blue && repeatedMoveTarget[1] == Color.Gre
        repeatedMoveTarget[2] == Color.Red && repeatedMoveTarget[3] == Color.Orange,
     "Moving a floating selection repeatedly should restore the artwork beneath each previous position.");
 
+PixelSelection offCanvasSelection = new(new Rectangle(-1, 0, 2, 1), [Color.Red, Color.Green]);
+Color[] offCanvasTarget = { Color.Blue, Color.Yellow };
+PixelSelection offCanvasUnderlay = SelectionOperations.Capture(offCanvasTarget, 2, 1, offCanvasSelection);
+SelectionOperations.Composite(offCanvasTarget, 2, 1, offCanvasSelection);
+Assert(offCanvasTarget[0] == Color.Green && offCanvasTarget[1] == Color.Yellow,
+    "An out-of-bounds selection should composite only the portion inside the canvas.");
+SelectionOperations.Restore(offCanvasTarget, 2, 1, offCanvasUnderlay);
+Assert(offCanvasTarget[0] == Color.Blue && offCanvasTarget[1] == Color.Yellow,
+    "Restoring an out-of-bounds selection should preserve its in-canvas underlay.");
+Color[] reenteredTarget = { Color.Transparent, Color.Transparent };
+SelectionOperations.Composite(reenteredTarget, 2, 1, SelectionOperations.Move(offCanvasSelection, 0, 0));
+Assert(reenteredTarget[0] == Color.Red && reenteredTarget[1] == Color.Green,
+    "Selected pixels outside the canvas should remain available when the selection moves back in bounds.");
+
 Assert(!SaveService.FormatSupportsTransparency(ExportFormat.Mp4) &&
        !SaveService.FormatSupportsTransparency(ExportFormat.Mov),
     "Video exports should flatten transparent canvas backgrounds.");
