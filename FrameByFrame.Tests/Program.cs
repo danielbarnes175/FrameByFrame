@@ -47,6 +47,7 @@ static void AssertInvalidFbfBoolean(string field)
         Assert(ex.Message.Contains(field, StringComparison.Ordinal),
             $"The invalid {field} error should identify its field.");
     }
+
 }
 
 Assert(!ReadFbfBoolean(0, "test") && ReadFbfBoolean(1, "test"),
@@ -525,6 +526,42 @@ finally
     if (Directory.Exists(asyncExportRoot)) Directory.Delete(asyncExportRoot, recursive: true);
 }
 
+    }
+
+    [Fact]
+    public void StraightAlphaCompositionMatchesSamplingAndExport()
+    {
+        Color halfRed = new(255, 0, 0, 128);
+        Color halfBlue = new(0, 0, 255, 128);
+        Color overBlack = ColorCompositor.SourceOver(halfRed, Color.Black);
+        Xunit.Assert.InRange(overBlack.R, (byte)127, (byte)128);
+        Xunit.Assert.Equal((byte)0, overBlack.G);
+        Xunit.Assert.Equal((byte)0, overBlack.B);
+        Xunit.Assert.Equal(byte.MaxValue, overBlack.A);
+
+        Color overTransparent = ColorCompositor.SourceOver(halfRed, Color.Transparent);
+        Xunit.Assert.Equal((byte)255, overTransparent.R);
+        Xunit.Assert.Equal((byte)128, overTransparent.A);
+        Xunit.Assert.Equal(new Color(128, 0, 0, 128), ColorCompositor.Premultiply(halfRed));
+
+        var top = new FrameLayer(new AnimationLayer("Top"));
+        var bottom = new FrameLayer(new AnimationLayer("Bottom"));
+        top.Pixels[0] = halfRed;
+        bottom.Pixels[0] = halfBlue;
+        Color sampled = Frame.CompositeVisiblePixel([top, bottom], 0, Color.Black);
+
+        var exportFrame = new SaveService.ExportFrameSnapshot([
+            new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, halfRed)]),
+            new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, halfBlue)])
+        ]);
+        var snapshot = new SaveService.ExportSnapshot(1, 1, 12, 0, Color.Black,
+            [exportFrame], Array.Empty<AudioTrack>());
+        byte[] exported = SaveService.ComposeFramePixels(snapshot, exportFrame);
+        Xunit.Assert.Equal(new[] { sampled.R, sampled.G, sampled.B, sampled.A }, exported);
+
+        top.Definition.IsVisible = false;
+        Xunit.Assert.Equal(ColorCompositor.SourceOver(halfBlue, Color.Black),
+            Frame.CompositeVisiblePixel([top, bottom], 0, Color.Black));
     }
 }
 
