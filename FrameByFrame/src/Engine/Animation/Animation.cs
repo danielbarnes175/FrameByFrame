@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Threading;
 
 namespace FrameByFrame.src.Engine.Animation
 {
@@ -18,9 +19,15 @@ namespace FrameByFrame.src.Engine.Animation
         public int fps
         {
             get => _fps;
-            set => _fps = value is >= 1 and <= MaxFramesPerSecond
-                ? value
-                : throw new ArgumentOutOfRangeException(nameof(value), $"FPS must be between 1 and {MaxFramesPerSecond}.");
+            set
+            {
+                int validated = value is >= 1 and <= MaxFramesPerSecond
+                    ? value
+                    : throw new ArgumentOutOfRangeException(nameof(value), $"FPS must be between 1 and {MaxFramesPerSecond}.");
+                if (_fps == validated) return;
+                _fps = validated;
+                MarkChanged();
+            }
         }
         public bool IsPlaying => _timeline.IsPlaying;
 
@@ -67,7 +74,13 @@ namespace FrameByFrame.src.Engine.Animation
         public string projectName
         {
             get => _projectName;
-            set => _projectName = ProjectModelValidator.ProjectName(value, nameof(projectName));
+            set
+            {
+                string validated = ProjectModelValidator.ProjectName(value, nameof(projectName));
+                if (_projectName == validated) return;
+                _projectName = validated;
+                MarkChanged();
+            }
         }
         public bool IsCanvasBackgroundTransparent { get; private set; }
         public Color CanvasBackgroundColor { get; private set; } = Color.White;
@@ -86,6 +99,8 @@ namespace FrameByFrame.src.Engine.Animation
         private Point _strokePatternOrigin;
         private bool _hasStrokePatternOrigin;
         private CanvasView? _displayView;
+        private long _contentRevision;
+        private long _savedRevision;
 
         private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[]? After);
 
@@ -94,6 +109,8 @@ namespace FrameByFrame.src.Engine.Animation
         public double PlaybackPositionSeconds => _timeline.PlaybackPositionSeconds(fps);
         public long PlaybackRevision => _timeline.PlaybackRevision;
         public long AudioRevision { get; private set; }
+        public long ContentRevision => Interlocked.Read(ref _contentRevision);
+        public bool IsDirty => ContentRevision != Interlocked.Read(ref _savedRevision);
         public int ThumbnailFrameIndex
         {
             get
@@ -144,7 +161,22 @@ namespace FrameByFrame.src.Engine.Animation
                 GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
 
             _timeline.Initialize();
+            MarkChanged();
         }
+
+        internal void MarkChanged() => Interlocked.Increment(ref _contentRevision);
+
+        internal void MarkSaved(long revision)
+        {
+            long saved;
+            do
+            {
+                saved = Interlocked.Read(ref _savedRevision);
+                if (saved >= revision) return;
+            } while (Interlocked.CompareExchange(ref _savedRevision, revision, saved) != saved);
+        }
+
+        internal void MarkSaved() => MarkSaved(ContentRevision);
 
         public void LoadFrames(IEnumerable<Frame> loadedFrames, Vector2 loadedFramePosition, Vector2 loadedFrameSize)
         {
@@ -184,6 +216,7 @@ namespace FrameByFrame.src.Engine.Animation
             track.StartFrame = Math.Clamp(track.StartFrame, 0, Math.Max(0, TotalFrames - 1));
             _audioTracks.Add(track);
             AudioRevision++;
+            MarkChanged();
             return true;
         }
 
@@ -193,6 +226,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (track == null) return false;
             _audioTracks.Remove(track);
             AudioRevision++;
+            MarkChanged();
             return true;
         }
 
@@ -206,6 +240,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (track.StartFrame == frame) return true;
             track.StartFrame = frame;
             AudioRevision++;
+            MarkChanged();
             return true;
         }
 
@@ -218,6 +253,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (Math.Abs(track.Volume - volume) < .0001f) return true;
             track.Volume = volume;
             AudioRevision++;
+            MarkChanged();
             return true;
         }
 
@@ -228,6 +264,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (track.IsMuted == isMuted) return true;
             track.IsMuted = isMuted;
             AudioRevision++;
+            MarkChanged();
             return true;
         }
 
@@ -237,7 +274,9 @@ namespace FrameByFrame.src.Engine.Animation
         public void NextFrame()
         {
             if (CurrentFrameIndex == TotalFrames - 1 && !CanAddFrame) return;
+            int count = TotalFrames;
             _timeline.NextFrame();
+            if (TotalFrames != count) MarkChanged();
         }
         public void PreviousFrame() => _timeline.PreviousFrame();
 
@@ -275,6 +314,7 @@ namespace FrameByFrame.src.Engine.Animation
                 for (int i = entries.Length - 2; i >= 0; i--) _undoHistory.Push(entries[i]);
             }
             _redoHistory.Clear();
+            MarkChanged();
         }
 
         private void ClearEditHistory()
@@ -299,6 +339,7 @@ namespace FrameByFrame.src.Engine.Animation
             SelectFrame(_timeline.IndexOf(frame));
             SelectLayer(edit.LayerId);
             _redoHistory.Push(edit);
+            MarkChanged();
             return true;
         }
 
@@ -315,6 +356,7 @@ namespace FrameByFrame.src.Engine.Animation
             SelectFrame(_timeline.IndexOf(frame));
             SelectLayer(edit.LayerId);
             _undoHistory.Push(edit);
+            MarkChanged();
             return true;
         }
 
@@ -325,18 +367,28 @@ namespace FrameByFrame.src.Engine.Animation
             if (ReferenceEquals(_thumbnailFrame, deletedFrame) && !_timeline.Contains(deletedFrame))
                 _thumbnailFrame = null;
             ClampAudioTrackStarts();
+            MarkChanged();
         }
         public void InsertFrame()
         {
-            if (CanAddFrame) _timeline.InsertFrame();
+            if (!CanAddFrame) return;
+            _timeline.InsertFrame();
+            MarkChanged();
         }
         public void DuplicateCurrentFrame()
         {
-            if (CanDuplicateFrame) _timeline.DuplicateCurrentFrame();
+            if (!CanDuplicateFrame) return;
+            _timeline.DuplicateCurrentFrame();
+            MarkChanged();
         }
         public void CopyCurrentFrame() => _timeline.CopyCurrentFrame();
-        public bool PasteFrame() => CanPasteFrame && _timeline.PasteFrame();
-        public bool MoveFrame(int oldIndex, int newIndex) => _timeline.MoveFrame(oldIndex, newIndex);
+        public bool PasteFrame()
+        {
+            bool changed = CanPasteFrame && _timeline.PasteFrame();
+            if (changed) MarkChanged();
+            return changed;
+        }
+        public bool MoveFrame(int oldIndex, int newIndex) { bool changed = _timeline.MoveFrame(oldIndex, newIndex); if (changed) MarkChanged(); return changed; }
         public void TogglePlaying() => _timeline.TogglePlaying();
         public void Animate(GameTime gameTime) => _timeline.Animate(gameTime, fps);
         public void Stop() => _timeline.Stop();
@@ -402,8 +454,8 @@ namespace FrameByFrame.src.Engine.Animation
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            CurrentFrame?.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color,
-                Math.Max(0, MaxStoredPixels - StoredPixelCount));
+            if (CurrentFrame?.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color,
+                Math.Max(0, MaxStoredPixels - StoredPixelCount)) == true) MarkChanged();
         }
 
         public Color SampleVisibleColorAt(Vector2 screenPosition)
@@ -413,13 +465,20 @@ namespace FrameByFrame.src.Engine.Animation
             return CurrentFrame?.GetVisiblePixel((int)local.X, (int)local.Y, background) ?? background;
         }
 
-        public void SetCanvasBackgroundTransparent(bool isTransparent) =>
+        public void SetCanvasBackgroundTransparent(bool isTransparent)
+        {
+            if (IsCanvasBackgroundTransparent == isTransparent) return;
             IsCanvasBackgroundTransparent = isTransparent;
+            MarkChanged();
+        }
 
         public void SetCanvasBackgroundColor(Color color)
         {
-            CanvasBackgroundColor = new Color(color.R, color.G, color.B, byte.MaxValue);
+            Color opaque = new Color(color.R, color.G, color.B, byte.MaxValue);
+            if (CanvasBackgroundColor == opaque && !IsCanvasBackgroundTransparent) return;
+            CanvasBackgroundColor = opaque;
             IsCanvasBackgroundTransparent = false;
+            MarkChanged();
         }
 
         public void SelectFrame(int index)
@@ -538,6 +597,7 @@ namespace FrameByFrame.src.Engine.Animation
             _layers.Insert(index, layer);
             foreach (Frame frame in Frames) frame.AddLayer(layer, index);
             SelectedLayerId = layer.Id;
+            MarkChanged();
             return layer;
         }
 
@@ -568,6 +628,7 @@ namespace FrameByFrame.src.Engine.Animation
             _layers.RemoveAt(index);
             foreach (Frame frame in Frames) frame.RemoveLayer(layerId);
             if (SelectedLayerId == layerId) SelectedLayerId = _layers[Math.Min(index, _layers.Count - 1)].Id;
+            MarkChanged();
             return true;
         }
 
@@ -580,6 +641,7 @@ namespace FrameByFrame.src.Engine.Animation
             _layers.RemoveAt(oldIndex);
             _layers.Insert(newIndex, layer);
             foreach (Frame frame in Frames) frame.ReorderLayers(_layers);
+            MarkChanged();
             return true;
         }
 
@@ -588,7 +650,9 @@ namespace FrameByFrame.src.Engine.Animation
             if (string.IsNullOrWhiteSpace(name)) return false;
             AnimationLayer? layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
             if (layer == null) return false;
+            if (layer.Name == name.Trim()) return true;
             layer.Rename(name);
+            MarkChanged();
             return true;
         }
 
@@ -604,7 +668,9 @@ namespace FrameByFrame.src.Engine.Animation
         {
             AnimationLayer? layer = _layers.FirstOrDefault(candidate => candidate.Id == layerId);
             if (layer == null) return false;
+            if (layer.IsVisible == isVisible) return true;
             layer.IsVisible = isVisible;
+            MarkChanged();
             return true;
         }
 

@@ -32,11 +32,15 @@ namespace FrameByFrame.src.Engine.Export
 
         private readonly record struct PixelChange(int Index, uint PackedColor);
 
-        public static void Save(string filename, Animation.Animation animation)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(filename);
-            ArgumentNullException.ThrowIfNull(animation);
+        internal sealed record ProjectSnapshot(string ProjectName, int Width, int Height,
+            Vector2 FramePosition, int FramesPerSecond, bool IsBackgroundTransparent,
+            Color BackgroundColor, int ThumbnailFrameIndex, IReadOnlyList<AnimationLayer> Layers,
+            IReadOnlyList<AudioTrack> AudioTracks, IReadOnlyList<Dictionary<int, uint>[]> Frames,
+            long StoredPixelCount, long Revision);
 
+        public static ProjectSnapshot CaptureSnapshot(Animation.Animation animation)
+        {
+            ArgumentNullException.ThrowIfNull(animation);
             if (animation.TotalFrames == 0)
                 throw new InvalidDataException("Cannot save an animation without frames.");
             if (animation.fps <= 0)
@@ -46,9 +50,39 @@ namespace FrameByFrame.src.Engine.Export
 
             Frame firstFrame = animation.GetFrameAtIndex(0) ??
                 throw new InvalidDataException("Cannot save an animation without frames.");
-            ValidateDimensions(firstFrame.width, firstFrame.height);
-            ValidateResourceCounts(animation.Layers.Count, animation.TotalFrames);
-            if (animation.StoredPixelCount > Animation.Animation.MaxStoredPixels)
+            var layers = animation.Layers.Select(layer => new AnimationLayer(layer.Name, layer.Id)
+            {
+                IsVisible = layer.IsVisible,
+                IsLocked = layer.IsLocked
+            }).ToArray();
+            var audio = animation.AudioTracks.Select(track => new AudioTrack(track.SourceName,
+                track.SourceExtension, (byte[])track.EncodedData.Clone(), track.StartFrame,
+                track.DurationSeconds, id: track.Id, volume: track.Volume, isMuted: track.IsMuted)).ToArray();
+            var frames = animation.Frames.Select(frame => SnapshotLayers(frame, animation.Layers)).ToArray();
+            return new ProjectSnapshot(animation.projectName, firstFrame.width, firstFrame.height,
+                animation.framePosition, animation.fps, animation.IsCanvasBackgroundTransparent,
+                animation.CanvasBackgroundColor, animation.ThumbnailFrameIndex, layers, audio, frames,
+                animation.StoredPixelCount, animation.ContentRevision);
+        }
+
+        public static void Save(string filename, Animation.Animation animation)
+            => Save(filename, CaptureSnapshot(animation));
+
+        public static void Save(string filename, ProjectSnapshot snapshot)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(filename);
+            ArgumentNullException.ThrowIfNull(snapshot);
+
+            if (snapshot.Frames.Count == 0)
+                throw new InvalidDataException("Cannot save an animation without frames.");
+            if (snapshot.FramesPerSecond <= 0)
+                throw new InvalidDataException("Animation FPS must be greater than zero.");
+            if (snapshot.Layers.Count == 0 || snapshot.Layers.Count > ProjectLimits.MaxLayerCount)
+                throw new InvalidDataException("Animation layer count is invalid or unsupported.");
+
+            ValidateDimensions(snapshot.Width, snapshot.Height);
+            ValidateResourceCounts(snapshot.Layers.Count, snapshot.Frames.Count);
+            if (snapshot.StoredPixelCount > Animation.Animation.MaxStoredPixels)
                 throw new InvalidDataException("The project exceeds the supported stored pixel budget.");
 
             string temporaryFilename = filename + ".tmp";
@@ -61,20 +95,20 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(MajorVersion);
                     writer.Write(MinorVersion);
                     writer.Write(BrotliFlag);
-                    writer.Write(firstFrame.width);
-                    writer.Write(firstFrame.height);
-                    writer.Write(animation.framePosition.X);
-                    writer.Write(animation.framePosition.Y);
-                    writer.Write(animation.fps);
-                    writer.Write(animation.Layers.Count);
-                    writer.Write(animation.TotalFrames);
+                    writer.Write(snapshot.Width);
+                    writer.Write(snapshot.Height);
+                    writer.Write(snapshot.FramePosition.X);
+                    writer.Write(snapshot.FramePosition.Y);
+                    writer.Write(snapshot.FramesPerSecond);
+                    writer.Write(snapshot.Layers.Count);
+                    writer.Write(snapshot.Frames.Count);
                     writer.Write(KeyframeInterval);
-                    WriteString(writer, animation.projectName, ProjectLimits.MaxNameBytes);
-                    writer.Write(animation.IsCanvasBackgroundTransparent);
-                    writer.Write(animation.CanvasBackgroundColor.PackedValue);
-                    writer.Write(animation.ThumbnailFrameIndex);
-                    WriteAudioTracks(writer, animation.AudioTracks, animation.TotalFrames);
-                    foreach (AnimationLayer layer in animation.Layers)
+                    WriteString(writer, snapshot.ProjectName, ProjectLimits.MaxNameBytes);
+                    writer.Write(snapshot.IsBackgroundTransparent);
+                    writer.Write(snapshot.BackgroundColor.PackedValue);
+                    writer.Write(snapshot.ThumbnailFrameIndex);
+                    WriteAudioTracks(writer, snapshot.AudioTracks, snapshot.Frames.Count);
+                    foreach (AnimationLayer layer in snapshot.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
                         WriteString(writer, layer.Name, ProjectLimits.MaxNameBytes);
@@ -85,16 +119,12 @@ namespace FrameByFrame.src.Engine.Export
                     long indexOffsetPosition = stream.Position;
                     writer.Write((long)0);
 
-                    var frameOffsets = new List<long>(animation.TotalFrames);
-                    Dictionary<int, uint>[] previousLayers = CreateEmptyLayers(animation.Layers.Count);
+                    var frameOffsets = new List<long>(snapshot.Frames.Count);
+                    Dictionary<int, uint>[] previousLayers = CreateEmptyLayers(snapshot.Layers.Count);
                     int frameIndex = 0;
 
-                    foreach (Frame frame in animation.Frames)
+                    foreach (Dictionary<int, uint>[] currentLayers in snapshot.Frames)
                     {
-                        if (frame.width != firstFrame.width || frame.height != firstFrame.height)
-                            throw new InvalidDataException("All frames in an FBF v1 project must have identical dimensions.");
-
-                        Dictionary<int, uint>[] currentLayers = SnapshotLayers(frame, animation.Layers);
                         bool isKeyframe = frameIndex % KeyframeInterval == 0;
                         FrameKind frameKind = isKeyframe
                             ? FrameKind.Keyframe
@@ -104,7 +134,7 @@ namespace FrameByFrame.src.Engine.Export
 
                         frameOffsets.Add(stream.Position);
                         WriteFrameChunk(writer, frameIndex, frameKind, previousLayers, currentLayers,
-                            checked(firstFrame.width * firstFrame.height));
+                            checked(snapshot.Width * snapshot.Height));
                         previousLayers = currentLayers;
                         frameIndex++;
                     }
@@ -211,6 +241,7 @@ namespace FrameByFrame.src.Engine.Export
                 animation.LoadFrames(loadedFrames, framePosition, new Vector2(width, height));
                 animation.RestoreThumbnailFrame(thumbnailFrameIndex);
                 foreach (AudioTrack track in audioTracks) animation.AddAudioTrack(track);
+                animation.MarkSaved();
                 return animation;
             }
             catch
