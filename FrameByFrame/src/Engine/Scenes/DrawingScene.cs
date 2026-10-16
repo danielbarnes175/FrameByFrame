@@ -30,6 +30,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private readonly UIActionButton _cancelLeave;
         private Action? _pendingNavigation;
         private Rectangle _leaveDialog;
+        private string _lastHistoryError = string.Empty;
         public bool loadedScene;
 
         public DrawingScene()
@@ -118,6 +119,11 @@ namespace FrameByFrame.src.Engine.Scenes
                 _feedback.ShowError("Autosave failed", _autosave.LastError,
                     "Check available disk space and Projects folder permissions. You can retry with Save Project.");
             _lastAutosaveError = _autosave.LastError;
+            if (!string.IsNullOrWhiteSpace(animation.LastHistoryError) &&
+                animation.LastHistoryError != _lastHistoryError)
+                _feedback.ShowError("Edit could not be recorded", animation.LastHistoryError,
+                    "Use a smaller fill, selection, or brush stroke and try again.");
+            _lastHistoryError = animation.LastHistoryError;
         }
 
         public override void Draw(Vector2 offset)
