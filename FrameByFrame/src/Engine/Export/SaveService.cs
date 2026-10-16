@@ -338,7 +338,7 @@ namespace FrameByFrame.src.Engine.Export
                 foreach (KeyValuePair<int, Color> pixel in frame.Layers[layerIndex].Pixels)
                 {
                     if ((uint)pixel.Key >= (uint)(snapshot.Width * snapshot.Height)) continue;
-                    BlendColor(pixels, pixel.Key, pixel.Value);
+                    ColorCompositor.SourceOver(pixels, pixel.Key, pixel.Value);
                 }
             }
             return pixels;
@@ -351,27 +351,6 @@ namespace FrameByFrame.src.Engine.Export
             pixels[offset + 1] = color.G;
             pixels[offset + 2] = color.B;
             pixels[offset + 3] = color.A;
-        }
-
-        private static void BlendColor(byte[] pixels, int pixelIndex, Color source)
-        {
-            if (source.A == 0) return;
-            int offset = pixelIndex * 4;
-            if (source.A == byte.MaxValue)
-            {
-                WriteColor(pixels, pixelIndex, source);
-                return;
-            }
-
-            int inverseAlpha = byte.MaxValue - source.A;
-            pixels[offset] = (byte)Math.Min(byte.MaxValue,
-                source.R + (pixels[offset] * inverseAlpha + 127) / byte.MaxValue);
-            pixels[offset + 1] = (byte)Math.Min(byte.MaxValue,
-                source.G + (pixels[offset + 1] * inverseAlpha + 127) / byte.MaxValue);
-            pixels[offset + 2] = (byte)Math.Min(byte.MaxValue,
-                source.B + (pixels[offset + 2] * inverseAlpha + 127) / byte.MaxValue);
-            pixels[offset + 3] = (byte)Math.Min(byte.MaxValue,
-                source.A + (pixels[offset + 3] * inverseAlpha + 127) / byte.MaxValue);
         }
 
         private static string CreateGif(int framesPerSecond, string projectName,

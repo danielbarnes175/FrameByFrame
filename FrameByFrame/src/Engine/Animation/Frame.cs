@@ -137,9 +137,21 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
             int index = y * width + x;
-            foreach (FrameLayer layer in _layers)
-                if (layer.Definition.IsVisible && layer.Pixels.TryGetValue(index, out Color color)) return color;
-            return background;
+            return CompositeVisiblePixel(_layers, index, background);
+        }
+
+        internal static Color CompositeVisiblePixel(IReadOnlyList<FrameLayer> layers, int pixelIndex,
+            Color background)
+        {
+            ArgumentNullException.ThrowIfNull(layers);
+            Color result = background;
+            for (int layerIndex = layers.Count - 1; layerIndex >= 0; layerIndex--)
+            {
+                FrameLayer layer = layers[layerIndex];
+                if (layer.Definition.IsVisible && layer.Pixels.TryGetValue(pixelIndex, out Color color))
+                    result = ColorCompositor.SourceOver(color, result);
+            }
+            return result;
         }
 
         public bool FloodFill(Guid layerId, int startX, int startY, Color replacement, long availablePixels = long.MaxValue)
@@ -201,6 +213,7 @@ namespace FrameByFrame.src.Engine.Animation
             {
                 layer.Texture ??= new Texture2D(GlobalParameters.GlobalGraphics, width, height);
                 Color[] pixels = GetLayerPixels(layer.Id);
+                for (int i = 0; i < pixels.Length; i++) pixels[i] = ColorCompositor.Premultiply(pixels[i]);
                 layer.Texture.SetData(pixels);
             }
             _texturesNeedUpdate = false;
@@ -279,6 +292,8 @@ namespace FrameByFrame.src.Engine.Animation
                         previewPixels[x + y * previewWidth] = GetVisiblePixel(sourceX, sourceY, background);
                     }
                 }
+                for (int i = 0; i < previewPixels.Length; i++)
+                    previewPixels[i] = ColorCompositor.Premultiply(previewPixels[i]);
                 _previewTexture.SetData(previewPixels);
                 _previewVisibilityHash = visibilityHash;
                 _previewNeedsUpdate = false;
