@@ -33,6 +33,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _confirmExport = null!;
         private UIActionButton _cancelExport = null!;
         private UIActionButton _chooseExportDirectory = null!;
+        private UIActionButton _replaceExistingExport = null!;
         private UIActionButton _folder = null!;
         private UIActionButton _create = null!;
         private int _selected = -1;
@@ -47,6 +48,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private int _exportStart;
         private int _exportEnd;
         private ExportFormat _exportFormat = ExportFormat.Gif;
+        private bool _replaceExisting;
         private string _exportDirectory = Path.GetFullPath("Projects");
         private string _exportMessage = string.Empty;
         private SaveService.ExportOperation? _exportOperation;
@@ -84,6 +86,12 @@ namespace FrameByFrame.src.Engine.Scenes
             _confirmExport = new UIActionButton("Export range", ExportSelectedProject);
             _cancelExport = new UIActionButton("Cancel", () => _isSelectingExportRange = false);
             _chooseExportDirectory = new UIActionButton("Choose export folder", ChooseExportDirectory);
+            _replaceExistingExport = new UIActionButton("Replace existing: No", () =>
+            {
+                _replaceExisting = !_replaceExisting;
+                _replaceExistingExport.Text = $"Replace existing: {(_replaceExisting ? "Yes" : "No")}";
+                _replaceExistingExport.IsSelected = _replaceExisting;
+            });
             _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
             _create = new UIActionButton("Create animation", CreateAnimation);
             _feedbackOverlay = new UIFeedbackOverlay(_feedback);
@@ -132,9 +140,10 @@ namespace FrameByFrame.src.Engine.Scenes
             _exportStartUp.Bounds = new Rectangle(cx + S(110), cy - S(75), S(46), S(42));
             _exportEndDown.Bounds = new Rectangle(cx - S(40), cy - S(20), S(46), S(42));
             _exportEndUp.Bounds = new Rectangle(cx + S(110), cy - S(20), S(46), S(42));
-            _chooseExportDirectory.Bounds = new Rectangle(cx - S(220), cy + S(72), S(440), S(44));
-            _confirmExport.Bounds = new Rectangle(cx - S(220), cy + S(130), S(210), S(52));
-            _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(130), S(210), S(52));
+            _replaceExistingExport.Bounds = new Rectangle(cx - S(220), cy + S(30), S(440), S(38));
+            _chooseExportDirectory.Bounds = new Rectangle(cx - S(220), cy + S(98), S(440), S(44));
+            _confirmExport.Bounds = new Rectangle(cx - S(220), cy + S(152), S(210), S(52));
+            _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(152), S(210), S(52));
             bool hasProjects = _animations.Count > 0;
             bool hasSelection = _selected >= 0 && _selected < _animations.Count;
             _previous.IsEnabled = hasProjects && _pageStart > 0;
@@ -199,6 +208,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 _exportFormatPrevious.Update(); _exportFormatNext.Update();
                 _exportStartDown.Update(); _exportStartUp.Update();
                 _exportEndDown.Update(); _exportEndUp.Update();
+                _replaceExistingExport.Update();
                 _chooseExportDirectory.Update();
                 _confirmExport.Update(); _cancelExport.Update();
                 if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) _isSelectingExportRange = false;
@@ -525,6 +535,9 @@ namespace FrameByFrame.src.Engine.Scenes
             _exportStart = 0;
             _exportEnd = _animations[_selected].TotalFrames - 1;
             _exportMessage = string.Empty;
+            _replaceExisting = false;
+            _replaceExistingExport.Text = "Replace existing: No";
+            _replaceExistingExport.IsSelected = false;
             _isSelectingExportRange = true;
         }
         private void SetExportStart(int value) => _exportStart = Math.Clamp(value, 0, _exportEnd);
@@ -550,7 +563,8 @@ namespace FrameByFrame.src.Engine.Scenes
             try
             {
                 _exportOperation = SaveService.BeginExportAnimation(
-                    _animations[_selected], _exportStart, _exportEnd, _exportDirectory, _exportFormat);
+                    _animations[_selected], _exportStart, _exportEnd, _exportDirectory, _exportFormat,
+                    _replaceExisting ? ExportCollisionBehavior.Replace : ExportCollisionBehavior.Fail);
                 _feedback.ShowBusy("Exporting animation", _exportOperation.Status, _exportOperation.Progress);
             }
             catch (Exception ex)
@@ -566,6 +580,13 @@ namespace FrameByFrame.src.Engine.Scenes
             _previewAudio?.Stop();
             SaveService.ExportOperation? operation = _exportOperation;
             if (operation == null) return;
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) operation.Cancel();
+            if (operation.IsCanceled)
+            {
+                _exportOperation = null;
+                _feedback.ShowSuccess("Export canceled", "No existing output was changed.");
+                return;
+            }
             if (operation.IsFailed)
             {
                 string message = operation.Failure?.Message ?? operation.Status;
@@ -581,7 +602,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 _feedback.ShowSuccess("Export complete", $"Animation exported to {outputPath}");
                 return;
             }
-            _feedback.ShowBusy("Exporting animation", operation.Status, operation.Progress);
+            _feedback.ShowBusy("Exporting animation", $"{operation.Status} Press Esc to cancel.", operation.Progress);
         }
         private void ChooseExportDirectory()
         {
@@ -607,7 +628,7 @@ namespace FrameByFrame.src.Engine.Scenes
             int S(int value) => UILayoutEngine.Scale(value);
             int cx = GlobalParameters.screenWidth / 2;
             int cy = GlobalParameters.screenHeight / 2;
-            Rectangle dialog = new(cx - S(260), cy - S(215), S(520), S(450));
+            Rectangle dialog = new(cx - S(260), cy - S(240), S(520), S(500));
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised); UIRenderer.Border(dialog, UITheme.Primary, 3);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18), dialog.Width - S(48), S(42)), MaxLines = 1 }
                 .Draw("Export frame range", UITheme.Primary, UITextRole.Heading);
@@ -628,11 +649,12 @@ namespace FrameByFrame.src.Engine.Scenes
             _exportEndDown.Draw(); _exportEndUp.Draw();
             new UITextContainer
             {
-                Bounds = new Rectangle(cx - S(220), cy + S(42), S(440), S(26)),
+                Bounds = new Rectangle(cx - S(220), cy + S(70), S(440), S(24)),
                 HorizontalAlignment = UIAlign.Start,
                 MaxLines = 1
             }.Draw(string.IsNullOrEmpty(_exportMessage) ? _exportDirectory : _exportMessage,
                 string.IsNullOrEmpty(_exportMessage) ? UITheme.TextMuted : UITheme.Danger, UITextRole.Caption);
+            _replaceExistingExport.Draw();
             _chooseExportDirectory.Draw();
             _confirmExport.Draw(true); _cancelExport.Draw();
         }
