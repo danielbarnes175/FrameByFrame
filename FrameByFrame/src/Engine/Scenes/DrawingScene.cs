@@ -25,9 +25,20 @@ namespace FrameByFrame.src.Engine.Scenes
         private readonly UIFeedbackState _feedback = new();
         private UIFeedbackOverlay _feedbackOverlay = null!;
         private string _lastAutosaveError = string.Empty;
+        private readonly UIActionButton _saveAndLeave;
+        private readonly UIActionButton _discardAndLeave;
+        private readonly UIActionButton _cancelLeave;
+        private Action? _pendingNavigation;
+        private Rectangle _leaveDialog;
         public bool loadedScene;
 
-        public DrawingScene() => InitializeDefaults();
+        public DrawingScene()
+        {
+            _saveAndLeave = new UIActionButton("Save", SaveAndContinue);
+            _discardAndLeave = new UIActionButton("Discard", DiscardAndContinue);
+            _cancelLeave = new UIActionButton("Cancel", CancelNavigation);
+            InitializeDefaults();
+        }
 
         private void InitializeDefaults()
         {
@@ -53,7 +64,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _audioPlayback?.Dispose();
-            _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave, _feedback);
+            _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave, _feedback, RequestHome);
             _audioPlayback = new AudioPlaybackController(animation);
             _timeline = new TimelineComponent(animation, _audioPlayback);
             _selectionControls = new SelectionControlsComponent(drawingTools);
@@ -83,6 +94,12 @@ namespace FrameByFrame.src.Engine.Scenes
                 _timeline.Bounds.Y - 70, selectionWidth, 62));
             _feedbackOverlay.Arrange(new Rectangle(0, 0,
                 GlobalParameters.screenWidth, GlobalParameters.screenHeight));
+            ArrangeLeaveDialog();
+            if (_pendingNavigation != null)
+            {
+                UpdateLeaveDialog();
+                return;
+            }
             if (_feedback.IsVisible)
             {
                 _feedbackOverlay.Update();
@@ -117,6 +134,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _selectionControls.Draw();
             MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
             _feedbackOverlay.Draw();
+            DrawLeaveDialog();
         }
 
         private static Rectangle CanvasStageBounds(int navbarHeight, int timelineHeight)
@@ -188,6 +206,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Dispose()
         {
+            _autosave.Flush(animation);
+            _autosave.Dispose();
             _navbar?.Dispose();
             _audioPlayback?.Dispose();
             _navbar = null!;
@@ -218,10 +238,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 else animation.PasteFrame();
             }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
-            {
-                animation.Stop();
-                GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
-            }
+                RequestHome();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
             {
                 if (selectionActive) drawingTools.Selection.Delete(); else animation.DeleteFrame();
@@ -240,5 +257,94 @@ namespace FrameByFrame.src.Engine.Scenes
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("[")) drawingTools.BrushSize--;
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("]")) drawingTools.BrushSize++;
         }
+
+        public void PrepareForShutdown()
+        {
+            if (animation == null || animation.TotalFrames == 0) return;
+            _autosave.Flush(animation);
+            if (animation.IsDirty) SaveService.SaveAnimation(animation);
+        }
+
+        private void RequestHome() => RequestNavigation(() =>
+        {
+            animation.Stop();
+            GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
+        });
+
+        private void RequestNavigation(Action navigation)
+        {
+            if (!animation.IsDirty) { navigation(); return; }
+            animation.Stop();
+            _pendingNavigation = navigation;
+        }
+
+        private void ArrangeLeaveDialog()
+        {
+            int width = Math.Min(620, Math.Max(300, GlobalParameters.screenWidth - 32));
+            int height = 250;
+            _leaveDialog = new Rectangle((GlobalParameters.screenWidth - width) / 2,
+                (GlobalParameters.screenHeight - height) / 2, width, height);
+            int buttonWidth = Math.Min(150, (width - 64) / 3);
+            int gap = 12;
+            int totalWidth = buttonWidth * 3 + gap * 2;
+            int x = _leaveDialog.Center.X - totalWidth / 2;
+            int y = _leaveDialog.Bottom - 68;
+            _saveAndLeave.Arrange(new Rectangle(x, y, buttonWidth, 44));
+            _discardAndLeave.Arrange(new Rectangle(x + buttonWidth + gap, y, buttonWidth, 44));
+            _cancelLeave.Arrange(new Rectangle(x + (buttonWidth + gap) * 2, y, buttonWidth, 44));
+        }
+
+        private void UpdateLeaveDialog()
+        {
+            UIPointerRouter.Block(new Rectangle(0, 0, GlobalParameters.screenWidth, GlobalParameters.screenHeight));
+            _saveAndLeave.Update();
+            _discardAndLeave.Update();
+            _cancelLeave.Update();
+            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) CancelNavigation();
+        }
+
+        private void DrawLeaveDialog()
+        {
+            if (_pendingNavigation == null) return;
+            UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, GlobalParameters.screenHeight),
+                new Color(0, 0, 0, 150));
+            UIRenderer.Fill(_leaveDialog, UITheme.SurfaceRaised);
+            UIRenderer.Border(_leaveDialog, UITheme.Primary, 3);
+            new UITextContainer { Bounds = new Rectangle(_leaveDialog.X + 28, _leaveDialog.Y + 24,
+                _leaveDialog.Width - 56, 48), MaxLines = 1 }.Draw("Save changes?", UITheme.Primary, UITextRole.Title);
+            new UITextContainer { Bounds = new Rectangle(_leaveDialog.X + 28, _leaveDialog.Y + 82,
+                _leaveDialog.Width - 56, 58), MaxLines = 2 }.Draw(
+                "This project has changes that have not been saved.", UITheme.Text, UITextRole.Body);
+            _saveAndLeave.Draw(true);
+            _discardAndLeave.Draw();
+            _cancelLeave.Draw();
+        }
+
+        private void SaveAndContinue()
+        {
+            try
+            {
+                _autosave.Flush();
+                SaveService.SaveAnimation(animation);
+                Action? navigation = _pendingNavigation;
+                _pendingNavigation = null;
+                navigation?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                _pendingNavigation = null;
+                _feedback.ShowError("Project could not be saved", ex.Message,
+                    "The project remains open. Check disk space and folder permissions, then retry.");
+            }
+        }
+
+        private void DiscardAndContinue()
+        {
+            Action? navigation = _pendingNavigation;
+            _pendingNavigation = null;
+            navigation?.Invoke();
+        }
+
+        private void CancelNavigation() => _pendingNavigation = null;
     }
 }
