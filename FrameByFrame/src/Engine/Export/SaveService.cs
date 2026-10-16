@@ -145,11 +145,21 @@ namespace FrameByFrame.src.Engine.Export
         public static void SaveAnimation(Animation.Animation animation)
         {
             ArgumentNullException.ThrowIfNull(animation);
+            FbfProjectFile.ProjectSnapshot snapshot = FbfProjectFile.CaptureSnapshot(animation);
+            SaveSnapshot(snapshot);
+            animation.MarkSaved(snapshot.Revision);
+        }
 
+        internal static FbfProjectFile.ProjectSnapshot CaptureProjectSnapshot(Animation.Animation animation) =>
+            FbfProjectFile.CaptureSnapshot(animation);
+
+        internal static void SaveSnapshot(FbfProjectFile.ProjectSnapshot snapshot)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
             Directory.CreateDirectory(ProjectsDirectory);
-            string projectName = ValidateProjectName(animation.projectName);
+            string projectName = ValidateProjectName(snapshot.ProjectName);
             string filename = GetProjectPath($"{projectName}.fbf");
-            FbfProjectFile.Save(filename, animation);
+            FbfProjectFile.Save(filename, snapshot);
         }
 
         public static Animation.Animation LoadAnimation(string filename)

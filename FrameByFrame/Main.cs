@@ -34,6 +34,7 @@ namespace FrameByFrame
             this.graphics.SynchronizeWithVerticalRetrace = false; //Vsync
             this.IsFixedTimeStep = true;
             TargetElapsedTime = TimeSpan.FromMilliseconds(1000.0f / targetFPS);
+            Exiting += OnExiting;
         }
 
         protected override void Initialize()
@@ -100,6 +101,13 @@ namespace FrameByFrame
             
             // Dispose cursor
             cursor?.texture?.Dispose();
+        }
+
+        private void OnExiting(object? sender, EventArgs args)
+        {
+            if (GlobalParameters.Scenes.TryGetValue("Drawing Scene", out BaseScene? scene) &&
+                scene is DrawingScene drawing)
+                drawing.PrepareForShutdown();
         }
 
         protected override void Update(GameTime gameTime)
