@@ -78,22 +78,31 @@ namespace FrameByFrame.src.Engine.Animation
         public IEnumerable<Frame> Frames => _timeline.Frames;
         public IReadOnlyList<AudioTrack> AudioTracks => _audioTracks;
         private bool _disposed = false;
-        private const int MaxHistoryEntries = 20;
-        private readonly Stack<PixelEdit> _undoHistory = new();
-        private readonly Stack<PixelEdit> _redoHistory = new();
-        private PixelEdit? _pendingPixelEdit;
+        internal const long MaxHistoryBytes = 64L * 1024 * 1024;
+        private const long EstimatedDeltaBytes = 24;
+        internal static long EstimateHistoryBytes(long changedPixelCount) =>
+            checked(Math.Max(0, changedPixelCount) * EstimatedDeltaBytes);
+        internal long HistoryByteBudget { get; set; } = MaxHistoryBytes;
+        private readonly LinkedList<PixelEdit> _undoHistory = new();
+        private readonly LinkedList<PixelEdit> _redoHistory = new();
+        private PendingPixelEdit? _pendingPixelEdit;
+        private long _historyBytes;
         private readonly Dictionary<int, byte> _strokeCoverage = new();
         private Point _strokePatternOrigin;
         private bool _hasStrokePatternOrigin;
         private CanvasView? _displayView;
 
-        private sealed record PixelEdit(Frame Frame, Guid LayerId, Color[] Before, Color[]? After);
+        private readonly record struct PixelDelta(int Index, Color Before, Color After);
+        private sealed record PixelEdit(Frame Frame, Guid LayerId, PixelDelta[] Changes, long EstimatedBytes);
+        private sealed record PendingPixelEdit(Frame Frame, Guid LayerId, Dictionary<int, Color> Before);
 
         public int TotalFrames => _timeline.TotalFrames;
         public int CurrentFrameIndex => _timeline.CurrentFrameIndex;
         public double PlaybackPositionSeconds => _timeline.PlaybackPositionSeconds(fps);
         public long PlaybackRevision => _timeline.PlaybackRevision;
         public long AudioRevision { get; private set; }
+        internal long HistoryBytes => _historyBytes;
+        public string LastHistoryError { get; private set; } = string.Empty;
         public int ThumbnailFrameIndex
         {
             get
@@ -223,7 +232,14 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void EraseCurrentLayer()
         {
+            if (CurrentFrame.GetLayerPixelCount(SelectedLayerId) > HistoryByteBudget / EstimatedDeltaBytes)
+            {
+                LastHistoryError = "The edit was not applied because it exceeds the undo memory budget.";
+                return;
+            }
             BeginPixelEdit();
+            foreach (KeyValuePair<int, Color> pixel in CurrentFrame.GetSparseLayerPixels(SelectedLayerId))
+                TrackPixelBefore(pixel.Key, pixel.Value);
             CurrentFrame.ClearLayer(SelectedLayerId);
             CommitPixelEdit();
         }
@@ -231,8 +247,8 @@ namespace FrameByFrame.src.Engine.Animation
         public void BeginPixelEdit()
         {
             if (_pendingPixelEdit != null || CurrentFrame == null || SelectedLayer == null) return;
-            _pendingPixelEdit = new PixelEdit(CurrentFrame, SelectedLayerId,
-                CurrentFrame.GetLayerPixels(SelectedLayerId), null);
+            _pendingPixelEdit = new PendingPixelEdit(CurrentFrame, SelectedLayerId, new Dictionary<int, Color>());
+            LastHistoryError = string.Empty;
             _strokeCoverage.Clear();
             _hasStrokePatternOrigin = false;
         }
@@ -240,21 +256,29 @@ namespace FrameByFrame.src.Engine.Animation
         public void CommitPixelEdit()
         {
             if (_pendingPixelEdit == null) return;
-            Frame? frame = _timeline.Contains(_pendingPixelEdit.Frame) ? _pendingPixelEdit.Frame : null;
-            Color[]? after = frame?.GetLayerPixels(_pendingPixelEdit.LayerId);
-            PixelEdit completed = _pendingPixelEdit with { After = after };
+            PendingPixelEdit pending = _pendingPixelEdit;
+            Frame? frame = _timeline.Contains(pending.Frame) ? pending.Frame : null;
+            PixelDelta[] changes = frame == null ? [] : pending.Before
+                .Select(pixel => new PixelDelta(pixel.Key, pixel.Value,
+                    frame.GetLayerPixel(pending.LayerId, pixel.Key)))
+                .Where(change => change.Before != change.After)
+                .ToArray();
             _pendingPixelEdit = null;
             _strokeCoverage.Clear();
             _hasStrokePatternOrigin = false;
-            if (after == null || completed.Before.SequenceEqual(after)) return;
-            _undoHistory.Push(completed);
-            while (_undoHistory.Count > MaxHistoryEntries)
+            if (changes.Length == 0) return;
+            long bytes = EstimateHistoryBytes(changes.LongLength);
+            if (bytes > HistoryByteBudget)
             {
-                PixelEdit[] entries = _undoHistory.ToArray();
-                _undoHistory.Clear();
-                for (int i = entries.Length - 2; i >= 0; i--) _undoHistory.Push(entries[i]);
+                frame!.ApplyPixelChanges(pending.LayerId, changes.Select(change =>
+                    new KeyValuePair<int, Color>(change.Index, change.Before)));
+                LastHistoryError = "The edit was reverted because it exceeds the undo memory budget.";
+                return;
             }
-            _redoHistory.Clear();
+            ClearRedoHistory();
+            _undoHistory.AddLast(new PixelEdit(frame!, pending.LayerId, changes, bytes));
+            _historyBytes += bytes;
+            TrimHistoryToBudget();
         }
 
         private void ClearEditHistory()
@@ -264,21 +288,24 @@ namespace FrameByFrame.src.Engine.Animation
             _hasStrokePatternOrigin = false;
             _undoHistory.Clear();
             _redoHistory.Clear();
+            _historyBytes = 0;
+            LastHistoryError = string.Empty;
         }
 
         public bool Undo()
         {
             CommitPixelEdit();
             if (_undoHistory.Count == 0) return false;
-            PixelEdit edit = _undoHistory.Peek();
+            PixelEdit edit = _undoHistory.Last!.Value;
             Frame? frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
-            if (!CanReplaceLayer(frame, edit.LayerId, edit.Before)) return false;
-            _undoHistory.Pop();
-            frame.SetLayerPixels(edit.LayerId, edit.Before, true);
+            if (!CanApplyDeltas(frame, edit, useAfter: false)) return false;
+            _undoHistory.RemoveLast();
+            frame.ApplyPixelChanges(edit.LayerId, edit.Changes.Select(change =>
+                new KeyValuePair<int, Color>(change.Index, change.Before)));
             SelectFrame(_timeline.IndexOf(frame));
             SelectLayer(edit.LayerId);
-            _redoHistory.Push(edit);
+            _redoHistory.AddLast(edit);
             return true;
         }
 
@@ -286,15 +313,16 @@ namespace FrameByFrame.src.Engine.Animation
         {
             CommitPixelEdit();
             if (_redoHistory.Count == 0) return false;
-            PixelEdit edit = _redoHistory.Peek();
+            PixelEdit edit = _redoHistory.Last!.Value;
             Frame? frame = _timeline.Contains(edit.Frame) ? edit.Frame : null;
             if (frame == null || frame.Layers.All(layer => layer.Id != edit.LayerId)) return false;
-            if (edit.After == null || !CanReplaceLayer(frame, edit.LayerId, edit.After)) return false;
-            _redoHistory.Pop();
-            frame.SetLayerPixels(edit.LayerId, edit.After, true);
+            if (!CanApplyDeltas(frame, edit, useAfter: true)) return false;
+            _redoHistory.RemoveLast();
+            frame.ApplyPixelChanges(edit.LayerId, edit.Changes.Select(change =>
+                new KeyValuePair<int, Color>(change.Index, change.After)));
             SelectFrame(_timeline.IndexOf(frame));
             SelectLayer(edit.LayerId);
-            _undoHistory.Push(edit);
+            _undoHistory.AddLast(edit);
             return true;
         }
 
@@ -376,8 +404,14 @@ namespace FrameByFrame.src.Engine.Animation
         public void FillCurrentLayerAt(Vector2 screenPosition, Color color)
         {
             Vector2 local = ToFramePosition(screenPosition);
-            CurrentFrame?.FloodFill(SelectedLayerId, (int)local.X, (int)local.Y, color,
-                Math.Max(0, MaxStoredPixels - StoredPixelCount));
+            int x = (int)local.X;
+            int y = (int)local.Y;
+            Color previous = CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
+            bool changed = CurrentFrame.FloodFill(SelectedLayerId, x, y, color,
+                Math.Max(0, MaxStoredPixels - StoredPixelCount),
+                HistoryByteBudget / EstimatedDeltaBytes, (index, before) => TrackPixelBefore(index, before));
+            if (!changed && previous != color)
+                LastHistoryError = "The fill was not applied because it exceeds a project or undo memory budget.";
         }
 
         public Color SampleVisibleColorAt(Vector2 screenPosition)
@@ -464,7 +498,9 @@ namespace FrameByFrame.src.Engine.Animation
                         if (_strokeCoverage.TryGetValue(pixelIndex, out byte appliedAlpha) &&
                             appliedAlpha >= tipAlpha) continue;
                         Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
-                        Color baseline = _pendingPixelEdit?.Before?[pixelIndex] ?? existing;
+                        if (!TrackPixelBefore(pixelIndex, existing)) continue;
+                        Color baseline = _pendingPixelEdit != null &&
+                            _pendingPixelEdit.Before.TryGetValue(pixelIndex, out Color before) ? before : existing;
                         Color result = BrushRasterizer.Apply(baseline, color, tipAlpha, erase);
                         bool canAddPixel = result == Color.Transparent || existing != Color.Transparent || availablePixels > 0;
                         if (CurrentFrame.SetPixel(SelectedLayerId, x, y, result, canAddPixel))
@@ -492,15 +528,110 @@ namespace FrameByFrame.src.Engine.Animation
                 !CanReplaceLayer(CurrentFrame, SelectedLayerId, pixels)) return false;
             CommitPixelEdit();
             BeginPixelEdit();
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, i);
+                if (existing != pixels[i] && !TrackPixelBefore(i, existing))
+                {
+                    CancelPixelEdit();
+                    return false;
+                }
+            }
             CurrentFrame.SetLayerPixels(SelectedLayerId, pixels);
             CommitPixelEdit();
-            return true;
+            return string.IsNullOrEmpty(LastHistoryError);
+        }
+
+        public Color GetCurrentLayerPixel(int x, int y) =>
+            CurrentFrame.GetLayerPixel(SelectedLayerId, x, y);
+
+        public bool ApplyCurrentLayerPixelChanges(IReadOnlyDictionary<int, Color> changes)
+        {
+            ArgumentNullException.ThrowIfNull(changes);
+            if (SelectedLayer?.IsLocked != false || changes.Count == 0) return false;
+            if (changes.Count > HistoryByteBudget / EstimatedDeltaBytes)
+            {
+                LastHistoryError = "The edit was not applied because it exceeds the undo memory budget.";
+                return false;
+            }
+            long opaqueDelta = 0;
+            foreach (KeyValuePair<int, Color> change in changes)
+            {
+                Color existing = CurrentFrame.GetLayerPixel(SelectedLayerId, change.Key);
+                if (existing == Color.Transparent && change.Value != Color.Transparent) opaqueDelta++;
+                else if (existing != Color.Transparent && change.Value == Color.Transparent) opaqueDelta--;
+            }
+            if (StoredPixelCount + opaqueDelta > MaxStoredPixels) return false;
+            CommitPixelEdit();
+            BeginPixelEdit();
+            foreach (KeyValuePair<int, Color> change in changes)
+                TrackPixelBefore(change.Key, CurrentFrame.GetLayerPixel(SelectedLayerId, change.Key));
+            CurrentFrame.ApplyPixelChanges(SelectedLayerId, changes);
+            CommitPixelEdit();
+            return string.IsNullOrEmpty(LastHistoryError);
         }
 
         private bool CanReplaceLayer(Frame frame, Guid layerId, Color[] replacement)
         {
             long replacementCount = replacement.LongCount(pixel => pixel != Color.Transparent);
             return StoredPixelCount - frame.GetLayerPixelCount(layerId) + replacementCount <= MaxStoredPixels;
+        }
+
+        private bool TrackPixelBefore(int index, Color color)
+        {
+            if (_pendingPixelEdit == null) return false;
+            if (_pendingPixelEdit.Before.ContainsKey(index)) return true;
+            if (_pendingPixelEdit.Before.Count >= HistoryByteBudget / EstimatedDeltaBytes)
+            {
+                LastHistoryError = "The edit was not applied because it exceeds the undo memory budget.";
+                return false;
+            }
+            _pendingPixelEdit.Before.Add(index, color);
+            return true;
+        }
+
+        private void CancelPixelEdit()
+        {
+            _pendingPixelEdit = null;
+            _strokeCoverage.Clear();
+            _hasStrokePatternOrigin = false;
+        }
+
+        private bool CanApplyDeltas(Frame frame, PixelEdit edit, bool useAfter)
+        {
+            long opaqueDelta = 0;
+            foreach (PixelDelta change in edit.Changes)
+            {
+                Color current = frame.GetLayerPixel(edit.LayerId, change.Index);
+                Color replacement = useAfter ? change.After : change.Before;
+                if (current == Color.Transparent && replacement != Color.Transparent) opaqueDelta++;
+                else if (current != Color.Transparent && replacement == Color.Transparent) opaqueDelta--;
+            }
+            return StoredPixelCount + opaqueDelta <= MaxStoredPixels;
+        }
+
+        private void ClearRedoHistory()
+        {
+            foreach (PixelEdit edit in _redoHistory) _historyBytes -= edit.EstimatedBytes;
+            _redoHistory.Clear();
+        }
+
+        private void TrimHistoryToBudget()
+        {
+            while (_historyBytes > HistoryByteBudget)
+            {
+                if (_undoHistory.First != null)
+                {
+                    _historyBytes -= _undoHistory.First.Value.EstimatedBytes;
+                    _undoHistory.RemoveFirst();
+                }
+                else if (_redoHistory.First != null)
+                {
+                    _historyBytes -= _redoHistory.First.Value.EstimatedBytes;
+                    _redoHistory.RemoveFirst();
+                }
+                else break;
+            }
         }
 
         public AnimationLayer AddLayer(string name, int index = 0)
