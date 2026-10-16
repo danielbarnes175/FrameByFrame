@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 
 namespace FrameByFrame.src.Engine.Animation
 {
@@ -40,15 +41,15 @@ namespace FrameByFrame.src.Engine.Animation
         {
             if (string.IsNullOrWhiteSpace(sourceName))
                 throw new ArgumentException("An audio track must have a source name.", nameof(sourceName));
-            if (encodedData == null || encodedData.Length == 0)
-                throw new ArgumentException("An audio track must contain encoded audio data.", nameof(encodedData));
+            if (encodedData == null || encodedData.Length == 0 || encodedData.Length > ProjectLimits.MaxAudioTrackBytes)
+                throw new ArgumentException($"An audio track must contain between 1 byte and {ProjectLimits.MaxAudioTrackBytes:N0} bytes.", nameof(encodedData));
             if (!double.IsFinite(durationSeconds) || durationSeconds <= 0)
                 throw new ArgumentOutOfRangeException(nameof(durationSeconds));
 
             Id = id.GetValueOrDefault(Guid.NewGuid());
             if (Id == Guid.Empty) throw new ArgumentException("Audio track IDs cannot be empty.", nameof(id));
             SourceName = Path.GetFileName(sourceName);
-            if (string.IsNullOrWhiteSpace(SourceName))
+            if (string.IsNullOrWhiteSpace(SourceName) || Encoding.UTF8.GetByteCount(SourceName) > ProjectLimits.MaxNameBytes)
                 throw new ArgumentException("The audio source name is invalid.", nameof(sourceName));
             SourceExtension = NormalizeExtension(sourceExtension);
             EncodedData = encodedData;
@@ -61,8 +62,9 @@ namespace FrameByFrame.src.Engine.Animation
 
         internal void SetDecodedPcm(byte[]? pcmData)
         {
-            if (pcmData != null && pcmData.Length % (ChannelCount * BytesPerSample) != 0)
-                throw new InvalidDataException("Decoded audio data is not sample-aligned.");
+            if (pcmData != null && (pcmData.Length > ProjectLimits.MaxDecodedAudioTrackBytes ||
+                pcmData.Length % (ChannelCount * BytesPerSample) != 0))
+                throw new InvalidDataException("Decoded audio data is too large or not sample-aligned.");
             PcmData = pcmData;
         }
 

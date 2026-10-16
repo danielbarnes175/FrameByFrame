@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Audio;
 using Microsoft.Xna.Framework;
@@ -20,12 +21,7 @@ namespace FrameByFrame.src.Engine.Export
         private const ushort MajorVersion = 1;
         private const ushort MinorVersion = 0;
         private const uint BrotliFlag = 1;
-        private const int MaxLayerCount = 1024;
         private const int KeyframeInterval = 100;
-        private const int MaxStringBytes = 1024 * 1024;
-        private const int MaxFrameCount = 1_000_000;
-        private const int MaxDimension = 4_096;
-        private const int MaxFramePayloadBytes = 512 * 1024 * 1024;
 
         private enum FrameKind : byte
         {
@@ -45,7 +41,7 @@ namespace FrameByFrame.src.Engine.Export
                 throw new InvalidDataException("Cannot save an animation without frames.");
             if (animation.fps <= 0)
                 throw new InvalidDataException("Animation FPS must be greater than zero.");
-            if (animation.Layers.Count == 0 || animation.Layers.Count > MaxLayerCount)
+            if (animation.Layers.Count == 0 || animation.Layers.Count > ProjectLimits.MaxLayerCount)
                 throw new InvalidDataException("Animation layer count is invalid or unsupported.");
 
             Frame firstFrame = animation.GetFrameAtIndex(0) ??
@@ -73,7 +69,7 @@ namespace FrameByFrame.src.Engine.Export
                     writer.Write(animation.Layers.Count);
                     writer.Write(animation.TotalFrames);
                     writer.Write(KeyframeInterval);
-                    WriteString(writer, animation.projectName);
+                    WriteString(writer, animation.projectName, ProjectLimits.MaxNameBytes);
                     writer.Write(animation.IsCanvasBackgroundTransparent);
                     writer.Write(animation.CanvasBackgroundColor.PackedValue);
                     writer.Write(animation.ThumbnailFrameIndex);
@@ -81,7 +77,7 @@ namespace FrameByFrame.src.Engine.Export
                     foreach (AnimationLayer layer in animation.Layers)
                     {
                         writer.Write(layer.Id.ToByteArray());
-                        WriteString(writer, layer.Name);
+                        WriteString(writer, layer.Name, ProjectLimits.MaxNameBytes);
                         writer.Write(layer.IsVisible);
                         writer.Write(layer.IsLocked);
                     }
@@ -107,7 +103,8 @@ namespace FrameByFrame.src.Engine.Export
                                 : FrameKind.Delta;
 
                         frameOffsets.Add(stream.Position);
-                        WriteFrameChunk(writer, frameIndex, frameKind, previousLayers, currentLayers);
+                        WriteFrameChunk(writer, frameIndex, frameKind, previousLayers, currentLayers,
+                            checked(firstFrame.width * firstFrame.height));
                         previousLayers = currentLayers;
                         frameIndex++;
                     }
@@ -164,10 +161,10 @@ namespace FrameByFrame.src.Engine.Export
             int layerCount = reader.ReadInt32();
             int frameCount = reader.ReadInt32();
             int keyframeInterval = reader.ReadInt32();
-            string projectName = ReadString(reader);
+            string projectName = ReadString(reader, ProjectLimits.MaxNameBytes);
             if (fps <= 0 || fps > Animation.Animation.MaxFramesPerSecond ||
-                layerCount <= 0 || layerCount > MaxLayerCount ||
-                frameCount <= 0 || frameCount > MaxFrameCount || keyframeInterval <= 0)
+                layerCount <= 0 || layerCount > ProjectLimits.MaxLayerCount ||
+                frameCount <= 0 || frameCount > ProjectLimits.MaxFrameCount || keyframeInterval <= 0)
                 throw new InvalidDataException("The FBF project header contains invalid values.");
             if (string.IsNullOrWhiteSpace(projectName))
                 throw new InvalidDataException("The FBF project name is missing.");
@@ -225,7 +222,7 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         private static void WriteFrameChunk(BinaryWriter writer, int frameIndex, FrameKind kind,
-            Dictionary<int, uint>[] previousLayers, Dictionary<int, uint>[] currentLayers)
+            Dictionary<int, uint>[] previousLayers, Dictionary<int, uint>[] currentLayers, int pixelCount)
         {
             WriteBytes(writer, FrameMagic);
             writer.Write(frameIndex);
@@ -257,7 +254,8 @@ namespace FrameByFrame.src.Engine.Export
             }
 
             byte[] uncompressed = uncompressedStream.ToArray();
-            if (uncompressed.Length > MaxFramePayloadBytes)
+            int maximumPayloadBytes = ProjectLimits.MaximumFramePayloadBytes(pixelCount, currentLayers.Length);
+            if (uncompressed.Length > maximumPayloadBytes)
                 throw new InvalidDataException("The frame is too large for the FBF v1 payload limit.");
 
             using var compressedStream = new MemoryStream();
@@ -265,7 +263,7 @@ namespace FrameByFrame.src.Engine.Export
                 brotli.Write(uncompressed, 0, uncompressed.Length);
 
             byte[] compressed = compressedStream.ToArray();
-            if (compressed.Length > MaxFramePayloadBytes)
+            if (compressed.Length > ProjectLimits.MaxFramePayloadBytes)
                 throw new InvalidDataException("The compressed frame exceeds the FBF v1 payload limit.");
 
             writer.Write(uncompressed.Length);
@@ -294,31 +292,16 @@ namespace FrameByFrame.src.Engine.Export
                 return;
             }
 
-            if (uncompressedLength <= 0 || uncompressedLength > MaxFramePayloadBytes ||
-                compressedLength <= 0 || compressedLength > MaxFramePayloadBytes ||
+            int maximumPayloadBytes = ProjectLimits.MaximumFramePayloadBytes(pixelCount, currentLayers.Length);
+            if (uncompressedLength <= 0 || uncompressedLength > maximumPayloadBytes ||
+                compressedLength <= 0 || compressedLength > ProjectLimits.MaxFramePayloadBytes ||
                 compressedLength > reader.BaseStream.Length - reader.BaseStream.Position)
                 throw new InvalidDataException("The FBF frame chunk length is invalid.");
 
-            byte[] compressed = reader.ReadBytes(compressedLength);
-            byte[] payload = new byte[uncompressedLength];
-            using (var compressedStream = new MemoryStream(compressed, writable: false))
-            using (var brotli = new BrotliStream(compressedStream, CompressionMode.Decompress))
-            {
-                int totalRead = 0;
-                while (totalRead < payload.Length)
-                {
-                    int read = brotli.Read(payload, totalRead, payload.Length - totalRead);
-                    if (read == 0)
-                        throw new InvalidDataException("The FBF frame payload ended unexpectedly.");
-                    totalRead += read;
-                }
-
-                if (brotli.ReadByte() != -1)
-                    throw new InvalidDataException("The FBF frame payload exceeds its declared length.");
-            }
-
-            using var payloadStream = new MemoryStream(payload, writable: false);
-            using var payloadReader = new BinaryReader(payloadStream);
+            using var compressedStream = new BoundedReadStream(reader.BaseStream, compressedLength);
+            using var brotli = new BrotliStream(compressedStream, CompressionMode.Decompress, leaveOpen: true);
+            using var payloadStream = new CountingReadStream(brotli, uncompressedLength);
+            using var payloadReader = new BinaryReader(payloadStream, Encoding.UTF8, leaveOpen: true);
 
             if (kind == FrameKind.Keyframe)
             {
@@ -346,8 +329,9 @@ namespace FrameByFrame.src.Engine.Export
                 }
             }
 
-            if (payloadStream.Position != payloadStream.Length)
-                throw new InvalidDataException("The FBF frame payload contains trailing data.");
+            if (payloadStream.BytesRead != uncompressedLength || brotli.ReadByte() != -1)
+                throw new InvalidDataException("The FBF frame payload length is inconsistent.");
+            compressedStream.Drain();
         }
 
         private static long[] ReadFrameIndex(BinaryReader reader, Stream stream, long indexOffset, int frameCount)
@@ -442,7 +426,7 @@ namespace FrameByFrame.src.Engine.Export
 
         private static List<AnimationLayer> ReadLayerDefinitions(BinaryReader reader, int count)
         {
-            if (count <= 0 || count > MaxLayerCount)
+            if (count <= 0 || count > ProjectLimits.MaxLayerCount)
                 throw new InvalidDataException("The FBF layer count is invalid or unsupported.");
             var layers = new List<AnimationLayer>(count);
             var ids = new HashSet<Guid>();
@@ -451,7 +435,7 @@ namespace FrameByFrame.src.Engine.Export
                 byte[] idBytes = reader.ReadBytes(16);
                 if (idBytes.Length != 16) throw new EndOfStreamException("The FBF layer ID is incomplete.");
                 Guid id = new Guid(idBytes);
-                string name = ReadString(reader);
+                string name = ReadString(reader, ProjectLimits.MaxNameBytes);
                 bool isVisible = ReadBoolean(reader, "layer visibility");
                 bool isLocked = ReadBoolean(reader, "layer lock");
                 if (id == Guid.Empty || !ids.Add(id) || string.IsNullOrWhiteSpace(name))
@@ -481,8 +465,8 @@ namespace FrameByFrame.src.Engine.Export
                 if (totalBytes > AudioService.MaxProjectAudioBytes)
                     throw new InvalidDataException("The project exceeds the embedded audio limit.");
                 writer.Write(track.Id.ToByteArray());
-                WriteString(writer, track.SourceName);
-                WriteString(writer, track.SourceExtension);
+                WriteString(writer, track.SourceName, ProjectLimits.MaxNameBytes);
+                WriteString(writer, track.SourceExtension, ProjectLimits.MaxNameBytes);
                 writer.Write(track.StartFrame);
                 writer.Write(track.Volume);
                 writer.Write(track.IsMuted);
@@ -505,8 +489,8 @@ namespace FrameByFrame.src.Engine.Export
                 byte[] idBytes = reader.ReadBytes(16);
                 if (idBytes.Length != 16) throw new EndOfStreamException("The FBF audio track ID is incomplete.");
                 Guid id = new(idBytes);
-                string sourceName = ReadString(reader);
-                string extension = ReadString(reader);
+                string sourceName = ReadString(reader, ProjectLimits.MaxNameBytes);
+                string extension = ReadString(reader, ProjectLimits.MaxNameBytes);
                 int startFrame = reader.ReadInt32();
                 float volume = reader.ReadSingle();
                 bool isMuted = ReadBoolean(reader, "audio mute");
@@ -538,32 +522,36 @@ namespace FrameByFrame.src.Engine.Export
 
         private static void ValidateDimensions(int width, int height)
         {
-            if (width <= 0 || height <= 0 || width > MaxDimension || height > MaxDimension)
-                throw new InvalidDataException("The project canvas dimensions are invalid or unsupported.");
-            _ = checked(width * height);
+            try { ProjectLimits.ValidateProjectShape(width, height, 1, 1); }
+            catch (Exception ex) when (ex is ArgumentOutOfRangeException or OverflowException)
+            {
+                throw new InvalidDataException("The project canvas dimensions are invalid or unsupported.", ex);
+            }
         }
 
         private static void ValidateResourceCounts(int layerCount, int frameCount)
         {
-            if (layerCount <= 0 || layerCount > MaxLayerCount ||
-                frameCount <= 0 || frameCount > MaxFrameCount)
-                throw new InvalidDataException("The project resource counts are invalid or unsupported.");
-
+            try { ProjectLimits.ValidateResourceCounts(layerCount, frameCount); }
+            catch (Exception ex) when (ex is ArgumentOutOfRangeException or OverflowException)
+            {
+                throw new InvalidDataException("The project resource counts exceed the supported memory budget.", ex);
+            }
         }
 
-        private static void WriteString(BinaryWriter writer, string value)
+        private static void WriteString(BinaryWriter writer, string value, int maximumBytes)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
-            if (bytes.Length > MaxStringBytes)
+            if (bytes.Length > maximumBytes || bytes.Length > ProjectLimits.MaxStringBytes)
                 throw new InvalidDataException("A string is too long for the FBF format.");
             writer.Write(bytes.Length);
             writer.Write(bytes);
         }
 
-        private static string ReadString(BinaryReader reader)
+        private static string ReadString(BinaryReader reader, int maximumBytes)
         {
             int length = reader.ReadInt32();
-            if (length < 0 || length > MaxStringBytes || length > reader.BaseStream.Length - reader.BaseStream.Position)
+            if (length < 0 || length > maximumBytes || length > ProjectLimits.MaxStringBytes ||
+                length > reader.BaseStream.Length - reader.BaseStream.Position)
                 throw new InvalidDataException("The FBF string length is invalid.");
             return Encoding.UTF8.GetString(reader.ReadBytes(length));
         }
@@ -598,6 +586,84 @@ namespace FrameByFrame.src.Engine.Export
             byte[] actual = reader.ReadBytes(expected.Length);
             if (!actual.AsSpan().SequenceEqual(expected))
                 throw new InvalidDataException($"Invalid {description}.");
+        }
+
+        private sealed class BoundedReadStream : Stream
+        {
+            private readonly Stream _inner;
+            private long _remaining;
+
+            public BoundedReadStream(Stream inner, long length)
+            {
+                _inner = inner;
+                _remaining = length;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (_remaining == 0) return 0;
+                int read = _inner.Read(buffer, offset, (int)Math.Min(count, _remaining));
+                _remaining -= read;
+                return read;
+            }
+            public override int Read(Span<byte> buffer)
+            {
+                if (_remaining == 0) return 0;
+                int read = _inner.Read(buffer[..(int)Math.Min(buffer.Length, _remaining)]);
+                _remaining -= read;
+                return read;
+            }
+            public void Drain()
+            {
+                Span<byte> buffer = stackalloc byte[4096];
+                while (_remaining > 0 && Read(buffer) > 0) { }
+            }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        private sealed class CountingReadStream : Stream
+        {
+            private readonly Stream _inner;
+            private readonly long _maximumBytes;
+            public long BytesRead { get; private set; }
+
+            public CountingReadStream(Stream inner, long maximumBytes)
+            {
+                _inner = inner;
+                _maximumBytes = maximumBytes;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => _maximumBytes;
+            public override long Position { get => BytesRead; set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (BytesRead == _maximumBytes) return 0;
+                int read = _inner.Read(buffer, offset, (int)Math.Min(count, _maximumBytes - BytesRead));
+                BytesRead += read;
+                return read;
+            }
+            public override int Read(Span<byte> buffer)
+            {
+                if (BytesRead == _maximumBytes) return 0;
+                int read = _inner.Read(buffer[..(int)Math.Min(buffer.Length, _maximumBytes - BytesRead)]);
+                BytesRead += read;
+                return read;
+            }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         }
     }
 }

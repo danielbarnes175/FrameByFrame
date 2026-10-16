@@ -526,6 +526,62 @@ finally
 }
 
     }
+
+    [Fact]
+    public void ProjectLimitsRejectOversizedShapesBeforeAllocation()
+    {
+        Assert.Equal(ProjectLimits.MaxCanvasDimension, Animation.MaxCanvasDimension);
+        Assert.Equal(ProjectLimits.MaxStoredPixels, Animation.MaxStoredPixels);
+        Assert.Equal(ProjectLimits.MaxAudioTrackCount, AudioService.MaxAudioTrackCount);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            ProjectLimits.ValidateResourceCounts(ProjectLimits.MaxLayerCount, 1_000));
+        Assert.True(ProjectLimits.MaximumFramePayloadBytes(64 * 64, 1) <
+            ProjectLimits.MaxFramePayloadBytes);
+        Assert.Throws<ArgumentException>(() =>
+            new AnimationLayer(new string('x', ProjectLimits.MaxNameBytes + 1)));
+
+        AnimationLayer[] maximumLayers = Enumerable.Range(0, ProjectLimits.MaxLayerCount)
+            .Select(index => new AnimationLayer($"Layer {index + 1}"))
+            .ToArray();
+        using (var animation = new Animation("Layer limit test", maximumLayers))
+        {
+            Assert.False(animation.CanAddLayer);
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+                animation.AddLayer("Too many"));
+            Assert.Contains("limit", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        string filename = Path.Combine(Path.GetTempPath(), $"framebyframe-limits-{Guid.NewGuid():N}.fbf");
+        try
+        {
+            using (var stream = File.Create(filename))
+            using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false))
+            {
+                writer.Write(Encoding.ASCII.GetBytes("FBFPROJ\0"));
+                writer.Write((ushort)1);
+                writer.Write((ushort)0);
+                writer.Write((uint)1);
+                writer.Write(64);
+                writer.Write(64);
+                writer.Write(0f);
+                writer.Write(0f);
+                writer.Write(12);
+                writer.Write(ProjectLimits.MaxLayerCount);
+                writer.Write(1_000);
+                writer.Write(100);
+                writer.Write(1);
+                writer.Write((byte)'x');
+            }
+
+            InvalidDataException error = Assert.Throws<InvalidDataException>(() => FbfProjectFile.Load(filename));
+            Assert.Contains("memory budget", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            File.Delete(filename);
+        }
+    }
 }
 
 sealed class TestElement : UIElement { }
