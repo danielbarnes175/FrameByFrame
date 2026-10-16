@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using Microsoft.Xna.Framework;
 
 namespace FrameByFrame.src.Engine
@@ -10,10 +11,20 @@ namespace FrameByFrame.src.Engine
         {
             string normalized = name?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(normalized) || normalized is "." or ".." ||
+                Encoding.UTF8.GetByteCount(normalized) > ProjectLimits.MaxNameBytes ||
                 Path.IsPathRooted(normalized) ||
                 normalized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
                 normalized.IndexOfAny(['<', '>', ':', '"', '/', '\\', '|', '?', '*']) >= 0)
                 throw new ArgumentException("Project names must contain valid filename characters.", parameterName);
+            return normalized;
+        }
+
+        internal static string LayerName(string? name, string parameterName)
+        {
+            string normalized = name?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalized) ||
+                Encoding.UTF8.GetByteCount(normalized) > ProjectLimits.MaxNameBytes)
+                throw new ArgumentException($"Layer names must be between 1 and {ProjectLimits.MaxNameBytes:N0} UTF-8 bytes.", parameterName);
             return normalized;
         }
 

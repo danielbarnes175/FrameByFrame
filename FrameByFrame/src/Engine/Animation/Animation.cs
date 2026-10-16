@@ -104,11 +104,19 @@ namespace FrameByFrame.src.Engine.Animation
         }
         public Frame CurrentFrame => _timeline.CurrentFrame;
         public Rectangle DisplayBounds { get; private set; }
-        public const int MinCanvasDimension = 64;
-        public const int MaxCanvasDimension = 4096;
-        public const int MaxFramesPerSecond = 240;
-        public const long MaxStoredPixels = 268_435_456;
+        public const int MinCanvasDimension = ProjectLimits.MinCanvasDimension;
+        public const int MaxCanvasDimension = ProjectLimits.MaxCanvasDimension;
+        public const int MaxFramesPerSecond = ProjectLimits.MaxFramesPerSecond;
+        public const long MaxStoredPixels = ProjectLimits.MaxStoredPixels;
         public long StoredPixelCount => Frames.Sum(frame => frame.NonTransparentPixelCount);
+        public bool CanAddFrame => CanUseShape(_layers.Count, TotalFrames + 1);
+        public bool CanDuplicateFrame => TotalFrames > 0 && CanAddFrame &&
+            StoredPixelCount + CurrentFrame.NonTransparentPixelCount <= MaxStoredPixels;
+        public bool CanPasteFrame => CanAddFrame && _timeline.HasClipboard &&
+            StoredPixelCount + _timeline.ClipboardPixelCount <= MaxStoredPixels;
+        public bool CanAddLayer => CanUseShape(_layers.Count + 1, Math.Max(1, TotalFrames));
+        public string FrameLimitMessage => $"Project limit reached ({ProjectLimits.MaxFrameCount:N0} frames or combined memory budget).";
+        public string LayerLimitMessage => $"Project limit reached ({ProjectLimits.MaxLayerCount} layers or combined memory budget).";
         public float ResourceBudgetRemaining => Math.Clamp(1f -
             (float)(StoredPixelCount / (double)MaxStoredPixels), 0f, 1f);
 
@@ -118,6 +126,8 @@ namespace FrameByFrame.src.Engine.Animation
             _layers = layers?.ToList() ??
                 [new AnimationLayer("Layer 1"), new AnimationLayer("Layer 2"), new AnimationLayer("Layer 3")];
             if (_layers.Count == 0) throw new ArgumentException("An animation must have at least one layer.", nameof(layers));
+            if (_layers.Count > ProjectLimits.MaxLayerCount)
+                throw new ArgumentException($"An animation cannot contain more than {ProjectLimits.MaxLayerCount} layers.", nameof(layers));
             if (_layers.Select(layer => layer.Id).Distinct().Count() != _layers.Count)
                 throw new ArgumentException("Layer IDs must be unique.", nameof(layers));
             _timeline = new Timeline(() => framePosition, () => frameSize, () => _layers,
@@ -139,10 +149,16 @@ namespace FrameByFrame.src.Engine.Animation
         public void LoadFrames(IEnumerable<Frame> loadedFrames, Vector2 loadedFramePosition, Vector2 loadedFrameSize)
         {
             ArgumentNullException.ThrowIfNull(loadedFrames);
-
+            List<Frame> frames = loadedFrames.ToList();
+            ProjectLimits.ValidateProjectShape((int)loadedFrameSize.X, (int)loadedFrameSize.Y,
+                _layers.Count, frames.Count);
+            if (frames.Any(frame => frame.width != (int)loadedFrameSize.X || frame.height != (int)loadedFrameSize.Y))
+                throw new ArgumentException("Every frame must match the project canvas dimensions.", nameof(loadedFrames));
+            if (frames.Sum(frame => frame.NonTransparentPixelCount) > MaxStoredPixels)
+                throw new ArgumentException("The project exceeds the supported stored pixel budget.", nameof(loadedFrames));
             framePosition = loadedFramePosition;
             frameSize = loadedFrameSize;
-            _timeline.Load(loadedFrames);
+            _timeline.Load(frames);
             ClearEditHistory();
         }
 
@@ -218,7 +234,11 @@ namespace FrameByFrame.src.Engine.Animation
         public Frame? GetFrameAtIndex(int index) => _timeline.GetFrameAtIndex(index);
         public void FirstFrame() => _timeline.FirstFrame();
         public void LastFrame() => _timeline.LastFrame();
-        public void NextFrame() => _timeline.NextFrame();
+        public void NextFrame()
+        {
+            if (CurrentFrameIndex == TotalFrames - 1 && !CanAddFrame) return;
+            _timeline.NextFrame();
+        }
         public void PreviousFrame() => _timeline.PreviousFrame();
 
         public void EraseCurrentLayer()
@@ -306,10 +326,16 @@ namespace FrameByFrame.src.Engine.Animation
                 _thumbnailFrame = null;
             ClampAudioTrackStarts();
         }
-        public void InsertFrame() => _timeline.InsertFrame();
-        public void DuplicateCurrentFrame() => _timeline.DuplicateCurrentFrame();
+        public void InsertFrame()
+        {
+            if (CanAddFrame) _timeline.InsertFrame();
+        }
+        public void DuplicateCurrentFrame()
+        {
+            if (CanDuplicateFrame) _timeline.DuplicateCurrentFrame();
+        }
         public void CopyCurrentFrame() => _timeline.CopyCurrentFrame();
-        public bool PasteFrame() => _timeline.PasteFrame();
+        public bool PasteFrame() => CanPasteFrame && _timeline.PasteFrame();
         public bool MoveFrame(int oldIndex, int newIndex) => _timeline.MoveFrame(oldIndex, newIndex);
         public void TogglePlaying() => _timeline.TogglePlaying();
         public void Animate(GameTime gameTime) => _timeline.Animate(gameTime, fps);
@@ -505,6 +531,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public AnimationLayer AddLayer(string name, int index = 0)
         {
+            if (!CanAddLayer) throw new InvalidOperationException(LayerLimitMessage);
             CommitPixelEdit();
             var layer = new AnimationLayer(name);
             index = Math.Clamp(index, 0, _layers.Count);
@@ -512,6 +539,23 @@ namespace FrameByFrame.src.Engine.Animation
             foreach (Frame frame in Frames) frame.AddLayer(layer, index);
             SelectedLayerId = layer.Id;
             return layer;
+        }
+
+        private static bool CanUseShape(int layerCount, int frameCount)
+        {
+            try
+            {
+                ProjectLimits.ValidateResourceCounts(layerCount, frameCount);
+                return true;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
         }
 
 

@@ -11,21 +11,16 @@ namespace FrameByFrame.src.Engine.Animation
 
         public AnimationLayer(string name, Guid? id = null, bool isVisible = true, bool isLocked = false)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("A layer name is required.", nameof(name));
-
             Id = id ?? Guid.NewGuid();
             if (Id == Guid.Empty) throw new ArgumentException("A layer ID cannot be empty.", nameof(id));
-            Name = name.Trim();
+            Name = ProjectModelValidator.LayerName(name, nameof(name));
             IsVisible = isVisible;
             IsLocked = isLocked;
         }
 
         internal void Rename(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("A layer name is required.", nameof(name));
-            Name = name.Trim();
+            Name = ProjectModelValidator.LayerName(name, nameof(name));
         }
     }
 }

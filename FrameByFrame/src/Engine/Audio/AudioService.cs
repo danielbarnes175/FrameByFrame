@@ -11,11 +11,11 @@ namespace FrameByFrame.src.Engine.Audio
 {
     public static class AudioService
     {
-        public const int MaxTrackBytes = 100 * 1024 * 1024;
-        public const long MaxProjectAudioBytes = 256L * 1024 * 1024;
-        public const int MaxAudioTrackCount = 64;
-        public const int MaxDecodedTrackBytes = 128 * 1024 * 1024;
-        public const long MaxDecodedProjectBytes = 256L * 1024 * 1024;
+        public const int MaxTrackBytes = ProjectLimits.MaxAudioTrackBytes;
+        public const long MaxProjectAudioBytes = ProjectLimits.MaxProjectAudioBytes;
+        public const int MaxAudioTrackCount = ProjectLimits.MaxAudioTrackCount;
+        public const int MaxDecodedTrackBytes = ProjectLimits.MaxDecodedAudioTrackBytes;
+        public const long MaxDecodedProjectBytes = ProjectLimits.MaxDecodedProjectAudioBytes;
         private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".wav", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".flac"

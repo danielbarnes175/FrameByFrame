@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Animation;
 using Microsoft.Xna.Framework;
@@ -135,6 +136,15 @@ namespace FrameByFrame.src.UI.Components
                 UpdateAudioMode();
                 return;
             }
+            bool canAddFrame = _animation.CanAddFrame;
+            _duplicate.IsEnabled = _animation.CanDuplicateFrame;
+            _insert.IsEnabled = canAddFrame;
+            _paste.IsEnabled = _animation.CanPasteFrame;
+            string frameLimit = _animation.FrameLimitMessage;
+            _duplicate.Tooltip = _animation.CanDuplicateFrame ? "Duplicate selected frame - Ctrl+D" : frameLimit;
+            _insert.Tooltip = canAddFrame ? "Insert a blank frame - B" : frameLimit;
+            _paste.Tooltip = _animation.CanPasteFrame ? "Paste frame after selection - Ctrl+V" :
+                canAddFrame ? "Copy a frame before pasting." : frameLimit;
             _delete.IsEnabled = _animation.TotalFrames > 1;
             _previousPage.Update();
             _nextPage.Update();
@@ -223,7 +233,11 @@ namespace FrameByFrame.src.UI.Components
             _nextPage.Update();
             AudioTrack? selected = SelectedAudioTrack;
             bool hasSelection = selected != null;
-            _addAudio.IsEnabled = _importTask == null;
+            bool canAddAudio = _animation.AudioTracks.Count < ProjectLimits.MaxAudioTrackCount;
+            _addAudio.IsEnabled = _importTask == null && canAddAudio;
+            _addAudio.Tooltip = canAddAudio
+                ? "Import audio at the selected frame"
+                : $"Project limit reached ({ProjectLimits.MaxAudioTrackCount} audio tracks).";
             _removeAudio.IsEnabled = _muteAudio.IsEnabled = _startDown.IsEnabled =
                 _startUp.IsEnabled = _volumeDown.IsEnabled = _volumeUp.IsEnabled = hasSelection;
             _muteAudio.IsSelected = selected?.IsMuted == true;

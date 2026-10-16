@@ -608,7 +608,7 @@ namespace FrameByFrame.src.UI.Components
             Rectangle panel = _layersPopover.Bounds;
             Rectangle toolbar = new(panel.X + 8, panel.Bottom - Layout.LayerToolbarHeight, panel.Width - 16, 36);
             IReadOnlyList<Rectangle> actions = UILayoutEngine.Stack(toolbar, UIAxis.Horizontal, 4, 6);
-            if (UIPointerRouter.Clicked(actions[0]))
+            if (_animation.CanAddLayer && UIPointerRouter.Clicked(actions[0]))
                 _animation.AddLayer($"Layer {_animation.Layers.Count + 1}");
             else if (UIPointerRouter.Clicked(actions[1]))
                 _animation.RemoveLayer(_animation.SelectedLayerId);
@@ -997,11 +997,14 @@ namespace FrameByFrame.src.UI.Components
             string[] labels = { "+", "-", "^", "v" };
             for (int i = 0; i < actions.Count; i++)
             {
-                UIRenderer.Fill(actions[i], UITheme.SurfaceRaised);
+                bool enabled = i != 0 || _animation.CanAddLayer;
+                UIRenderer.Fill(actions[i], enabled ? UITheme.SurfaceRaised : UITheme.Surface);
                 UIRenderer.Border(actions[i], UITheme.Border, 2);
-                UIRenderer.CenteredText(labels[i], actions[i], i == 1 ? UITheme.Danger : UITheme.Text,
+                UIRenderer.CenteredText(labels[i], actions[i], !enabled ? UITheme.TextMuted : i == 1 ? UITheme.Danger : UITheme.Text,
                     UITextRole.Button);
             }
+            if (!_animation.CanAddLayer && UIPointerRouter.ContainsPointer(actions[0]))
+                UIRenderer.Tooltip(_animation.LayerLimitMessage, actions[0], preferBelow: false, border: UITheme.Border);
             UIRenderer.Border(panel, UITheme.Primary, 3);
         }
 

@@ -34,6 +34,9 @@ namespace FrameByFrame.src.Engine.Animation
 
         public IEnumerable<Frame> Frames => _frames;
         public int TotalFrames => _frames.Count;
+        public bool HasClipboard => _clipboard != null;
+        public long ClipboardPixelCount => _clipboard?.Values.Sum(pixels =>
+            pixels.LongCount(pixel => pixel != Color.Transparent)) ?? 0;
         public int CurrentFrameIndex { get; private set; }
         public Frame CurrentFrame => _currentFrame?.Value ??
             throw new InvalidOperationException("The timeline has not been initialized.");
@@ -287,6 +290,7 @@ namespace FrameByFrame.src.Engine.Animation
             _frames.Clear();
             _currentFrame = null;
             _frameCache.Clear();
+            _clipboard = null;
             _disposed = true;
         }
     }
