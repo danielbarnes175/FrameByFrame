@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Animation;
 using ImageMagick;
@@ -20,6 +21,12 @@ namespace FrameByFrame.src.Engine.Export
         SpriteSheet
     }
 
+    public enum ExportCollisionBehavior
+    {
+        Fail,
+        Replace
+    }
+
     public class SaveService
     {
         private const string ProjectsDirectory = "Projects";
@@ -32,42 +39,63 @@ namespace FrameByFrame.src.Engine.Export
             private readonly string _exportRoot;
             private readonly string _projectDirectory;
             private readonly ExportFormat _format;
+            private readonly ExportCollisionBehavior _collisionBehavior;
+            private readonly CancellationTokenSource _cancellation = new();
             private readonly Task _worker;
             private bool _isComplete;
+            private bool _isCanceled;
             private float _progress;
             private string _status = "Preparing export...";
             private string _outputPath;
             private Exception? _failure;
 
             internal ExportOperation(ExportSnapshot snapshot, string projectName, string exportRoot,
-                string projectDirectory, ExportFormat format)
+                string projectDirectory, ExportFormat format,
+                ExportCollisionBehavior collisionBehavior = ExportCollisionBehavior.Fail)
             {
                 _snapshot = snapshot;
                 _projectName = projectName;
                 _exportRoot = exportRoot;
                 _projectDirectory = projectDirectory;
                 _format = format;
+                _collisionBehavior = collisionBehavior;
                 _outputPath = GetOutputPath(projectName, exportRoot, projectDirectory, format);
                 _worker = Task.Factory.StartNew(ExportOnWorker,
                     System.Threading.CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
 
             public bool IsComplete { get { lock (_stateLock) return _isComplete; } }
+            public bool IsCanceled { get { lock (_stateLock) return _isCanceled; } }
             public bool IsFailed { get { lock (_stateLock) return _failure != null; } }
             public float Progress { get { lock (_stateLock) return _progress; } }
             public string Status { get { lock (_stateLock) return _status; } }
             public string OutputPath { get { lock (_stateLock) return _outputPath; } }
             public Exception? Failure { get { lock (_stateLock) return _failure; } }
 
+            public void Cancel()
+            {
+                lock (_stateLock)
+                {
+                    if (_isComplete) return;
+                    _status = "Canceling export...";
+                    _cancellation.Cancel();
+                }
+            }
+
             internal void WaitForCompletion() => _worker.GetAwaiter().GetResult();
 
             private void ExportOnWorker()
             {
+                string stagingRoot = Path.Combine(_exportRoot, $".framebyframe-export-{Guid.NewGuid():N}");
+                string frameDirectory = Path.Combine(stagingRoot, "frames");
                 try
                 {
+                    EnsureDestinationAvailable(_outputPath, _format, _collisionBehavior);
+                    Directory.CreateDirectory(frameDirectory);
                     for (int i = 0; i < _snapshot.Frames.Count; i++)
                     {
-                        string frameFilename = Path.Combine(_projectDirectory, $"Frame_{i}.png");
+                        _cancellation.Token.ThrowIfCancellationRequested();
+                        string frameFilename = Path.Combine(frameDirectory, $"Frame_{i}.png");
                         SaveFrameAsPng(frameFilename, _snapshot, _snapshot.Frames[i]);
                         UpdateState(.9f * (i + 1) / _snapshot.Frames.Count,
                             $"Exporting frame {i + 1} of {_snapshot.Frames.Count}...");
@@ -82,25 +110,36 @@ namespace FrameByFrame.src.Engine.Export
                         ExportFormat.SpriteSheet => "Creating spritesheet...",
                         _ => "Finishing export..."
                     });
-                    RemoveObsoleteFrameFiles(_projectDirectory, _snapshot.Frames.Count);
-                    string outputPath = _format switch
+                    _cancellation.Token.ThrowIfCancellationRequested();
+                    string stagedOutput = _format switch
                     {
-                        ExportFormat.Gif => CreateGif(_snapshot.FramesPerSecond, _projectName, _exportRoot,
-                            _projectDirectory, _snapshot.Frames.Count),
+                        ExportFormat.Gif => CreateGif(_snapshot.FramesPerSecond, _projectName, stagingRoot,
+                            frameDirectory, _snapshot.Frames.Count, _cancellation.Token),
                         ExportFormat.Mov or ExportFormat.Mp4 =>
-                            CreateVideo(_snapshot, _projectName, _exportRoot, _projectDirectory, _format),
-                        ExportFormat.PngSequence => _projectDirectory,
+                            CreateVideo(_snapshot, _projectName, stagingRoot, frameDirectory, _format,
+                                _cancellation.Token),
+                        ExportFormat.PngSequence => frameDirectory,
                         ExportFormat.SpriteSheet =>
-                            CreateSpriteSheet(_snapshot.Width, _snapshot.Height, _projectName, _exportRoot,
-                                _projectDirectory, _snapshot.Frames.Count),
+                            CreateSpriteSheet(_snapshot.Width, _snapshot.Height, _projectName, stagingRoot,
+                                frameDirectory, _snapshot.Frames.Count, _cancellation.Token),
                         _ => throw new ArgumentOutOfRangeException(nameof(_format), _format, "Unsupported export format.")
                     };
+                    _cancellation.Token.ThrowIfCancellationRequested();
+                    CommitExport(stagedOutput, _outputPath, _format, _collisionBehavior);
                     lock (_stateLock)
                     {
-                        _outputPath = outputPath;
                         _progress = 1f;
-                        _status = $"Export complete: {outputPath}";
+                        _status = $"Export complete: {_outputPath}";
                         _isComplete = true;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    lock (_stateLock)
+                    {
+                        _isCanceled = true;
+                        _isComplete = true;
+                        _status = "Export canceled.";
                     }
                 }
                 catch (Exception ex)
@@ -109,7 +148,13 @@ namespace FrameByFrame.src.Engine.Export
                     {
                         _failure = ex;
                         _status = $"Export failed: {ex.Message}";
+                        _isComplete = true;
                     }
+                }
+                finally
+                {
+                    TryDeleteDirectory(stagingRoot);
+                    _cancellation.Dispose();
                 }
             }
 
@@ -215,10 +260,11 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         public static string ExportAnimationTo(Animation.Animation animation, int startFrameIndex, int endFrameIndex,
-            string outputDirectory, ExportFormat format = ExportFormat.Gif)
+            string outputDirectory, ExportFormat format = ExportFormat.Gif,
+            ExportCollisionBehavior collisionBehavior = ExportCollisionBehavior.Fail)
         {
             ExportOperation operation = BeginExportAnimation(
-                animation, startFrameIndex, endFrameIndex, outputDirectory, format);
+                animation, startFrameIndex, endFrameIndex, outputDirectory, format, collisionBehavior);
             RunToCompletion(operation);
             return operation.OutputPath;
         }
@@ -238,7 +284,8 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         public static ExportOperation BeginExportAnimation(Animation.Animation animation, int startFrameIndex,
-            int endFrameIndex, string outputDirectory, ExportFormat format = ExportFormat.Gif)
+            int endFrameIndex, string outputDirectory, ExportFormat format = ExportFormat.Gif,
+            ExportCollisionBehavior collisionBehavior = ExportCollisionBehavior.Fail)
         {
             ArgumentNullException.ThrowIfNull(animation);
             ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
@@ -258,9 +305,9 @@ namespace FrameByFrame.src.Engine.Export
             string exportRoot = Path.GetFullPath(outputDirectory);
             Directory.CreateDirectory(exportRoot);
             string projectDirectory = Path.Combine(exportRoot, projectName);
-            Directory.CreateDirectory(projectDirectory);
             ExportSnapshot snapshot = CaptureExportSnapshot(animation, startFrameIndex, endFrameIndex, format);
-            return new ExportOperation(snapshot, projectName, exportRoot, projectDirectory, format);
+            return new ExportOperation(snapshot, projectName, exportRoot, projectDirectory, format,
+                collisionBehavior);
         }
 
         public static bool FormatSupportsTransparency(ExportFormat format) => format switch
@@ -270,18 +317,53 @@ namespace FrameByFrame.src.Engine.Export
             _ => false
         };
 
-        private static void RemoveObsoleteFrameFiles(string projectDirectory, int frameCount)
+        private static void EnsureDestinationAvailable(string outputPath, ExportFormat format,
+            ExportCollisionBehavior collisionBehavior)
         {
-            foreach (string filename in Directory.EnumerateFiles(projectDirectory, "Frame_*.png"))
-            {
-                string fileStem = Path.GetFileNameWithoutExtension(filename);
-                string indexText = fileStem["Frame_".Length..];
+            bool exists = Directory.Exists(outputPath) || File.Exists(outputPath);
+            if (exists && collisionBehavior == ExportCollisionBehavior.Fail)
+                throw new IOException($"The export destination already exists: {outputPath}. Choose Replace to overwrite it.");
+        }
 
-                if (int.TryParse(indexText, out int frameIndex) && frameIndex >= frameCount)
-                {
-                    File.Delete(filename);
-                }
+        private static void CommitExport(string stagedOutput, string outputPath, ExportFormat format,
+            ExportCollisionBehavior collisionBehavior)
+        {
+            EnsureDestinationAvailable(outputPath, format, collisionBehavior);
+            if (format != ExportFormat.PngSequence)
+            {
+                if (Directory.Exists(outputPath))
+                    throw new IOException($"A directory blocks the export destination: {outputPath}.");
+                File.Move(stagedOutput, outputPath, overwrite: collisionBehavior == ExportCollisionBehavior.Replace);
+                return;
             }
+
+            if (File.Exists(outputPath))
+                throw new IOException($"A file blocks the PNG sequence destination: {outputPath}.");
+            if (!Directory.Exists(outputPath))
+            {
+                Directory.Move(stagedOutput, outputPath);
+                return;
+            }
+
+            string backupPath = outputPath + $".backup-{Guid.NewGuid():N}";
+            Directory.Move(outputPath, backupPath);
+            try
+            {
+                Directory.Move(stagedOutput, outputPath);
+                TryDeleteDirectory(backupPath);
+            }
+            catch
+            {
+                if (!Directory.Exists(outputPath) && Directory.Exists(backupPath))
+                    Directory.Move(backupPath, outputPath);
+                throw;
+            }
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
+            catch { }
         }
 
         private static ExportSnapshot CaptureExportSnapshot(Animation.Animation animation, int startFrameIndex,
@@ -375,7 +457,7 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         private static string CreateGif(int framesPerSecond, string projectName,
-            string exportRoot, string projectDirectory, int frameCount)
+            string exportRoot, string projectDirectory, int frameCount, CancellationToken cancellationToken)
         {
             string filename = Path.Combine(exportRoot, $"{projectName}.gif");
             uint frameDelay = (uint)Math.Max(1, Math.Round(100d / framesPerSecond));
@@ -383,6 +465,7 @@ namespace FrameByFrame.src.Engine.Export
             using MagickImageCollection collection = new MagickImageCollection();
             for (int i = 0; i < frameCount; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string frameFilename = Path.Combine(projectDirectory, $"Frame_{i}.png");
                 collection.Add(frameFilename);
                 collection[i].AnimationDelay = frameDelay;
@@ -394,7 +477,8 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         private static string CreateVideo(ExportSnapshot snapshot, string projectName,
-            string exportRoot, string projectDirectory, ExportFormat format)
+            string exportRoot, string projectDirectory, ExportFormat format,
+            CancellationToken cancellationToken)
         {
             string extension = format == ExportFormat.Mov ? ".mov" : ".mp4";
             string filename = Path.Combine(exportRoot, projectName + extension);
@@ -463,11 +547,9 @@ namespace FrameByFrame.src.Engine.Export
                 startInfo.ArgumentList.Add(duration.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture));
                 startInfo.ArgumentList.Add(filename);
 
-                using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("FFmpeg could not be started.");
-                string error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
-                if (process.ExitCode != 0)
-                    throw new InvalidOperationException($"FFmpeg export failed: {LastNonEmptyLine(error)}");
+                ProcessResult result = ProcessRunner.Run(startInfo, TimeSpan.FromMinutes(15), cancellationToken);
+                if (result.ExitCode != 0)
+                    throw new InvalidOperationException($"FFmpeg export failed: {LastNonEmptyLine(result.StandardError)}");
                 return filename;
             }
             finally
@@ -513,7 +595,7 @@ namespace FrameByFrame.src.Engine.Export
         }
 
         private static string CreateSpriteSheet(int frameWidth, int frameHeight, string projectName,
-            string exportRoot, string projectDirectory, int frameCount)
+            string exportRoot, string projectDirectory, int frameCount, CancellationToken cancellationToken)
         {
             int columns = (int)Math.Ceiling(Math.Sqrt(frameCount));
             int rows = (int)Math.Ceiling(frameCount / (double)columns);
@@ -522,6 +604,7 @@ namespace FrameByFrame.src.Engine.Export
             using var sheet = new MagickImage(MagickColors.Transparent, width, height);
             for (int i = 0; i < frameCount; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 using var frame = new MagickImage(Path.Combine(projectDirectory, $"Frame_{i}.png"));
                 int x = i % columns * frameWidth;
                 int y = i / columns * frameHeight;

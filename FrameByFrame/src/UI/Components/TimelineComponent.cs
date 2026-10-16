@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using FrameByFrame.src.Engine.Audio;
 using FrameByFrame.src.Engine.Animation;
 using Microsoft.Xna.Framework;
@@ -44,6 +45,7 @@ namespace FrameByFrame.src.UI.Components
         private float _audioDragStartX;
         private bool _showAudio;
         private Task<AudioTrack>? _importTask;
+        private CancellationTokenSource? _audioImportCancellation;
         private string _audioStatus = string.Empty;
         private int _dragSource = -1;
         private int _dropTarget = -1;
@@ -77,7 +79,7 @@ namespace FrameByFrame.src.UI.Components
                 Tooltip = "Paste frame after selection - Ctrl+V"
             };
             _mode = new UIActionButton("Audio", ToggleMode) { Tooltip = "Switch timeline mode" };
-            _addAudio = new UIActionButton("+", BeginAudioImport) { Tooltip = "Import audio at the selected frame" };
+            _addAudio = new UIActionButton("+", ToggleAudioImport) { Tooltip = "Import audio at the selected frame" };
             _removeAudio = new UIActionButton("X", RemoveSelectedAudio) { Tooltip = "Remove selected audio track" };
             _muteAudio = new UIActionButton("M", ToggleSelectedAudioMute) { Tooltip = "Mute or unmute selected audio" };
             _startDown = new UIActionButton("<-", () => MoveSelectedAudio(-1)) { Tooltip = "Move audio one frame earlier" };
@@ -223,7 +225,9 @@ namespace FrameByFrame.src.UI.Components
             _nextPage.Update();
             AudioTrack? selected = SelectedAudioTrack;
             bool hasSelection = selected != null;
-            _addAudio.IsEnabled = _importTask == null;
+            _addAudio.IsEnabled = true;
+            _addAudio.Text = _importTask == null ? "+" : "Stop";
+            _addAudio.Tooltip = _importTask == null ? "Import audio at the selected frame" : "Cancel audio import";
             _removeAudio.IsEnabled = _muteAudio.IsEnabled = _startDown.IsEnabled =
                 _startUp.IsEnabled = _volumeDown.IsEnabled = _volumeUp.IsEnabled = hasSelection;
             _muteAudio.IsSelected = selected?.IsMuted == true;
@@ -320,12 +324,20 @@ namespace FrameByFrame.src.UI.Components
                 DialogResult result = dialog.Open(out string? output, Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
                 if (result != DialogResult.Okay || string.IsNullOrWhiteSpace(output)) return;
                 _audioStatus = string.Empty;
-                _importTask = AudioService.ImportAsync(output, _animation.CurrentFrameIndex);
+                _audioImportCancellation = new CancellationTokenSource();
+                _importTask = AudioService.ImportAsync(output, _animation.CurrentFrameIndex,
+                    _audioImportCancellation.Token);
             }
             catch (Exception ex)
             {
                 _audioStatus = $"Audio import failed: {ex.Message} Check file access and choose a supported audio format, then try again.";
             }
+        }
+
+        private void ToggleAudioImport()
+        {
+            if (_importTask == null) BeginAudioImport();
+            else _audioImportCancellation?.Cancel();
         }
 
         private void PollAudioImport()
@@ -338,11 +350,20 @@ namespace FrameByFrame.src.UI.Components
                 _selectedAudioTrack = track.Id;
                 _audioStatus = $"Imported {track.SourceName}.";
             }
+            catch (OperationCanceledException)
+            {
+                _audioStatus = "Audio import canceled.";
+            }
             catch (Exception ex)
             {
                 _audioStatus = $"Audio import failed: {ex.Message} Check the file format and available project space, then try again.";
             }
-            finally { _importTask = null; }
+            finally
+            {
+                _importTask = null;
+                _audioImportCancellation?.Dispose();
+                _audioImportCancellation = null;
+            }
         }
 
         private void RemoveSelectedAudio()

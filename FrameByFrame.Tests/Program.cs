@@ -9,6 +9,8 @@ using Microsoft.Xna.Framework;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
+using System.Threading;
 using Xunit;
 
 public sealed class ContractTests
@@ -512,7 +514,6 @@ string asyncExportRoot = Path.Combine(Path.GetTempPath(), $"framebyframe-worker-
 string asyncProjectDirectory = Path.Combine(asyncExportRoot, "Worker export test");
 try
 {
-    Directory.CreateDirectory(asyncProjectDirectory);
     var operation = new SaveService.ExportOperation(exportSnapshot, "Worker export test", asyncExportRoot,
         asyncProjectDirectory, ExportFormat.PngSequence);
     operation.WaitForCompletion();
@@ -525,6 +526,65 @@ finally
     if (Directory.Exists(asyncExportRoot)) Directory.Delete(asyncExportRoot, recursive: true);
 }
 
+    }
+
+    [Fact]
+    public void ExportStagingPreservesExistingDestinationsUntilReplacementIsExplicit()
+    {
+        var frame = new SaveService.ExportFrameSnapshot([
+            new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Red)])
+        ]);
+        var snapshot = new SaveService.ExportSnapshot(1, 1, 12, 0, Color.White,
+            [frame], Array.Empty<AudioTrack>());
+        string root = Path.Combine(Path.GetTempPath(), $"framebyframe-safe-export-{Guid.NewGuid():N}");
+        string destination = Path.Combine(root, "Safe export");
+        try
+        {
+            Directory.CreateDirectory(destination);
+            string unrelated = Path.Combine(destination, "Frame_99.png");
+            File.WriteAllText(unrelated, "user data");
+
+            var blocked = new SaveService.ExportOperation(snapshot, "Safe export", root, destination,
+                ExportFormat.PngSequence);
+            blocked.WaitForCompletion();
+            Assert.True(blocked.IsFailed);
+            Assert.Equal("user data", File.ReadAllText(unrelated));
+
+            var replacement = new SaveService.ExportOperation(snapshot, "Safe export", root, destination,
+                ExportFormat.PngSequence, ExportCollisionBehavior.Replace);
+            replacement.WaitForCompletion();
+            Assert.True(replacement.IsComplete && !replacement.IsFailed);
+            Assert.True(File.Exists(Path.Combine(destination, "Frame_0.png")));
+            Assert.False(File.Exists(unrelated));
+            Assert.Empty(Directory.EnumerateDirectories(root, ".framebyframe-export-*"));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ProcessRunnerTerminatesCanceledAndTimedOutProcesses()
+    {
+        static ProcessStartInfo LongRunningProcess()
+        {
+            ProcessStartInfo startInfo = OperatingSystem.IsWindows()
+                ? new ProcessStartInfo("cmd.exe", "/c ping 127.0.0.1 -n 6 > nul")
+                : new ProcessStartInfo("/bin/sh", "-c \"sleep 5\"");
+            startInfo.UseShellExecute = false;
+            startInfo.CreateNoWindow = true;
+            startInfo.RedirectStandardError = true;
+            startInfo.RedirectStandardOutput = true;
+            return startInfo;
+        }
+
+        using (var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150)))
+            Assert.Throws<OperationCanceledException>(() => ProcessRunner.Run(
+                LongRunningProcess(), TimeSpan.FromSeconds(10), cancellation.Token));
+
+        Assert.Throws<TimeoutException>(() => ProcessRunner.Run(
+            LongRunningProcess(), TimeSpan.FromMilliseconds(150), CancellationToken.None));
     }
 }
 
