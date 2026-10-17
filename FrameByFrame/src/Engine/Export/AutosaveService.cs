@@ -22,10 +22,10 @@ namespace FrameByFrame.src.Engine.Export
         public bool IsEnabled { get; private set; }
         public string LastError { get; private set; } = string.Empty;
 
-        public AutosaveService(string preferencesPath = "Settings.json", TimeSpan? interval = null,
+        public AutosaveService(string? preferencesPath = null, TimeSpan? interval = null,
             Action<Animation.Animation>? save = null)
         {
-            _preferencesPath = Path.GetFullPath(preferencesPath);
+            _preferencesPath = Path.GetFullPath(preferencesPath ?? AppDataPaths.Current.PreferencesFile);
             _interval = interval ?? DefaultInterval;
             _save = save ?? SaveService.SaveAnimation;
             IsEnabled = LoadPreference();

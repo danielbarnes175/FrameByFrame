@@ -217,6 +217,42 @@ finally
     File.Delete(autosaveSettings);
 }
 
+string appDataTestRoot = Path.Combine(Path.GetTempPath(), $"framebyframe-data-{Guid.NewGuid():N}");
+string legacyDataRoot = Path.Combine(Path.GetTempPath(), $"framebyframe-legacy-{Guid.NewGuid():N}");
+string alternateWorkingDirectory = Path.Combine(Path.GetTempPath(), $"framebyframe-cwd-{Guid.NewGuid():N}");
+string originalWorkingDirectory = Directory.GetCurrentDirectory();
+try
+{
+    Directory.CreateDirectory(Path.Combine(legacyDataRoot, "Projects"));
+    Directory.CreateDirectory(alternateWorkingDirectory);
+    File.WriteAllText(Path.Combine(legacyDataRoot, "Settings.json"), "{\"AutosaveEnabled\":false}");
+    File.WriteAllText(Path.Combine(legacyDataRoot, "CustomBrushes.json"), "[]");
+    File.WriteAllBytes(Path.Combine(legacyDataRoot, "Projects", "legacy.fbf"), [1, 2, 3]);
+    using (AppDataPaths.UseForTests(appDataTestRoot, [legacyDataRoot]))
+    {
+        string projectsPath = SaveService.ProjectsDirectory;
+        Directory.SetCurrentDirectory(alternateWorkingDirectory);
+        Assert(SaveService.ProjectsDirectory == projectsPath &&
+               File.Exists(AppDataPaths.Current.PreferencesFile) &&
+               File.Exists(AppDataPaths.Current.CustomBrushesFile) &&
+               File.Exists(Path.Combine(projectsPath, "legacy.fbf")),
+            "Injected app storage should be independent of the working directory and copy legacy data safely.");
+        Assert(Directory.Exists(AppDataPaths.Current.CacheDirectory) &&
+               Directory.Exists(AppDataPaths.Current.TemporaryDirectory),
+            "Application cache and temporary data should have separate user-data directories.");
+        var migratedAutosave = new AutosaveService();
+        Assert(!migratedAutosave.IsEnabled,
+            "Default preferences should be read from the migrated application-data location.");
+    }
+}
+finally
+{
+    Directory.SetCurrentDirectory(originalWorkingDirectory);
+    if (Directory.Exists(appDataTestRoot)) Directory.Delete(appDataTestRoot, recursive: true);
+    if (Directory.Exists(legacyDataRoot)) Directory.Delete(legacyDataRoot, recursive: true);
+    if (Directory.Exists(alternateWorkingDirectory)) Directory.Delete(alternateWorkingDirectory, recursive: true);
+}
+
 using (var animation = new Animation("Layer model test"))
 {
     AssertThrows<ArgumentOutOfRangeException>(() => animation.fps = 0,

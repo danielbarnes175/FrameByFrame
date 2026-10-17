@@ -9,8 +9,6 @@ namespace FrameByFrame.src.Engine
     public sealed class BrushPresetStore
     {
         private const string DefaultLibraryFileName = "DefaultBrushes.json";
-        private const string CustomLibraryFileName = "CustomBrushes.json";
-
         private readonly string _defaultPath;
         private readonly string _customPath;
         private readonly List<BrushPreset> _presets = new();
@@ -19,9 +17,9 @@ namespace FrameByFrame.src.Engine
         public IReadOnlyList<BrushPreset> Presets => _presets;
         public string LastError { get; private set; } = string.Empty;
 
-        public BrushPresetStore(string customPath = CustomLibraryFileName, string? defaultPath = null)
+        public BrushPresetStore(string? customPath = null, string? defaultPath = null)
         {
-            _customPath = Path.GetFullPath(customPath);
+            _customPath = Path.GetFullPath(customPath ?? AppDataPaths.Current.CustomBrushesFile);
             _defaultPath = Path.GetFullPath(defaultPath ??
                 Path.Combine(AppContext.BaseDirectory, DefaultLibraryFileName));
             Load();

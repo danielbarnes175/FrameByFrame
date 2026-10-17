@@ -47,7 +47,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private int _exportStart;
         private int _exportEnd;
         private ExportFormat _exportFormat = ExportFormat.Gif;
-        private string _exportDirectory = Path.GetFullPath("Projects");
+        private string _exportDirectory = SaveService.ProjectsDirectory;
         private string _exportMessage = string.Empty;
         private SaveService.ExportOperation? _exportOperation;
         private bool _exportPending;
@@ -61,7 +61,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void LoadContent()
         {
-            try { Directory.CreateDirectory("Projects"); }
+            try { Directory.CreateDirectory(SaveService.ProjectsDirectory); }
             catch (Exception ex)
             {
                 _feedback.ShowError("Projects folder is unavailable", ex.Message,
@@ -85,6 +85,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _cancelExport = new UIActionButton("Cancel", () => _isSelectingExportRange = false);
             _chooseExportDirectory = new UIActionButton("Choose export folder", ChooseExportDirectory);
             _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
+            _folder.Tooltip = SaveService.ProjectsDirectory;
             _create = new UIActionButton("Create animation", CreateAnimation);
             _feedbackOverlay = new UIFeedbackOverlay(_feedback);
         }
@@ -246,10 +247,18 @@ namespace FrameByFrame.src.Engine.Scenes
                 : $"Your animations - {_pageStart + 1}-{Math.Min(_pageStart + _projectCardBounds.Count, _animations.Count)} of {_animations.Count}";
             new UITextContainer
             {
-                Bounds = new Rectangle(_back.Bounds.Right + S(16), S(10), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(68)),
+                Bounds = new Rectangle(_back.Bounds.Right + S(16), S(7), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(42)),
                 HorizontalAlignment = UIAlign.Start,
-                MaxLines = 2
+                MaxLines = 1
             }.Draw(heading, UITheme.Text, UITextRole.Title);
+            new UITextContainer
+            {
+                Bounds = new Rectangle(_back.Bounds.Right + S(16), S(48),
+                    Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(28)),
+                HorizontalAlignment = UIAlign.Start,
+                MaxLines = 1,
+                Padding = 0
+            }.Draw(SaveService.ProjectsDirectory, UITheme.TextMuted, UITextRole.Caption);
             _back.Draw(); _folder.Draw();
 
             if (_animations.Count == 0) DrawEmptyState(); else DrawSelectedProject();
@@ -392,7 +401,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _feedback.Clear();
             try
             {
-                foreach (string file in Directory.GetFiles("Projects", "*.fbf"))
+                foreach (string file in Directory.GetFiles(SaveService.ProjectsDirectory, "*.fbf"))
                     _pendingProjectFiles.Enqueue(file);
                 _projectLoadTotal = _pendingProjectFiles.Count;
                 if (_projectLoadTotal > 0)
@@ -644,11 +653,11 @@ namespace FrameByFrame.src.Engine.Scenes
         };
         private void OpenProjectFolder()
         {
-            try { Process.Start(new ProcessStartInfo { FileName = Path.GetFullPath("Projects"), UseShellExecute = true, Verb = "open" }); }
+            try { Process.Start(new ProcessStartInfo { FileName = SaveService.ProjectsDirectory, UseShellExecute = true, Verb = "open" }); }
             catch (Exception ex)
             {
                 _feedback.ShowError("Projects folder could not be opened", ex.Message,
-                    $"Open this folder manually: {Path.GetFullPath("Projects")}");
+                    $"Open this folder manually: {SaveService.ProjectsDirectory}");
             }
         }
         private void GoHome()
