@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using FrameByFrame.src.Engine.Audio;
+using System.Linq;
+using System.Threading.Tasks;
+using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
@@ -13,8 +15,27 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class ProjectsScene : BaseScene
     {
-        private readonly List<string> _projectFiles = new();
-        private readonly List<Animation.Animation> _animations = new();
+        private sealed class GalleryProject
+        {
+            public string FilePath { get; set; }
+            public FbfProjectFile.ProjectMetadata Metadata { get; set; }
+            public Frame? Thumbnail { get; set; }
+            public bool ThumbnailFailed { get; set; }
+            public long LastThumbnailAccess { get; set; }
+            public GalleryProject(string filePath, FbfProjectFile.ProjectMetadata metadata)
+            {
+                FilePath = filePath;
+                Metadata = metadata;
+            }
+        }
+
+        private sealed record ThumbnailLoadResult(int Generation, string FilePath,
+            FbfProjectFile.ProjectThumbnail? Thumbnail, Exception? Error);
+        private sealed record MetadataLoadResult(int Generation, string FilePath,
+            FbfProjectFile.ProjectMetadata? Metadata, Exception? Error);
+
+        private const int MaximumCachedThumbnails = 8;
+        private readonly List<GalleryProject> _projects = new();
         private readonly List<Rectangle> _projectCardBounds = new();
         private UIActionButton _back = null!;
         private UIActionButton _previous = null!;
@@ -38,8 +59,6 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _create = null!;
         private int _selected = -1;
         private int _pageStart;
-        private int _previewFrame;
-        private AudioPlaybackController? _previewAudio;
         private bool _isRenaming;
         private string _renameText = string.Empty;
         private string _renameError = string.Empty;
@@ -60,6 +79,10 @@ namespace FrameByFrame.src.Engine.Scenes
         private int _projectLoadTotal;
         private int _projectLoadProcessed;
         private string? _pendingOpenFile;
+        private Task<ThumbnailLoadResult>? _thumbnailLoad;
+        private Task<MetadataLoadResult>? _metadataLoad;
+        private long _thumbnailAccess;
+        private int _thumbnailGeneration;
 
         public override void LoadContent()
         {
@@ -123,7 +146,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
             int columns = GalleryColumnCount(GlobalParameters.screenWidth);
             int pageSize = columns * 2;
-            _pageStart = ResolvePageStart(_pageStart, _selected, _animations.Count, pageSize);
+            _pageStart = ResolvePageStart(_pageStart, _selected, _projects.Count, pageSize);
             Rectangle gallery = new(margin, navigationY + S(50),
                 Math.Max(1, GlobalParameters.screenWidth - margin * 2),
                 Math.Max(1, actionY - S(14) - (navigationY + S(50))));
@@ -144,10 +167,10 @@ namespace FrameByFrame.src.Engine.Scenes
             _chooseExportDirectory.Bounds = new Rectangle(cx - S(220), cy + S(98), S(440), S(44));
             _confirmExport.Bounds = new Rectangle(cx - S(220), cy + S(152), S(210), S(52));
             _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(152), S(210), S(52));
-            bool hasProjects = _animations.Count > 0;
-            bool hasSelection = _selected >= 0 && _selected < _animations.Count;
+            bool hasProjects = _projects.Count > 0;
+            bool hasSelection = _selected >= 0 && _selected < _projects.Count;
             _previous.IsEnabled = hasProjects && _pageStart > 0;
-            _next.IsEnabled = hasProjects && _pageStart + pageSize < _animations.Count;
+            _next.IsEnabled = hasProjects && _pageStart + pageSize < _projects.Count;
             _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasSelection;
             _feedbackOverlay.Arrange(new Rectangle(0, 0,
                 GlobalParameters.screenWidth, GlobalParameters.screenHeight));
@@ -175,7 +198,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 ProcessPendingProjectOpen();
                 return;
             }
-            if (_pendingProjectFiles.Count > 0)
+            if (_metadataLoad != null || _pendingProjectFiles.Count > 0)
             {
                 LoadNextProject();
                 return;
@@ -192,19 +215,17 @@ namespace FrameByFrame.src.Engine.Scenes
             }
             if (_feedback.IsVisible)
             {
-                _previewAudio?.Stop();
                 _feedbackOverlay.Update();
                 return;
             }
+            AdvanceThumbnailLoading();
             if (_isRenaming)
             {
-                _previewAudio?.Stop();
                 _confirmRename.Update(); _cancelRename.Update(); UpdateRenameText();
                 return;
             }
             if (_isSelectingExportRange)
             {
-                _previewAudio?.Stop();
                 _exportFormatPrevious.Update(); _exportFormatNext.Update();
                 _exportStartDown.Update(); _exportStartUp.Update();
                 _exportEndDown.Update(); _exportEndUp.Update();
@@ -215,11 +236,11 @@ namespace FrameByFrame.src.Engine.Scenes
                 return;
             }
             _back.Update(); _folder.Update();
-            if (_animations.Count == 0) _create.Update();
+            if (_projects.Count == 0) _create.Update();
             else
             {
                 _previous.Update(); _next.Update();
-                int visibleCount = Math.Min(_projectCardBounds.Count, _animations.Count - _pageStart);
+                int visibleCount = Math.Min(_projectCardBounds.Count, _projects.Count - _pageStart);
                 bool clickedCard = false;
                 for (int i = 0; i < visibleCount; i++)
                 {
@@ -233,16 +254,6 @@ namespace FrameByFrame.src.Engine.Scenes
             }
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
-            if (_selected >= 0 && _selected < _animations.Count)
-            {
-                Animation.Animation selected = _animations[_selected];
-                int previousFrame = selected.CurrentFrameIndex;
-                selected.Animate(gameTime);
-                _previewFrame = selected.CurrentFrameIndex;
-                if (_previewFrame != previousFrame)
-                    selected.GetFrameAtIndex(previousFrame)?.ReleasePreviewTexture();
-                _previewAudio?.Update();
-            }
         }
 
         public override void Draw(Vector2 offset)
@@ -251,9 +262,9 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
             int S(int value) => UILayoutEngine.Scale(value);
             UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, S(88)), UITheme.Surface);
-            string heading = _animations.Count == 0
+            string heading = _projects.Count == 0
                 ? "Your animations - No saved projects yet"
-                : $"Your animations - {_pageStart + 1}-{Math.Min(_pageStart + _projectCardBounds.Count, _animations.Count)} of {_animations.Count}";
+                : $"Your animations - {_pageStart + 1}-{Math.Min(_pageStart + _projectCardBounds.Count, _projects.Count)} of {_projects.Count}";
             new UITextContainer
             {
                 Bounds = new Rectangle(_back.Bounds.Right + S(16), S(10), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(68)),
@@ -262,7 +273,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }.Draw(heading, UITheme.Text, UITextRole.Title);
             _back.Draw(); _folder.Draw();
 
-            if (_animations.Count == 0) DrawEmptyState(); else DrawSelectedProject();
+            if (_projects.Count == 0) DrawEmptyState(); else DrawSelectedProject();
             if (_isRenaming) DrawRenameDialog();
             if (_isSelectingExportRange) DrawExportRangeDialog();
             _feedbackOverlay.Draw();
@@ -284,11 +295,12 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             int S(int value) => UILayoutEngine.Scale(value);
             int visibleCount = Math.Min(_projectCardBounds.Count,
-                Math.Max(0, _animations.Count - _pageStart));
+                Math.Max(0, _projects.Count - _pageStart));
             for (int i = 0; i < visibleCount; i++)
             {
                 int projectIndex = _pageStart + i;
-                Animation.Animation animation = _animations[projectIndex];
+                GalleryProject project = _projects[projectIndex];
+                FbfProjectFile.ProjectMetadata metadata = project.Metadata;
                 Rectangle card = _projectCardBounds[i];
                 bool selected = projectIndex == _selected;
                 UIRenderer.Fill(card, selected ? UITheme.SurfaceRaised : UITheme.Surface);
@@ -299,35 +311,36 @@ namespace FrameByFrame.src.Engine.Scenes
                 Rectangle previewArea = new(card.X + padding, card.Y + padding,
                     Math.Max(1, card.Width - padding * 2),
                     Math.Max(1, card.Height - detailsHeight - padding * 2));
-                int frameIndex = selected
-                    ? _previewFrame % animation.TotalFrames
-                    : animation.ThumbnailFrameIndex;
-                var frame = animation.GetFrameAtIndex(frameIndex);
                 Rectangle preview = UILayoutEngine.FitAspect(previewArea,
-                    animation.frameSize.X / animation.frameSize.Y);
-                frame?.DrawPreview(preview, 1f,
-                    animation.IsCanvasBackgroundTransparent, animation.CanvasBackgroundColor);
+                    metadata.Width / (float)metadata.Height);
+                project.Thumbnail?.DrawPreview(preview, 1f,
+                    metadata.IsBackgroundTransparent, metadata.BackgroundColor);
+                if (project.Thumbnail == null)
+                    new UITextContainer { Bounds = preview, MaxLines = 1 }.Draw(
+                        project.ThumbnailFailed ? "Preview unavailable" : "Loading preview...",
+                        UITheme.TextMuted, UITextRole.Caption);
+                else project.LastThumbnailAccess = ++_thumbnailAccess;
                 UIRenderer.Border(preview, selected ? UITheme.Secondary : UITheme.Border, 2);
 
                 Rectangle nameBounds = new(card.X + padding, previewArea.Bottom + S(3),
                     Math.Max(1, card.Width - padding * 2), Math.Max(20, detailsHeight / 2));
                 new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
-                    .Draw(animation.projectName, UITheme.Text, UITextRole.Label);
+                    .Draw(metadata.ProjectName, UITheme.Text, UITextRole.Label);
                 Rectangle details = new(nameBounds.X, nameBounds.Bottom, nameBounds.Width,
                     Math.Max(18, card.Bottom - padding - nameBounds.Bottom));
                 new UITextContainer { Bounds = details, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
-                    .Draw($"{animation.TotalFrames} frames | {animation.fps} fps", UITheme.TextMuted, UITextRole.Caption);
+                    .Draw($"{metadata.FrameCount} frames | {metadata.FramesPerSecond} fps", UITheme.TextMuted, UITextRole.Caption);
             }
 
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
-            if (_animations.Count > pageSize) { _previous.Draw(); _next.Draw(); }
+            if (_projects.Count > pageSize) { _previous.Draw(); _next.Draw(); }
             _edit.Draw(true); _export.Draw(); _rename.Draw();
         }
 
         private void BeginRename()
         {
-            if (_selected < 0 || _selected >= _animations.Count) return;
-            _renameText = _animations[_selected].projectName;
+            if (_selected < 0 || _selected >= _projects.Count) return;
+            _renameText = _projects[_selected].Metadata.ProjectName;
             _renameError = string.Empty;
             _isRenaming = true;
         }
@@ -338,8 +351,10 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             try
             {
-                _projectFiles[_selected] = SaveService.RenameAnimation(
-                    _animations[_selected], _projectFiles[_selected], _renameText);
+                GalleryProject project = _projects[_selected];
+                using Animation.Animation animation = SaveService.LoadAnimation(project.FilePath);
+                project.FilePath = SaveService.RenameAnimation(animation, project.FilePath, _renameText);
+                project.Metadata = SaveService.ReadProjectMetadata(project.FilePath);
                 _isRenaming = false;
                 _renameError = string.Empty;
                 _feedback.ShowSuccess("Project renamed", "The new project name was saved successfully.");
@@ -395,7 +410,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public void LoadAnimations()
         {
-            DisposeAnimations(); _projectFiles.Clear(); _selected = -1; _pageStart = 0; _previewFrame = 0;
+            DisposeProjects(); _selected = -1; _pageStart = 0;
             _pendingProjectFiles.Clear();
             _projectLoadErrors.Clear();
             _projectLoadProcessed = 0;
@@ -417,17 +432,25 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void LoadNextProject()
         {
-            string file = _pendingProjectFiles.Dequeue();
-            try
+            if (_metadataLoad == null)
             {
-                Animation.Animation animation = SaveService.LoadAnimation(file);
-                _projectFiles.Add(file);
-                _animations.Add(animation);
+                string pendingFile = _pendingProjectFiles.Dequeue();
+                int generation = _thumbnailGeneration;
+                _metadataLoad = Task.Run(() =>
+                {
+                    try { return new MetadataLoadResult(generation, pendingFile,
+                        SaveService.ReadProjectMetadata(pendingFile), null); }
+                    catch (Exception ex) { return new MetadataLoadResult(generation, pendingFile, null, ex); }
+                });
+                return;
             }
-            catch (Exception ex)
-            {
-                _projectLoadErrors.Add($"{Path.GetFileName(file)}: {ex.Message}");
-            }
+            if (!_metadataLoad.IsCompleted) return;
+            MetadataLoadResult result = _metadataLoad.GetAwaiter().GetResult();
+            _metadataLoad = null;
+            if (result.Generation != _thumbnailGeneration) return;
+            if (result.Metadata != null) _projects.Add(new GalleryProject(result.FilePath, result.Metadata));
+            else if (result.Error != null)
+                _projectLoadErrors.Add($"{Path.GetFileName(result.FilePath)}: {result.Error.Message}");
             _projectLoadProcessed++;
             if (_pendingProjectFiles.Count > 0)
             {
@@ -445,49 +468,87 @@ namespace FrameByFrame.src.Engine.Scenes
             }
         }
 
+        private void AdvanceThumbnailLoading()
+        {
+            if (_thumbnailLoad != null)
+            {
+                if (!_thumbnailLoad.IsCompleted) return;
+                ThumbnailLoadResult result = _thumbnailLoad.GetAwaiter().GetResult();
+                _thumbnailLoad = null;
+                if (result.Generation != _thumbnailGeneration) return;
+                GalleryProject? project = _projects.FirstOrDefault(candidate => candidate.FilePath == result.FilePath);
+                if (result.Thumbnail != null && project != null)
+                {
+                    project.Thumbnail?.Dispose();
+                    project.Thumbnail = SaveService.MaterializeProjectThumbnail(result.Thumbnail);
+                    project.LastThumbnailAccess = ++_thumbnailAccess;
+                    TrimThumbnailCache();
+                }
+                else if (result.Error != null && project != null)
+                {
+                    project.ThumbnailFailed = true;
+                    _projectLoadErrors.Add($"{Path.GetFileName(result.FilePath)}: {result.Error.Message}");
+                    _feedback.ShowErrorList("A project preview could not be loaded", _projectLoadErrors,
+                        "The damaged project was not opened. Repair or remove it, then reload the gallery.");
+                    return;
+                }
+            }
+
+            int visibleCount = Math.Min(_projectCardBounds.Count, Math.Max(0, _projects.Count - _pageStart));
+            GalleryProject? next = Enumerable.Range(_pageStart, visibleCount)
+                .Select(index => _projects[index])
+                .FirstOrDefault(project => project.Thumbnail == null && !project.ThumbnailFailed);
+            if (next == null) return;
+            string file = next.FilePath;
+            int generation = _thumbnailGeneration;
+            _thumbnailLoad = Task.Run(() =>
+            {
+                try { return new ThumbnailLoadResult(generation, file, SaveService.LoadProjectThumbnail(file), null); }
+                catch (Exception ex) { return new ThumbnailLoadResult(generation, file, null, ex); }
+            });
+        }
+
+        private void TrimThumbnailCache()
+        {
+            int cached = _projects.Count(project => project.Thumbnail != null);
+            while (cached > MaximumCachedThumbnails)
+            {
+                GalleryProject? oldest = _projects
+                    .Where(project => project.Thumbnail != null && !IsVisible(project))
+                    .OrderBy(project => project.LastThumbnailAccess)
+                    .FirstOrDefault();
+                if (oldest == null) return;
+                oldest.Thumbnail!.Dispose();
+                oldest.Thumbnail = null;
+                cached--;
+            }
+        }
+
+        private bool IsVisible(GalleryProject project)
+        {
+            int index = _projects.IndexOf(project);
+            return index >= _pageStart && index < _pageStart + _projectCardBounds.Count;
+        }
+
         private void SelectProject(int index)
         {
-            if (index < 0 || index >= _animations.Count) return;
-            if (_selected >= 0 && _selected < _animations.Count)
-                _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
-            StopPreview();
+            if (index < 0 || index >= _projects.Count) return;
             _selected = index;
-            BeginSelectedPreview();
+            _projects[index].LastThumbnailAccess = ++_thumbnailAccess;
         }
 
         private void DeselectProject()
         {
-            if (_selected < 0 || _selected >= _animations.Count) return;
-            _animations[_selected].GetFrameAtIndex(_previewFrame)?.ReleasePreviewTexture();
-            StopPreview();
+            if (_selected < 0 || _selected >= _projects.Count) return;
             _selected = -1;
-            _previewFrame = 0;
-        }
-
-        private void BeginSelectedPreview()
-        {
-            if (_selected < 0 || _selected >= _animations.Count) return;
-            Animation.Animation selected = _animations[_selected];
-            selected.SelectFrame(0);
-            selected.Start();
-            _previewFrame = 0;
-            _previewAudio = new AudioPlaybackController(selected);
-        }
-
-        private void StopPreview()
-        {
-            _previewAudio?.Dispose();
-            _previewAudio = null;
-            if (_animations.Count > 0 && _selected >= 0 && _selected < _animations.Count)
-                _animations[_selected].Stop();
         }
 
         private void ChangePage(int delta)
         {
-            if (_animations.Count == 0) return;
+            if (_projects.Count == 0) return;
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
             int nextPageStart = ResolvePageStart(_pageStart + delta * pageSize,
-                -1, _animations.Count, pageSize);
+                -1, _projects.Count, pageSize);
             if (nextPageStart == _pageStart) return;
             DeselectProject();
             _pageStart = nextPageStart;
@@ -496,9 +557,8 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void OpenSelectedProject()
         {
-            if (_selected < 0 || _selected >= _animations.Count) return;
-            StopPreview();
-            _pendingOpenFile = _projectFiles[_selected];
+            if (_selected < 0 || _selected >= _projects.Count) return;
+            _pendingOpenFile = _projects[_selected].FilePath;
             _feedback.ShowBusy("Opening project", $"Loading {Path.GetFileNameWithoutExtension(_pendingOpenFile)}...");
         }
 
@@ -523,7 +583,6 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void CreateAnimation()
         {
-            StopPreview();
             MenuScene menu = (MenuScene)GlobalParameters.Scenes[UIConstants.MENU_SCENE];
             menu.BeginNewAnimationConfiguration();
             GlobalParameters.CurrentScene = menu;
@@ -531,9 +590,9 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void BeginExportRange()
         {
-            if (_selected < 0 || _selected >= _animations.Count) return;
+            if (_selected < 0 || _selected >= _projects.Count) return;
             _exportStart = 0;
-            _exportEnd = _animations[_selected].TotalFrames - 1;
+            _exportEnd = _projects[_selected].Metadata.FrameCount - 1;
             _exportMessage = string.Empty;
             _replaceExisting = false;
             _replaceExistingExport.Text = "Replace existing: No";
@@ -541,7 +600,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _isSelectingExportRange = true;
         }
         private void SetExportStart(int value) => _exportStart = Math.Clamp(value, 0, _exportEnd);
-        private void SetExportEnd(int value) => _exportEnd = Math.Clamp(value, _exportStart, _animations[_selected].TotalFrames - 1);
+        private void SetExportEnd(int value) => _exportEnd = Math.Clamp(value, _exportStart, _projects[_selected].Metadata.FrameCount - 1);
         private void SelectExportFormat(int delta)
         {
             int count = Enum.GetValues<ExportFormat>().Length;
@@ -549,7 +608,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void ExportSelectedProject()
         {
-            if (_selected < 0 || _selected >= _animations.Count) return;
+            if (_selected < 0 || _selected >= _projects.Count) return;
             _isSelectingExportRange = false;
             _exportOperation = null;
             _exportPending = true;
@@ -559,11 +618,11 @@ namespace FrameByFrame.src.Engine.Scenes
         private void StartPendingExport()
         {
             _exportPending = false;
-            _previewAudio?.Stop();
             try
             {
+                using Animation.Animation animation = SaveService.LoadAnimation(_projects[_selected].FilePath);
                 _exportOperation = SaveService.BeginExportAnimation(
-                    _animations[_selected], _exportStart, _exportEnd, _exportDirectory, _exportFormat,
+                    animation, _exportStart, _exportEnd, _exportDirectory, _exportFormat,
                     _replaceExisting ? ExportCollisionBehavior.Replace : ExportCollisionBehavior.Fail);
                 _feedback.ShowBusy("Exporting animation", _exportOperation.Status, _exportOperation.Progress);
             }
@@ -577,7 +636,6 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void AdvanceExport()
         {
-            _previewAudio?.Stop();
             SaveService.ExportOperation? operation = _exportOperation;
             if (operation == null) return;
             if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) operation.Cancel();
@@ -675,15 +733,16 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void GoHome()
         {
-            StopPreview();
             GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
         }
-        private void DisposeAnimations()
+        private void DisposeProjects()
         {
-            StopPreview();
-            foreach (Animation.Animation animation in _animations) animation.Dispose();
-            _animations.Clear();
+            _thumbnailGeneration++;
+            _thumbnailLoad = null;
+            _metadataLoad = null;
+            foreach (GalleryProject project in _projects) project.Thumbnail?.Dispose();
+            _projects.Clear();
         }
-        public override void Dispose() => DisposeAnimations();
+        public override void Dispose() => DisposeProjects();
     }
 }

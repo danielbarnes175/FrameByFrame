@@ -509,6 +509,38 @@ Assert(SaveService.FormatSupportsTransparency(ExportFormat.Gif) &&
        SaveService.FormatSupportsTransparency(ExportFormat.SpriteSheet),
     "Alpha-capable export formats should retain canvas transparency.");
 
+string lazyGalleryFile = Path.Combine(Path.GetTempPath(), $"framebyframe-gallery-{Guid.NewGuid():N}.fbf");
+try
+{
+    var galleryLayer = new AnimationLayer("Gallery layer");
+    using var galleryAnimation = new Animation("Lazy gallery", [galleryLayer]) { fps = 24 };
+    var firstGalleryFrame = new Frame(Vector2.Zero, new Vector2(64, 64), [galleryLayer]);
+    var thumbnailGalleryFrame = new Frame(Vector2.Zero, new Vector2(64, 64), [galleryLayer]);
+    firstGalleryFrame.SetPixel(galleryLayer.Id, 1, 1, Color.Red);
+    thumbnailGalleryFrame.SetPixel(galleryLayer.Id, 1, 1, Color.Blue);
+    galleryAnimation.LoadFrames([firstGalleryFrame, thumbnailGalleryFrame], Vector2.Zero, new Vector2(64, 64));
+    galleryAnimation.SelectFrame(1);
+    galleryAnimation.CaptureThumbnailFrame();
+    FbfProjectFile.Save(lazyGalleryFile, galleryAnimation);
+
+    FbfProjectFile.ProjectMetadata metadata = FbfProjectFile.ReadMetadata(lazyGalleryFile);
+    Assert(metadata.ProjectName == "Lazy gallery" && metadata.FrameCount == 2 &&
+           metadata.FramesPerSecond == 24 && metadata.ThumbnailFrameIndex == 1,
+        "Gallery metadata should load without constructing the full animation.");
+    FbfProjectFile.ProjectThumbnail thumbnail = FbfProjectFile.LoadThumbnail(lazyGalleryFile);
+    using Frame thumbnailFrame = FbfProjectFile.MaterializeThumbnail(thumbnail);
+    Assert(thumbnailFrame.GetLayerPixel(galleryLayer.Id, 1, 1) == Color.Blue,
+        "Gallery thumbnail loading should decode the saved thumbnail frame through indexed deltas.");
+    byte[] truncatedGallery = File.ReadAllBytes(lazyGalleryFile)[..^4];
+    File.WriteAllBytes(lazyGalleryFile, truncatedGallery);
+    AssertThrows<InvalidDataException>(() => FbfProjectFile.ReadMetadata(lazyGalleryFile),
+        "Corrupt gallery metadata should produce a project-specific load error.");
+}
+finally
+{
+    File.Delete(lazyGalleryFile);
+}
+
 var exportFrame = new SaveService.ExportFrameSnapshot([
     new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Red)]),
     new SaveService.ExportLayerSnapshot([new KeyValuePair<int, Color>(0, Color.Blue)])
