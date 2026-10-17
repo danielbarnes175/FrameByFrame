@@ -32,6 +32,16 @@ namespace FrameByFrame.src.Engine.Export
 
         private readonly record struct PixelChange(int Index, uint PackedColor);
 
+        internal sealed record ProjectMetadata(string ProjectName, int Width, int Height,
+            int FramesPerSecond, int FrameCount, int ThumbnailFrameIndex,
+            bool IsBackgroundTransparent, Color BackgroundColor);
+
+        internal sealed record ProjectThumbnail(ProjectMetadata Metadata, Vector2 FramePosition,
+            IReadOnlyList<AnimationLayer> Layers, Dictionary<int, uint>[] LayerPixels);
+
+        private sealed record GalleryHeader(ProjectMetadata Metadata, Vector2 FramePosition,
+            int KeyframeInterval, IReadOnlyList<AnimationLayer> Layers, long[] FrameOffsets);
+
         public static void Save(string filename, Animation.Animation animation)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(filename);
@@ -221,6 +231,107 @@ namespace FrameByFrame.src.Engine.Export
             }
         }
 
+        public static ProjectMetadata ReadMetadata(string filename)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(filename);
+            try
+            {
+                using FileStream stream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using BinaryReader reader = new(stream, Encoding.UTF8, leaveOpen: true);
+                return ReadGalleryHeader(reader, stream).Metadata;
+            }
+            catch (EndOfStreamException ex)
+            {
+                throw new InvalidDataException("The FBF project metadata is truncated.", ex);
+            }
+        }
+
+        public static ProjectThumbnail LoadThumbnail(string filename)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(filename);
+            try
+            {
+                using FileStream stream = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using BinaryReader reader = new(stream, Encoding.UTF8, leaveOpen: true);
+                GalleryHeader header = ReadGalleryHeader(reader, stream);
+                ProjectMetadata metadata = header.Metadata;
+                int pixelCount = checked(metadata.Width * metadata.Height);
+                int firstFrame = metadata.ThumbnailFrameIndex / header.KeyframeInterval * header.KeyframeInterval;
+                Dictionary<int, uint>[] layers = CreateEmptyLayers(header.Layers.Count);
+                for (int frameIndex = firstFrame; frameIndex <= metadata.ThumbnailFrameIndex; frameIndex++)
+                {
+                    stream.Position = header.FrameOffsets[frameIndex];
+                    FrameKind kind = ReadFrameChunk(reader, frameIndex, pixelCount, layers);
+                    if (frameIndex == firstFrame && kind != FrameKind.Keyframe)
+                        throw new InvalidDataException("The thumbnail does not begin with a valid keyframe.");
+                }
+                return new ProjectThumbnail(metadata, header.FramePosition, header.Layers, layers);
+            }
+            catch (EndOfStreamException ex)
+            {
+                throw new InvalidDataException("The FBF project thumbnail is truncated.", ex);
+            }
+        }
+
+        public static Frame MaterializeThumbnail(ProjectThumbnail thumbnail)
+        {
+            ArgumentNullException.ThrowIfNull(thumbnail);
+            var frame = new Frame(thumbnail.FramePosition,
+                new Vector2(thumbnail.Metadata.Width, thumbnail.Metadata.Height), thumbnail.Layers);
+            try
+            {
+                RestoreLayers(frame, thumbnail.LayerPixels, thumbnail.Layers);
+                return frame;
+            }
+            catch
+            {
+                frame.Dispose();
+                throw;
+            }
+        }
+
+        private static GalleryHeader ReadGalleryHeader(BinaryReader reader, Stream stream)
+        {
+            ExpectBytes(reader, FileMagic, "FBF file signature");
+            ushort majorVersion = reader.ReadUInt16();
+            ushort minorVersion = reader.ReadUInt16();
+            if (majorVersion != MajorVersion || minorVersion > MinorVersion)
+                throw new InvalidDataException($"Unsupported FBF version {majorVersion}.{minorVersion}.");
+            uint flags = reader.ReadUInt32();
+            if ((flags & BrotliFlag) == 0 || (flags & ~BrotliFlag) != 0)
+                throw new InvalidDataException("The FBF file uses unsupported feature flags.");
+
+            int width = reader.ReadInt32();
+            int height = reader.ReadInt32();
+            ValidateDimensions(width, height);
+            Vector2 framePosition = new(reader.ReadSingle(), reader.ReadSingle());
+            int fps = reader.ReadInt32();
+            int layerCount = reader.ReadInt32();
+            int frameCount = reader.ReadInt32();
+            int keyframeInterval = reader.ReadInt32();
+            string projectName = ReadString(reader, ProjectLimits.MaxNameBytes);
+            if (fps <= 0 || fps > Animation.Animation.MaxFramesPerSecond ||
+                layerCount <= 0 || layerCount > ProjectLimits.MaxLayerCount ||
+                frameCount <= 0 || frameCount > ProjectLimits.MaxFrameCount || keyframeInterval <= 0)
+                throw new InvalidDataException("The FBF project header contains invalid values.");
+            try { projectName = SaveService.ValidateProjectName(projectName); }
+            catch (ArgumentException ex) { throw new InvalidDataException("The FBF project name is invalid.", ex); }
+            ValidateResourceCounts(layerCount, frameCount);
+
+            bool transparent = ReadBoolean(reader, "canvas background transparency");
+            Color background = new() { PackedValue = reader.ReadUInt32() };
+            int thumbnailFrameIndex = reader.ReadInt32();
+            if (thumbnailFrameIndex < 0 || thumbnailFrameIndex >= frameCount)
+                throw new InvalidDataException("The FBF thumbnail frame index is invalid.");
+            SkipAudioTracks(reader, frameCount);
+            List<AnimationLayer> layers = ReadLayerDefinitions(reader, layerCount);
+            long indexOffset = reader.ReadInt64();
+            long[] offsets = ReadFrameIndex(reader, stream, indexOffset, frameCount);
+            var metadata = new ProjectMetadata(projectName, width, height, fps, frameCount,
+                thumbnailFrameIndex, transparent, background);
+            return new GalleryHeader(metadata, framePosition, keyframeInterval, layers, offsets);
+        }
+
         private static void WriteFrameChunk(BinaryWriter writer, int frameIndex, FrameKind kind,
             Dictionary<int, uint>[] previousLayers, Dictionary<int, uint>[] currentLayers, int pixelCount)
         {
@@ -271,7 +382,7 @@ namespace FrameByFrame.src.Engine.Export
             writer.Write(compressed);
         }
 
-        private static void ReadFrameChunk(BinaryReader reader, int expectedFrameIndex, int pixelCount,
+        private static FrameKind ReadFrameChunk(BinaryReader reader, int expectedFrameIndex, int pixelCount,
             Dictionary<int, uint>[] currentLayers)
         {
             ExpectBytes(reader, FrameMagic, "frame chunk signature");
@@ -289,7 +400,7 @@ namespace FrameByFrame.src.Engine.Export
             {
                 if (expectedFrameIndex == 0 || uncompressedLength != 0 || compressedLength != 0)
                     throw new InvalidDataException("The FBF identical-frame record is invalid.");
-                return;
+                return kind;
             }
 
             int maximumPayloadBytes = ProjectLimits.MaximumFramePayloadBytes(pixelCount, currentLayers.Length);
@@ -332,6 +443,7 @@ namespace FrameByFrame.src.Engine.Export
             if (payloadStream.BytesRead != uncompressedLength || brotli.ReadByte() != -1)
                 throw new InvalidDataException("The FBF frame payload length is inconsistent.");
             compressedStream.Drain();
+            return kind;
         }
 
         private static long[] ReadFrameIndex(BinaryReader reader, Stream stream, long indexOffset, int frameCount)
@@ -511,6 +623,38 @@ namespace FrameByFrame.src.Engine.Export
                     id: id, volume: volume, isMuted: isMuted));
             }
             return tracks;
+        }
+
+        private static void SkipAudioTracks(BinaryReader reader, int frameCount)
+        {
+            int count = reader.ReadInt32();
+            if (count < 0 || count > AudioService.MaxAudioTrackCount)
+                throw new InvalidDataException("The FBF audio track count is invalid.");
+            var ids = new HashSet<Guid>();
+            long totalBytes = 0;
+            for (int i = 0; i < count; i++)
+            {
+                byte[] idBytes = reader.ReadBytes(16);
+                if (idBytes.Length != 16) throw new EndOfStreamException("The FBF audio track ID is incomplete.");
+                Guid id = new(idBytes);
+                string sourceName = ReadString(reader, ProjectLimits.MaxNameBytes);
+                string extension = ReadString(reader, ProjectLimits.MaxNameBytes);
+                int startFrame = reader.ReadInt32();
+                float volume = reader.ReadSingle();
+                bool isMuted = ReadBoolean(reader, "audio mute");
+                double durationSeconds = reader.ReadDouble();
+                int length = reader.ReadInt32();
+                if (id == Guid.Empty || !ids.Add(id) || string.IsNullOrWhiteSpace(sourceName) ||
+                    !AudioService.IsSupportedExtension(extension) || startFrame < 0 || startFrame >= frameCount ||
+                    !float.IsFinite(volume) || volume < 0 || volume > 1 || !double.IsFinite(durationSeconds) ||
+                    durationSeconds <= 0 || length <= 0 || length > AudioService.MaxTrackBytes ||
+                    length > reader.BaseStream.Length - reader.BaseStream.Position)
+                    throw new InvalidDataException("The FBF audio track metadata is invalid.");
+                totalBytes = checked(totalBytes + length);
+                if (totalBytes > AudioService.MaxProjectAudioBytes)
+                    throw new InvalidDataException("The FBF project exceeds the embedded audio limit.");
+                reader.BaseStream.Seek(length, SeekOrigin.Current);
+            }
         }
 
         internal static bool ReadBoolean(BinaryReader reader, string field)

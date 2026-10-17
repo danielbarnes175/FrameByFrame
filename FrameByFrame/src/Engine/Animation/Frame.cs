@@ -34,9 +34,6 @@ namespace FrameByFrame.src.Engine.Animation
             drawRectangle = new Rectangle((int)givenPosition.X, (int)givenPosition.Y, width, height);
             _layers = (layers ?? CreateDefaultLayers()).Select(layer => new FrameLayer(layer)).ToList();
 
-            if (_sharedBackgroundTexture == null)
-                _sharedBackgroundTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height,
-                    _ => Color.White, Shapes.RECTANGLE);
         }
 
         private static IEnumerable<AnimationLayer> CreateDefaultLayers() =>
@@ -208,6 +205,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public virtual void Draw(float opacity)
         {
+            EnsureBackgroundTexture();
             if (_sharedBackgroundTexture != null)
                 GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, drawRectangle, null, Color.White * opacity,
                     0f, Vector2.Zero, SpriteEffects.None, .2f);
@@ -215,11 +213,18 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void Draw(Rectangle destination, float opacity)
         {
+            EnsureBackgroundTexture();
             if (_sharedBackgroundTexture != null)
                 GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
         }
 
         public void DrawLayers(Rectangle destination, float opacity) => DrawLayersCore(destination, opacity);
+
+        private static void EnsureBackgroundTexture()
+        {
+            _sharedBackgroundTexture ??= DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1,
+                _ => Color.White, Shapes.RECTANGLE);
+        }
         public void DrawLayers(CanvasView view, float opacity)
         {
             ArgumentNullException.ThrowIfNull(view);
