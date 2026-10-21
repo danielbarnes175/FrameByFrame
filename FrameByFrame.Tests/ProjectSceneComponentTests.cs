@@ -69,6 +69,7 @@ public sealed class ProjectSceneComponentTests
         preview.Update(new GameTime(TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100)));
 
         Assert.True(animation.IsPlaying);
+        Assert.True(preview.HasAudioPlayback);
         Assert.Equal(1, animation.CurrentFrameIndex);
         preview.Dispose();
     }
