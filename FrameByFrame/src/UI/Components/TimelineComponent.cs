@@ -250,9 +250,9 @@ namespace FrameByFrame.src.UI.Components
             _startDown.Update(); _startUp.Update(); _volumeDown.Update(); _volumeUp.Update();
 
             Rectangle rows = AudioRowsBounds;
-            if (UIPointerRouter.ContainsPointer(rows) && GlobalParameters.GlobalMouse.ScrollDelta != 0)
+            if (UIPointerRouter.ContainsPointer(rows) && ApplicationRuntime.Current.Mouse.ScrollDelta != 0)
             {
-                int direction = Math.Sign(GlobalParameters.GlobalMouse.ScrollDelta);
+                int direction = Math.Sign(ApplicationRuntime.Current.Mouse.ScrollDelta);
                 _firstVisibleAudioTrack = Math.Clamp(_firstVisibleAudioTrack - direction,
                     0, Math.Max(0, _animation.AudioTracks.Count - VisibleAudioTrackCount));
             }
@@ -264,21 +264,21 @@ namespace FrameByFrame.src.UI.Components
                 AudioTrack track = _animation.AudioTracks[_firstVisibleAudioTrack + slot];
                 Rectangle row = new(rows.X, rows.Y + slot * AudioRowHeight, rows.Width, AudioRowHeight - 3);
                 if (!UIPointerRouter.Held(this, row)) continue;
-                if (GlobalParameters.GlobalMouse.LeftClick())
+                if (ApplicationRuntime.Current.Mouse.LeftClick())
                 {
                     _selectedAudioTrack = track.Id;
                     _audioDragTrack = track.Id;
                     _audioDragStartFrame = track.StartFrame;
-                    _audioDragStartX = GlobalParameters.GlobalMouse.newMousePos.X;
+                    _audioDragStartX = ApplicationRuntime.Current.Mouse.newMousePos.X;
                 }
                 if (_audioDragTrack == track.Id)
                 {
                     float pixelsPerFrame = rows.Width / (float)Math.Max(1, VisibleFrameCount);
-                    int delta = (int)Math.Round((GlobalParameters.GlobalMouse.newMousePos.X - _audioDragStartX) / pixelsPerFrame);
+                    int delta = (int)Math.Round((ApplicationRuntime.Current.Mouse.newMousePos.X - _audioDragStartX) / pixelsPerFrame);
                     _animation.SetAudioTrackStart(track.Id, _audioDragStartFrame + delta);
                 }
             }
-            if (!GlobalParameters.GlobalMouse.LeftClickHold()) _audioDragTrack = null;
+            if (!ApplicationRuntime.Current.Mouse.LeftClickHold()) _audioDragTrack = null;
             EnsureSelectedAudioVisible();
         }
 
@@ -423,25 +423,25 @@ namespace FrameByFrame.src.UI.Components
         private void UpdateThumbnailDrag(Rectangle thumbnail, int frameIndex)
         {
             UIPointerRouter.Block(thumbnail);
-            if (GlobalParameters.GlobalMouse.LeftClick() && UIPointerRouter.ContainsPointer(thumbnail))
+            if (ApplicationRuntime.Current.Mouse.LeftClick() && UIPointerRouter.ContainsPointer(thumbnail))
             {
                 _animation.SelectFrame(frameIndex);
                 _dragSource = frameIndex;
                 _dropTarget = frameIndex;
-                _dragStart = GlobalParameters.GlobalMouse.newMousePos;
+                _dragStart = ApplicationRuntime.Current.Mouse.newMousePos;
             }
 
-            if (_dragSource < 0 || !GlobalParameters.GlobalMouse.LeftClickHold()) return;
+            if (_dragSource < 0 || !ApplicationRuntime.Current.Mouse.LeftClickHold()) return;
             UIPointerRouter.Held(this, thumbnail);
-            if (!_isDragging && Vector2.Distance(_dragStart, GlobalParameters.GlobalMouse.newMousePos) >= DragThreshold)
+            if (!_isDragging && Vector2.Distance(_dragStart, ApplicationRuntime.Current.Mouse.newMousePos) >= DragThreshold)
                 _isDragging = true;
             if (_isDragging && UIPointerRouter.ContainsPointer(thumbnail)) _dropTarget = frameIndex;
         }
 
         private void FinishDragIfReleased()
         {
-            bool released = GlobalParameters.GlobalMouse.oldMouse.LeftButton == ButtonState.Pressed &&
-                GlobalParameters.GlobalMouse.newMouse.LeftButton == ButtonState.Released;
+            bool released = ApplicationRuntime.Current.Mouse.oldMouse.LeftButton == ButtonState.Pressed &&
+                ApplicationRuntime.Current.Mouse.newMouse.LeftButton == ButtonState.Released;
             if (!released) return;
             if (_isDragging && _dragSource >= 0 && _dropTarget >= 0)
                 _animation.MoveFrame(_dragSource, _dropTarget);

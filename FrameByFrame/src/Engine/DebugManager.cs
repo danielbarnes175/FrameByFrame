@@ -69,7 +69,7 @@ namespace FrameByFrame.src.Engine
             
             // Draw semi-transparent background
             var helpLines = debugInfo.Split('\n');
-            var debugFont = GlobalParameters.uiFont ?? GlobalParameters.font;
+            var debugFont = ApplicationRuntime.Current.UiFont ?? ApplicationRuntime.Current.Font;
             var lineHeight = debugFont.LineSpacing;
             var maxWidth = 0f;
             

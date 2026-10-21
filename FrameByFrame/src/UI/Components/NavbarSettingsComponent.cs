@@ -10,6 +10,7 @@ namespace FrameByFrame.src.UI.Components
         public const int ContentHeight = 620;
         private const int MaxPlaybackFps = 60;
         private readonly Animation _animation;
+        private readonly IApplicationContext _app;
         private readonly AutosaveService _autosave;
         private readonly NavbarSaveCoordinator _saveCoordinator;
         private readonly Func<Color> _selectedColor;
@@ -30,10 +31,11 @@ namespace FrameByFrame.src.UI.Components
         public UIIconButton Button { get; }
         public UIPopover Popover { get; } = new();
 
-        public NavbarSettingsComponent(Animation animation, AutosaveService autosave,
+        public NavbarSettingsComponent(IApplicationContext app, Animation animation, AutosaveService autosave,
             NavbarSaveCoordinator saveCoordinator, Func<Color> selectedColor,
             UIIconButton button)
         {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             _animation = animation ?? throw new ArgumentNullException(nameof(animation));
             _autosave = autosave ?? throw new ArgumentNullException(nameof(autosave));
             _saveCoordinator = saveCoordinator ?? throw new ArgumentNullException(nameof(saveCoordinator));
@@ -84,9 +86,9 @@ namespace FrameByFrame.src.UI.Components
         public void UpdateContent()
         {
             Rectangle panel = Popover.Bounds;
-            if (panel.Contains(GlobalParameters.GlobalMouse.newMousePos) && GlobalParameters.GlobalMouse.ScrollDelta != 0)
+            if (panel.Contains(_app.Mouse.newMousePos) && _app.Mouse.ScrollDelta != 0)
             {
-                _scroll = Math.Clamp(_scroll - Math.Sign(GlobalParameters.GlobalMouse.ScrollDelta) * 36,
+                _scroll = Math.Clamp(_scroll - Math.Sign(_app.Mouse.ScrollDelta) * 36,
                     0, Math.Max(0, ContentHeight - panel.Height));
                 ArrangePopover(panel);
             }

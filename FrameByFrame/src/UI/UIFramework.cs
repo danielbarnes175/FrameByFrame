@@ -101,17 +101,17 @@ namespace FrameByFrame.src.UI
     public static class UILayoutEngine
     {
         public static float ResponsiveScale => Math.Clamp(
-            Math.Min(GlobalParameters.screenWidth / (float)UITheme.DefaultScreenWidth,
-                GlobalParameters.screenHeight / (float)UITheme.DefaultScreenHeight),
+            Math.Min(ApplicationRuntime.Current.ScreenWidth / (float)UITheme.DefaultScreenWidth,
+                ApplicationRuntime.Current.ScreenHeight / (float)UITheme.DefaultScreenHeight),
             .45f, 1.3f);
 
         public static int Scale(int value) => Math.Max(1, (int)Math.Round(value * ResponsiveScale));
 
         public static Rectangle InsetScreen(int margin)
         {
-            int inset = Math.Min(margin, Math.Max(0, Math.Min(GlobalParameters.screenWidth, GlobalParameters.screenHeight) / 2 - 1));
-            return new Rectangle(inset, inset, Math.Max(1, GlobalParameters.screenWidth - inset * 2),
-                Math.Max(1, GlobalParameters.screenHeight - inset * 2));
+            int inset = Math.Min(margin, Math.Max(0, Math.Min(ApplicationRuntime.Current.ScreenWidth, ApplicationRuntime.Current.ScreenHeight) / 2 - 1));
+            return new Rectangle(inset, inset, Math.Max(1, ApplicationRuntime.Current.ScreenWidth - inset * 2),
+                Math.Max(1, ApplicationRuntime.Current.ScreenHeight - inset * 2));
         }
 
         public static Rectangle CenteredInScreen(int preferredWidth, int preferredHeight, int margin = UITheme.SpaceMd)
@@ -191,24 +191,24 @@ namespace FrameByFrame.src.UI
 
     public static class UIRenderer
     {
-        private static Texture2D Pixel => TextureManager.GetOrCreateColorTexture(GlobalParameters.GlobalGraphics, Color.White, 1);
+        private static Texture2D Pixel => TextureManager.GetOrCreateColorTexture(ApplicationRuntime.Current.Graphics, Color.White, 1);
         private static SpriteFont Font(UITextRole role)
         {
             UITextMetrics metrics = UITheme.Typography(role);
             return metrics.Bold
-                ? GlobalParameters.uiFont ?? GlobalParameters.font
-                : GlobalParameters.font ?? GlobalParameters.uiFont;
+                ? ApplicationRuntime.Current.UiFont ?? ApplicationRuntime.Current.Font
+                : ApplicationRuntime.Current.Font ?? ApplicationRuntime.Current.UiFont;
         }
 
         public static void Fill(Rectangle bounds, Color color) =>
-            GlobalParameters.GlobalSpriteBatch.Draw(Pixel, bounds, color);
+            ApplicationRuntime.Current.SpriteBatch.Draw(Pixel, bounds, color);
 
         public static void Line(Vector2 start, Vector2 end, Color color, float thickness = 1f)
         {
             Vector2 delta = end - start;
             float length = delta.Length();
             if (length <= 0f) return;
-            GlobalParameters.GlobalSpriteBatch.Draw(Pixel, start, null, color,
+            ApplicationRuntime.Current.SpriteBatch.Draw(Pixel, start, null, color,
                 (float)Math.Atan2(delta.Y, delta.X), Vector2.Zero,
                 new Vector2(length, Math.Max(1f, thickness)), SpriteEffects.None, 0f);
         }
@@ -225,7 +225,7 @@ namespace FrameByFrame.src.UI
             UITextRole role = UITextRole.Body)
         {
             UITextMetrics metrics = UITheme.Typography(role);
-            GlobalParameters.GlobalSpriteBatch.DrawString(Font(role), value ?? string.Empty, position,
+            ApplicationRuntime.Current.SpriteBatch.DrawString(Font(role), value ?? string.Empty, position,
                 color ?? UITheme.Text, 0f, Vector2.Zero, metrics.Scale, SpriteEffects.None, 0f);
         }
 
@@ -274,7 +274,7 @@ namespace FrameByFrame.src.UI
                     UIAlign.Center => content.X + (content.Width - width) / 2f,
                     _ => content.X
                 };
-                GlobalParameters.GlobalSpriteBatch.DrawString(font, line, new Vector2(x, y), color,
+                ApplicationRuntime.Current.SpriteBatch.DrawString(font, line, new Vector2(x, y), color,
                     0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
                 y += lineHeight;
             }
@@ -338,8 +338,8 @@ namespace FrameByFrame.src.UI
             UITextRole role = UITextRole.Tooltip;
             SpriteFont font = Font(role);
             float scale = UITheme.Typography(role).Scale;
-            Rectangle viewport = new(8, 8, Math.Max(1, GlobalParameters.screenWidth - 16),
-                Math.Max(1, GlobalParameters.screenHeight - 16));
+            Rectangle viewport = new(8, 8, Math.Max(1, ApplicationRuntime.Current.ScreenWidth - 16),
+                Math.Max(1, ApplicationRuntime.Current.ScreenHeight - 16));
             int width = Math.Min(420, viewport.Width);
             List<string> lines = WrapText(value, Math.Max(1, width - 16), font, scale);
             int lineHeight = (int)Math.Ceiling(font.LineSpacing * scale);
@@ -366,15 +366,15 @@ namespace FrameByFrame.src.UI
         public static void BeginFrame()
         {
             BlockingRegions.Clear();
-            if (!GlobalParameters.GlobalMouse.LeftClickHold()) _captureOwner = null;
+            if (!ApplicationRuntime.Current.Mouse.LeftClickHold()) _captureOwner = null;
         }
 
         public static void Block(Rectangle bounds) => BlockingRegions.Add(bounds);
-        public static bool ContainsPointer(Rectangle bounds) => bounds.Contains(GlobalParameters.GlobalMouse.newMousePos);
+        public static bool ContainsPointer(Rectangle bounds) => bounds.Contains(ApplicationRuntime.Current.Mouse.newMousePos);
         public static bool Clicked(Rectangle bounds)
         {
             Block(bounds);
-            if (!ContainsPointer(bounds) || !GlobalParameters.GlobalMouse.LeftClick()) return false;
+            if (!ContainsPointer(bounds) || !ApplicationRuntime.Current.Mouse.LeftClick()) return false;
             _captureOwner ??= ClickCapture;
             return true;
         }
@@ -382,15 +382,15 @@ namespace FrameByFrame.src.UI
         public static bool Held(object owner, Rectangle bounds)
         {
             Block(bounds);
-            if (ContainsPointer(bounds) && GlobalParameters.GlobalMouse.LeftClick()) _captureOwner = owner;
-            return ReferenceEquals(_captureOwner, owner) && GlobalParameters.GlobalMouse.LeftClickHold();
+            if (ContainsPointer(bounds) && ApplicationRuntime.Current.Mouse.LeftClick()) _captureOwner = owner;
+            return ReferenceEquals(_captureOwner, owner) && ApplicationRuntime.Current.Mouse.LeftClickHold();
         }
 
         public static bool IsPointerBlocked()
         {
             if (IsCaptured) return true;
             for (int i = BlockingRegions.Count - 1; i >= 0; i--)
-                if (BlockingRegions[i].Contains(GlobalParameters.GlobalMouse.newMousePos)) return true;
+                if (BlockingRegions[i].Contains(ApplicationRuntime.Current.Mouse.newMousePos)) return true;
             return false;
         }
     }
@@ -464,7 +464,7 @@ namespace FrameByFrame.src.UI
                 UIRenderer.Fill(visual, UITheme.ToolSelectedSurface);
                 UIRenderer.Border(visual, UITheme.ToolSelected, 2);
             }
-            GlobalParameters.GlobalSpriteBatch.Draw(Icon, visual, hovered && !IsSelected ? Color.White * .72f : Color.White);
+            ApplicationRuntime.Current.SpriteBatch.Draw(Icon, visual, hovered && !IsSelected ? Color.White * .72f : Color.White);
             if (drawTooltip) DrawTooltip();
         }
 
@@ -527,7 +527,7 @@ namespace FrameByFrame.src.UI
         {
             UIPointerRouter.Block(Bounds);
             if (!IsEnabled || !UIPointerRouter.Held(this, Bounds)) return;
-            float ratio = Math.Clamp((GlobalParameters.GlobalMouse.newMousePos.X - Bounds.X - 8) /
+            float ratio = Math.Clamp((ApplicationRuntime.Current.Mouse.newMousePos.X - Bounds.X - 8) /
                 Math.Max(1f, Bounds.Width - 16f), 0f, 1f);
             int next = Minimum + (int)Math.Round(ratio * (Maximum - Minimum));
             if (next == Value) return;

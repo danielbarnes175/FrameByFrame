@@ -28,7 +28,7 @@ namespace FrameByFrame.src.Engine.Input
             oldMousePos = new Vector2(newMouse.Position.X, newMouse.Position.Y);
             firstMousePos = new Vector2(newMouse.Position.X, newMouse.Position.Y);
 
-            //screenLoc = new Vector2((int)(systemCursorPos.X/GlobalParameters.screenWidth), (int)(systemCursorPos.Y/GlobalParameters.screenHeight));
+            //screenLoc = new Vector2((int)(systemCursorPos.X/ApplicationRuntime.Current.ScreenWidth), (int)(systemCursorPos.Y/ApplicationRuntime.Current.ScreenHeight));
 
         }
 

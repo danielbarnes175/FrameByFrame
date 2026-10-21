@@ -10,14 +10,16 @@ namespace FrameByFrame.src.UI.Components
     {
         private const int IconSize = 32;
         private readonly DrawingTools _drawingTools;
+        private readonly IApplicationContext _app;
         private readonly List<UIIconButton> _buttons = new();
         private readonly List<DrawingTool> _kinds = new();
         private readonly Texture2D _selectionIcon;
 
         public IReadOnlyList<UIIconButton> Buttons => _buttons;
 
-        public NavbarToolsComponent(DrawingTools drawingTools, Func<string, Texture2D> loadIcon)
+        public NavbarToolsComponent(IApplicationContext app, DrawingTools drawingTools, Func<string, Texture2D> loadIcon)
         {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             _drawingTools = drawingTools ?? throw new ArgumentNullException(nameof(drawingTools));
             ArgumentNullException.ThrowIfNull(loadIcon);
             Add(DrawingTool.Draw, loadIcon("brush"), "Paintbrush");
@@ -58,9 +60,9 @@ namespace FrameByFrame.src.UI.Components
             foreach (UIIconButton button in _buttons) button.DrawTooltip();
         }
 
-        private static Texture2D CreateSelectionIcon()
+        private Texture2D CreateSelectionIcon()
         {
-            Texture2D texture = new(GlobalParameters.GlobalGraphics, IconSize, IconSize);
+            Texture2D texture = new(_app.Graphics, IconSize, IconSize);
             Color[] pixels = new Color[IconSize * IconSize];
             for (int i = 6; i <= 25; i++)
             {

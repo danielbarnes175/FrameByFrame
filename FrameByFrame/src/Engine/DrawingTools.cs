@@ -88,7 +88,7 @@ namespace FrameByFrame.src.Engine
 
         public void Update(Color selectedColor, Action<Color> selectColor, bool canDraw)
         {
-            bool pointerHeld = GlobalParameters.GlobalMouse.LeftClickHold();
+            bool pointerHeld = ApplicationRuntime.Current.Mouse.LeftClickHold();
             if (HasEditTargetChanged(_pixelEditActive, _strokeFrame, _strokeLayerId,
                     _animation.CurrentFrame, _animation.SelectedLayerId))
                 EndStroke();
@@ -103,7 +103,7 @@ namespace FrameByFrame.src.Engine
             if (!pointerHeld) return;
 
             if (!canDraw || UIPointerRouter.IsPointerBlocked() ||
-                !_animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos)) return;
+                !_animation.IsScreenPointOnCanvas(ApplicationRuntime.Current.Mouse.newMousePos)) return;
 
             switch (SelectedTool)
             {
@@ -115,13 +115,13 @@ namespace FrameByFrame.src.Engine
                     BeginStroke();
                     _animation.DrawOnCurrentLayer(selectedColor, SelectedBrush, BrushSize, erase: true);
                     break;
-                case DrawingTool.Fill when GlobalParameters.GlobalMouse.LeftClick():
+                case DrawingTool.Fill when ApplicationRuntime.Current.Mouse.LeftClick():
                     _animation.BeginPixelEdit();
-                    _animation.FillCurrentLayerAt(GlobalParameters.GlobalMouse.newMousePos, selectedColor);
+                    _animation.FillCurrentLayerAt(ApplicationRuntime.Current.Mouse.newMousePos, selectedColor);
                     _animation.CommitPixelEdit();
                     break;
                 case DrawingTool.ColorPicker:
-                    Color sampled = _animation.SampleVisibleColorAt(GlobalParameters.GlobalMouse.newMousePos);
+                    Color sampled = _animation.SampleVisibleColorAt(ApplicationRuntime.Current.Mouse.newMousePos);
                     if (sampled.A > 0) selectColor?.Invoke(sampled);
                     break;
             }

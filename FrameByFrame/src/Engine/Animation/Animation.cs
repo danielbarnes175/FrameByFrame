@@ -165,9 +165,8 @@ namespace FrameByFrame.src.Engine.Animation
         public void InitializeFrames(int width = 1200, int height = 800)
         {
             frameSize = new Vector2(width, height);
-            framePosition = new Vector2(
-                GlobalParameters.screenWidth / 2 - (int)frameSize.X / 2,
-                GlobalParameters.screenHeight / 2 - (int)frameSize.Y / 2);
+            // CanvasView owns screen placement; the persisted model stays viewport-independent.
+            framePosition = Vector2.Zero;
 
             _timeline.Initialize();
             MarkChanged();
@@ -428,8 +427,8 @@ namespace FrameByFrame.src.Engine.Animation
             if (_pendingPixelEdit == null ||
                 !ReferenceEquals(_pendingPixelEdit.Frame, CurrentFrame) ||
                 _pendingPixelEdit.LayerId != SelectedLayerId) return;
-            Vector2 mousePositionCur = GlobalParameters.GlobalMouse.newMousePos;
-            Vector2 mousePositionOld = GlobalParameters.GlobalMouse.oldMousePos;
+            Vector2 mousePositionCur = ApplicationRuntime.Current.Mouse.newMousePos;
+            Vector2 mousePositionOld = ApplicationRuntime.Current.Mouse.oldMousePos;
             Vector2 current = ToFramePosition(mousePositionCur);
             Vector2 previous = ToFramePosition(mousePositionOld);
             float distance = Vector2.Distance(current, previous);
@@ -439,7 +438,7 @@ namespace FrameByFrame.src.Engine.Animation
                 _hasStrokePatternOrigin = true;
             }
 
-            if (GlobalParameters.GlobalMouse.LeftClick())
+            if (ApplicationRuntime.Current.Mouse.LeftClick())
             {
                 DrawBrushAt(current, selectedColor, brush, brushSize, erase);
                 return;

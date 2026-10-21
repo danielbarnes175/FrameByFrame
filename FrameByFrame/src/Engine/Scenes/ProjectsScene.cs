@@ -60,7 +60,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private Task<MetadataLoadResult>? _metadataLoad;
         private int _thumbnailGeneration;
 
-        public ProjectsScene() => _galleryView = new ProjectGalleryComponent(_gallery);
+        public ProjectsScene(IApplicationContext app, INavigationService navigation)
+            : base(app, navigation) => _galleryView = new ProjectGalleryComponent(_gallery);
 
         public override void LoadContent()
         {
@@ -101,33 +102,33 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void Layout()
         {
-            int cx = GlobalParameters.screenWidth / 2;
-            int cy = GlobalParameters.screenHeight / 2;
+            int cx = App.ScreenWidth / 2;
+            int cy = App.ScreenHeight / 2;
             int S(int value) => UILayoutEngine.Scale(value);
             _back.Bounds = new Rectangle(S(20), S(16), S(150), S(56));
-            _folder.Bounds = new Rectangle(GlobalParameters.screenWidth - S(300), S(16), S(280), S(56));
+            _folder.Bounds = new Rectangle(App.ScreenWidth - S(300), S(16), S(280), S(56));
 
             int margin = S(20);
             int navigationY = S(96);
-            int navigationWidth = Math.Min(S(110), Math.Max(64, (GlobalParameters.screenWidth - margin * 3) / 2));
+            int navigationWidth = Math.Min(S(110), Math.Max(64, (App.ScreenWidth - margin * 3) / 2));
             _previous.Bounds = new Rectangle(margin, navigationY, navigationWidth, S(42));
-            _next.Bounds = new Rectangle(GlobalParameters.screenWidth - margin - navigationWidth,
+            _next.Bounds = new Rectangle(App.ScreenWidth - margin - navigationWidth,
                 navigationY, navigationWidth, S(42));
 
             int actionHeight = S(54);
-            int actionY = GlobalParameters.screenHeight - margin - actionHeight;
+            int actionY = App.ScreenHeight - margin - actionHeight;
             Rectangle actions = new(margin, actionY,
-                Math.Max(1, GlobalParameters.screenWidth - margin * 2), actionHeight);
+                Math.Max(1, App.ScreenWidth - margin * 2), actionHeight);
             IReadOnlyList<Rectangle> actionBounds = UILayoutEngine.Stack(actions, UIAxis.Horizontal, 3, S(12));
             _edit.Bounds = actionBounds[0];
             _export.Bounds = actionBounds[1];
             _rename.Bounds = actionBounds[2];
 
-            int columns = GalleryColumnCount(GlobalParameters.screenWidth);
+            int columns = GalleryColumnCount(App.ScreenWidth);
             int pageSize = columns * 2;
             _gallery.NormalizePage(pageSize);
             Rectangle gallery = new(margin, navigationY + S(50),
-                Math.Max(1, GlobalParameters.screenWidth - margin * 2),
+                Math.Max(1, App.ScreenWidth - margin * 2),
                 Math.Max(1, actionY - S(14) - (navigationY + S(50))));
             _galleryView.Arrange(gallery, pageSize, columns, S(14));
 
@@ -151,7 +152,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _next.IsEnabled = hasProjects && _gallery.PageStart + pageSize < _gallery.Projects.Count;
             _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasSelection;
             _feedbackOverlay.Arrange(new Rectangle(0, 0,
-                GlobalParameters.screenWidth, GlobalParameters.screenHeight));
+                App.ScreenWidth, App.ScreenHeight));
         }
 
         private static int GalleryColumnCount(int width) => width >= 1000 ? 3 : width >= 600 ? 2 : 1;
@@ -202,7 +203,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 _replaceExistingExport.Update();
                 _chooseExportDirectory.Update();
                 _confirmExport.Update(); _cancelExport.Update();
-                if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) _exportDialog.Close();
+                if (App.Keyboard.GetPressSingle("ESC")) _exportDialog.Close();
                 return;
             }
             _back.Update(); _folder.Update();
@@ -212,19 +213,19 @@ namespace FrameByFrame.src.Engine.Scenes
                 _previous.Update(); _next.Update();
                 bool clickedCard = _galleryView.UpdateSelection();
                 _edit.Update(); _export.Update(); _rename.Update();
-                if (GlobalParameters.GlobalMouse.LeftClick() && !clickedCard &&
+                if (App.Mouse.LeftClick() && !clickedCard &&
                     !UIPointerRouter.IsPointerBlocked()) DeselectProject();
             }
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) GoHome();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ENTER")) OpenSelectedProject();
+            if (App.Keyboard.GetPressSingle("ESC")) GoHome();
+            if (App.Keyboard.GetPressSingle("ENTER")) OpenSelectedProject();
         }
 
         public override void Draw(Vector2 offset)
         {
             Layout();
-            GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
+            App.Graphics.Clear(UITheme.Background);
             int S(int value) => UILayoutEngine.Scale(value);
-            UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, S(88)), UITheme.Surface);
+            UIRenderer.Fill(new Rectangle(0, 0, App.ScreenWidth, S(88)), UITheme.Surface);
             string heading = _gallery.Projects.Count == 0
                 ? "Your animations - No saved projects yet"
                 : $"Your animations - {_gallery.PageStart + 1}-{Math.Min(_gallery.PageStart + _galleryView.CardBounds.Count, _gallery.Projects.Count)} of {_gallery.Projects.Count}";
@@ -253,7 +254,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void DrawEmptyState()
         {
             int S(int value) => UILayoutEngine.Scale(value);
-            Rectangle card = new(GlobalParameters.screenWidth / 2 - S(300), GlobalParameters.screenHeight / 2 - S(160), S(600), S(300));
+            Rectangle card = new(App.ScreenWidth / 2 - S(300), App.ScreenHeight / 2 - S(160), S(600), S(300));
             UIRenderer.Fill(card, UITheme.Surface); UIRenderer.Border(card, UITheme.Border, 2);
             new UITextContainer { Bounds = new Rectangle(card.X + S(24), card.Y + S(40), card.Width - S(48), S(64)), MaxLines = 2 }
                 .Draw("Your first animation starts here", UITheme.Primary, UITextRole.Title);
@@ -266,7 +267,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _galleryView.Draw();
 
-            int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
+            int pageSize = GalleryColumnCount(App.ScreenWidth) * 2;
             if (_gallery.Projects.Count > pageSize) { _previous.Draw(); _next.Draw(); }
             _edit.Draw(true); _export.Draw(); _rename.Draw();
         }
@@ -295,10 +296,10 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void UpdateRenameText()
         {
-            bool shift = GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.LeftShift) ||
-                GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightShift);
+            bool shift = App.Keyboard.IsKeyHeldDown(Keys.LeftShift) ||
+                App.Keyboard.IsKeyHeldDown(Keys.RightShift);
             RenameInputResult result = _renameDialog.ApplyKeys(
-                GlobalParameters.GlobalKeyboard.GetNewlyPressedKeys(), shift);
+                App.Keyboard.GetNewlyPressedKeys(), shift);
             if (result == RenameInputResult.Confirm)
             {
                 ConfirmRename();
@@ -308,7 +309,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
 
         private void DrawRenameDialog() => ProjectRenameDialogComponent.Draw(
-            _renameDialog, _renameInputBounds, _confirmRename, _cancelRename);
+            App, _renameDialog, _renameInputBounds, _confirmRename, _cancelRename);
 
         public void LoadAnimations()
         {
@@ -416,7 +417,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void ChangePage(int delta)
         {
-            int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
+            int pageSize = GalleryColumnCount(App.ScreenWidth) * 2;
             if (_gallery.ChangePage(delta, pageSize)) Layout();
         }
 
@@ -435,10 +436,10 @@ namespace FrameByFrame.src.Engine.Scenes
             try
             {
                 Animation.Animation loaded = _operations.Load(file);
-                DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
+                DrawingScene drawing = Navigation.Get<DrawingScene>(UIConstants.DRAWING_SCENE);
                 drawing.LoadAnimation(loaded);
                 _feedback.Clear();
-                GlobalParameters.CurrentScene = drawing;
+                Navigation.Navigate(UIConstants.DRAWING_SCENE);
             }
             catch (Exception ex)
             {
@@ -448,9 +449,9 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void CreateAnimation()
         {
-            MenuScene menu = (MenuScene)GlobalParameters.Scenes[UIConstants.MENU_SCENE];
+            MenuScene menu = Navigation.Get<MenuScene>(UIConstants.MENU_SCENE);
             menu.BeginNewAnimationConfiguration();
-            GlobalParameters.CurrentScene = menu;
+            Navigation.Navigate(UIConstants.MENU_SCENE);
         }
 
         private void BeginExportRange()
@@ -492,7 +493,7 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             SaveService.ExportOperation? operation = _exportOperation;
             if (operation == null) return;
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) operation.Cancel();
+            if (App.Keyboard.GetPressSingle("ESC")) operation.Cancel();
             if (operation.IsCanceled)
             {
                 _exportOperation = null;
@@ -535,7 +536,7 @@ namespace FrameByFrame.src.Engine.Scenes
             }
         }
         private void DrawExportRangeDialog() => ProjectExportDialogComponent.Draw(
-            _exportDialog, _exportFormatPrevious, _exportFormatNext,
+            App, _exportDialog, _exportFormatPrevious, _exportFormatNext,
             _exportStartDown, _exportStartUp, _exportEndDown, _exportEndUp,
             _replaceExistingExport, _chooseExportDirectory, _confirmExport, _cancelExport);
         private void OpenProjectFolder()
@@ -549,7 +550,7 @@ namespace FrameByFrame.src.Engine.Scenes
         }
         private void GoHome()
         {
-            GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
+            Navigation.Navigate(UIConstants.MENU_SCENE);
         }
         private void DisposeProjects()
         {

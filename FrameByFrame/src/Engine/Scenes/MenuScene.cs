@@ -20,6 +20,9 @@ namespace FrameByFrame.src.Engine.Scenes
         private int _canvasWidth = 1200;
         private int _canvasHeight = 800;
 
+        public MenuScene(IApplicationContext app, INavigationService navigation)
+            : base(app, navigation) { }
+
         public override void LoadContent()
         {
             _newButton = new UIActionButton("Create new animation", BeginNewAnimationConfiguration);
@@ -35,8 +38,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private void Layout()
         {
             int S(int value) => UILayoutEngine.Scale(value);
-            bool narrow = GlobalParameters.screenWidth < 600;
-            _cardBounds = UILayoutEngine.CenteredInScreen(S(820), Math.Min(S(440), GlobalParameters.screenHeight - S(24)), S(16));
+            bool narrow = App.ScreenWidth < 600;
+            _cardBounds = UILayoutEngine.CenteredInScreen(S(820), Math.Min(S(440), App.ScreenHeight - S(24)), S(16));
             int gap = S(12);
             int buttonHeight = S(58);
             int actionBottom = _cardBounds.Bottom - S(28);
@@ -78,11 +81,11 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 _widthDown.Update(); _widthUp.Update(); _heightDown.Update(); _heightUp.Update();
                 _createButton.Update(); _cancelButton.Update();
-                if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) _isConfiguringNewAnimation = false;
+                if (App.Keyboard.GetPressSingle("ESC")) _isConfiguringNewAnimation = false;
                 return;
             }
             _newButton.Update(); _projectsButton.Update();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O")) BeginNewAnimationConfiguration();
+            if (App.Keyboard.GetPressSingle("O")) BeginNewAnimationConfiguration();
         }
 
         public void BeginNewAnimationConfiguration()
@@ -100,22 +103,22 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void CreateAnimation()
         {
-            DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
+            DrawingScene drawing = Navigation.Get<DrawingScene>(UIConstants.DRAWING_SCENE);
             drawing.BeginNewAnimation(_canvasWidth, _canvasHeight);
             _isConfiguringNewAnimation = false;
-            GlobalParameters.CurrentScene = drawing;
+            Navigation.Navigate(UIConstants.DRAWING_SCENE);
         }
 
         private void OpenProjects()
         {
-            ProjectsScene projects = (ProjectsScene)GlobalParameters.Scenes[UIConstants.PROJECTS_SCENE];
+            ProjectsScene projects = Navigation.Get<ProjectsScene>(UIConstants.PROJECTS_SCENE);
             projects.LoadAnimations();
-            GlobalParameters.CurrentScene = projects;
+            Navigation.Navigate(UIConstants.PROJECTS_SCENE);
         }
 
         public override void Draw(Vector2 offset)
         {
-            GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
+            App.Graphics.Clear(UITheme.Background);
             Rectangle glow = _cardBounds;
             UIRenderer.Fill(glow, UITheme.Surface);
             UIRenderer.Border(glow, UITheme.Border, 2);
@@ -130,7 +133,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void DrawNewAnimationDialog()
         {
             int S(int value) => UILayoutEngine.Scale(value);
-            UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, GlobalParameters.screenHeight), new Color(0, 0, 0, 170));
+            UIRenderer.Fill(new Rectangle(0, 0, App.ScreenWidth, App.ScreenHeight), new Color(0, 0, 0, 170));
             Rectangle dialog = _dialogBounds;
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised);
             UIRenderer.Border(dialog, UITheme.Primary, 3);

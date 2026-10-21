@@ -10,12 +10,14 @@ namespace FrameByFrame.src.UI.Components
         public const int ToolbarHeight = 44;
         public const int RowHeight = 42;
         private readonly Animation _animation;
+        private readonly IApplicationContext _app;
 
         public UIIconButton Button { get; }
         public UIPopover Popover { get; } = new();
 
-        public NavbarLayersComponent(Animation animation, UIIconButton button)
+        public NavbarLayersComponent(IApplicationContext app, Animation animation, UIIconButton button)
         {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             _animation = animation ?? throw new ArgumentNullException(nameof(animation));
             Button = button ?? throw new ArgumentNullException(nameof(button));
         }
@@ -49,7 +51,7 @@ namespace FrameByFrame.src.UI.Components
                     panel.Width - 8, RowHeight);
                 if (!UIPointerRouter.Clicked(row)) continue;
                 Rectangle visibility = new(row.X, row.Y, 44, row.Height);
-                if (visibility.Contains(GlobalParameters.GlobalMouse.newMousePos))
+                if (visibility.Contains(_app.Mouse.newMousePos))
                     _animation.SetLayerVisibility(_animation.Layers[i].Id, !_animation.Layers[i].IsVisible);
                 else
                     _animation.SelectLayer(_animation.Layers[i].Id);
