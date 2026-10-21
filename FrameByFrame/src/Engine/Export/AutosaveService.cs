@@ -26,13 +26,13 @@ namespace FrameByFrame.src.Engine.Export
         public bool IsSaving { get { lock (_sync) return _worker is { IsCompleted: false }; } }
         public string LastError { get { lock (_sync) return _lastError; } }
 
-        public AutosaveService(string preferencesPath = "Settings.json", TimeSpan? interval = null)
+        public AutosaveService(string? preferencesPath = null, TimeSpan? interval = null)
             : this(preferencesPath, interval, SaveService.SaveSnapshot) { }
 
-        internal AutosaveService(string preferencesPath, TimeSpan? interval,
+        internal AutosaveService(string? preferencesPath, TimeSpan? interval,
             Action<FbfProjectFile.ProjectSnapshot> save)
         {
-            _preferencesPath = Path.GetFullPath(preferencesPath);
+            _preferencesPath = Path.GetFullPath(preferencesPath ?? AppDataPaths.Current.PreferencesFile);
             _interval = interval ?? DefaultInterval;
             _save = save ?? SaveService.SaveSnapshot;
             IsEnabled = LoadPreference();

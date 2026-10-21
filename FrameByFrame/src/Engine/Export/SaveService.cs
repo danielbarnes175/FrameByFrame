@@ -29,7 +29,7 @@ namespace FrameByFrame.src.Engine.Export
 
     public class SaveService
     {
-        private const string ProjectsDirectory = "Projects";
+        public static string ProjectsDirectory => AppDataPaths.Current.ProjectsDirectory;
 
         public sealed class ExportOperation
         {
