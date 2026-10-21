@@ -1,5 +1,7 @@
+using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Projects;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Xunit;
 
@@ -39,6 +41,39 @@ public sealed class ProjectSceneComponentTests
     }
 
     [Fact]
+    public void RenameDialogRepeatsBackspaceWhileHeld()
+    {
+        ProjectRenameDialogState dialog = new();
+        dialog.Open("Project");
+
+        dialog.ApplyKeys([Keys.Back], shift: false, backspaceHeld: true,
+            TimeSpan.FromMilliseconds(16));
+        dialog.ApplyKeys([], shift: false, backspaceHeld: true,
+            TimeSpan.FromMilliseconds(384));
+        dialog.ApplyKeys([], shift: false, backspaceHeld: true,
+            TimeSpan.FromMilliseconds(50));
+
+        Assert.Equal("Proj", dialog.Text);
+    }
+
+    [Fact]
+    public void SelectedProjectPreviewStartsAndAdvancesAutomatically()
+    {
+        ProjectPreviewState preview = new();
+        FrameByFrame.src.Engine.Animation.Animation animation = new("Preview");
+        animation.InitializeFrames(64, 64);
+        animation.NextFrame();
+        animation.SelectFrame(0);
+
+        preview.Start(animation);
+        preview.Update(new GameTime(TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100)));
+
+        Assert.True(animation.IsPlaying);
+        Assert.Equal(1, animation.CurrentFrameIndex);
+        preview.Dispose();
+    }
+
+    [Fact]
     public void ExportDialogClampsRangeIndependentlyOfScene()
     {
         ProjectExportDialogState dialog = new();
@@ -72,6 +107,33 @@ public sealed class ProjectSceneComponentTests
         finally
         {
             Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void LegacyMigrationDoesNotRestoreAProjectRemovedAfterMigration()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"fbf-app-data-{Guid.NewGuid():N}");
+        string legacyRoot = Path.Combine(Path.GetTempPath(), $"fbf-legacy-data-{Guid.NewGuid():N}");
+        string legacyProjects = Path.Combine(legacyRoot, "Projects");
+        Directory.CreateDirectory(legacyProjects);
+        File.WriteAllBytes(Path.Combine(legacyProjects, "Old name.fbf"), [1, 2, 3]);
+
+        try
+        {
+            AppDataPaths firstRun = new(root, [legacyRoot]);
+            string migratedProject = Path.Combine(firstRun.ProjectsDirectory, "Old name.fbf");
+            Assert.True(File.Exists(migratedProject));
+            File.Delete(migratedProject);
+
+            AppDataPaths restarted = new(root, [legacyRoot]);
+
+            Assert.False(File.Exists(Path.Combine(restarted.ProjectsDirectory, "Old name.fbf")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(legacyRoot)) Directory.Delete(legacyRoot, recursive: true);
         }
     }
 

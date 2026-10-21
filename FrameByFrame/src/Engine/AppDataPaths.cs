@@ -8,6 +8,7 @@ namespace FrameByFrame.src.Engine
     public sealed class AppDataPaths
     {
         private const string ApplicationName = "FrameByFrame";
+        private const string LegacyMigrationMarkerName = ".legacy-migration-complete";
         private static AppDataPaths _current = CreateDefault();
 
         public static AppDataPaths Current => _current;
@@ -34,7 +35,7 @@ namespace FrameByFrame.src.Engine
             CacheDirectory = Path.Combine(Root, "Cache");
             TemporaryDirectory = Path.Combine(Root, "Temp");
             EnsureDirectories();
-            MigrateLegacyData(legacyRoots ?? Array.Empty<string>());
+            MigrateLegacyDataOnce(legacyRoots ?? Array.Empty<string>());
         }
 
         internal static IDisposable UseForTests(string root, IEnumerable<string>? legacyRoots = null)
@@ -75,6 +76,25 @@ namespace FrameByFrame.src.Engine
             Directory.CreateDirectory(CacheDirectory);
             Directory.CreateDirectory(TemporaryDirectory);
         }
+
+        private void MigrateLegacyDataOnce(IEnumerable<string> legacyRoots)
+        {
+            string marker = Path.Combine(Root, LegacyMigrationMarkerName);
+            if (File.Exists(marker)) return;
+
+            // Versions before the marker existed may already have migrated data. Treat any
+            // managed file as proof so renamed or removed legacy projects are not restored.
+            if (!ContainsManagedData()) MigrateLegacyData(legacyRoots);
+            try { File.WriteAllText(marker, string.Empty); }
+            catch (Exception ex)
+            {
+                _migrationErrors.Add($"Legacy migration could not be marked complete: {ex.Message}");
+            }
+        }
+
+        private bool ContainsManagedData() =>
+            File.Exists(PreferencesFile) || File.Exists(CustomBrushesFile) ||
+            Directory.EnumerateFiles(ProjectsDirectory, "*.fbf", SearchOption.TopDirectoryOnly).Any();
 
         private void MigrateLegacyData(IEnumerable<string> legacyRoots)
         {
