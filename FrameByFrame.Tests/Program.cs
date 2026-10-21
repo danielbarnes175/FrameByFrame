@@ -221,6 +221,15 @@ finally
 
 using (var animation = new Animation("Layer model test"))
 {
+    Assert(animation.IsDirty, "A new project should start dirty until its first successful save.");
+    animation.MarkSaved();
+    Assert(!animation.IsDirty, "Marking the current revision saved should clear dirty state.");
+    long savedRevision = animation.ContentRevision;
+    animation.fps = 24;
+    Assert(animation.IsDirty && animation.ContentRevision > savedRevision,
+        "A persisted project setting change should advance the content revision.");
+    animation.MarkSaved(savedRevision);
+    Assert(animation.IsDirty, "Completing an older background save must not clear newer edits.");
     AssertThrows<ArgumentOutOfRangeException>(() => animation.fps = 0,
         "Animations should reject invalid FPS values at mutation time.");
     AssertThrows<ArgumentException>(() => animation.projectName = "../invalid",

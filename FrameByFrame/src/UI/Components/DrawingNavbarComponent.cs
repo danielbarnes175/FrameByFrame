@@ -57,6 +57,7 @@ namespace FrameByFrame.src.UI.Components
         private readonly DrawingTools _drawingTools;
         private readonly AutosaveService _autosave;
         private readonly UIFeedbackState? _feedback;
+        private readonly Action _requestHome;
         private readonly UIActionButton _home;
         private readonly UIIconButton _help;
         private readonly UIIconButton _settings;
@@ -135,13 +136,14 @@ namespace FrameByFrame.src.UI.Components
         public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
         public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools, AutosaveService autosave,
-            UIFeedbackState? feedback = null)
+            UIFeedbackState? feedback = null, Action? requestHome = null)
         {
             _animation = animation;
             _drawingTools = drawingTools;
             _autosave = autosave ?? throw new ArgumentNullException(nameof(autosave));
             _feedback = feedback;
-            _home = new UIActionButton("HOME", GoHome);
+            _requestHome = requestHome ?? GoHome;
+            _home = new UIActionButton("HOME", _requestHome);
             _help = Icon("help", () => Toggle(PopoverKind.Help), "Help");
             _settings = Icon("gear", () => Toggle(PopoverKind.Settings), "Animation settings");
             _layers = Icon("layers", () => Toggle(PopoverKind.Layers), "Layers");
@@ -214,6 +216,7 @@ namespace FrameByFrame.src.UI.Components
             int previousThumbnailFrameIndex = _animation.ThumbnailFrameIndex;
             try
             {
+                _autosave.Flush();
                 _animation.CaptureThumbnailFrame();
                 SaveService.SaveAnimation(_animation);
                 _saveError = string.Empty;
