@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
+using FrameByFrame.src.Engine.Projects;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -15,28 +15,17 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class ProjectsScene : BaseScene
     {
-        private sealed class GalleryProject
-        {
-            public string FilePath { get; set; }
-            public FbfProjectFile.ProjectMetadata Metadata { get; set; }
-            public Frame? Thumbnail { get; set; }
-            public bool ThumbnailFailed { get; set; }
-            public long LastThumbnailAccess { get; set; }
-            public GalleryProject(string filePath, FbfProjectFile.ProjectMetadata metadata)
-            {
-                FilePath = filePath;
-                Metadata = metadata;
-            }
-        }
-
         private sealed record ThumbnailLoadResult(int Generation, string FilePath,
             FbfProjectFile.ProjectThumbnail? Thumbnail, Exception? Error);
         private sealed record MetadataLoadResult(int Generation, string FilePath,
             FbfProjectFile.ProjectMetadata? Metadata, Exception? Error);
 
         private const int MaximumCachedThumbnails = 8;
-        private readonly List<GalleryProject> _projects = new();
-        private readonly List<Rectangle> _projectCardBounds = new();
+        private readonly ProjectGalleryState _gallery = new();
+        private readonly ProjectGalleryComponent _galleryView;
+        private readonly ProjectRenameDialogState _renameDialog = new();
+        private readonly ProjectExportDialogState _exportDialog = new();
+        private readonly ProjectOperationsService _operations = new();
         private UIActionButton _back = null!;
         private UIActionButton _previous = null!;
         private UIActionButton _next = null!;
@@ -57,19 +46,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private UIActionButton _replaceExistingExport = null!;
         private UIActionButton _folder = null!;
         private UIActionButton _create = null!;
-        private int _selected = -1;
-        private int _pageStart;
-        private bool _isRenaming;
-        private string _renameText = string.Empty;
-        private string _renameError = string.Empty;
         private Rectangle _renameInputBounds;
-        private bool _isSelectingExportRange;
-        private int _exportStart;
-        private int _exportEnd;
-        private ExportFormat _exportFormat = ExportFormat.Gif;
-        private bool _replaceExisting;
-        private string _exportDirectory = SaveService.ProjectsDirectory;
-        private string _exportMessage = string.Empty;
         private SaveService.ExportOperation? _exportOperation;
         private bool _exportPending;
         private readonly Queue<string> _pendingProjectFiles = new();
@@ -81,12 +58,13 @@ namespace FrameByFrame.src.Engine.Scenes
         private string? _pendingOpenFile;
         private Task<ThumbnailLoadResult>? _thumbnailLoad;
         private Task<MetadataLoadResult>? _metadataLoad;
-        private long _thumbnailAccess;
         private int _thumbnailGeneration;
+
+        public ProjectsScene() => _galleryView = new ProjectGalleryComponent(_gallery);
 
         public override void LoadContent()
         {
-            try { Directory.CreateDirectory(SaveService.ProjectsDirectory); }
+            try { _operations.EnsureProjectsDirectory(); }
             catch (Exception ex)
             {
                 _feedback.ShowError("Projects folder is unavailable", ex.Message,
@@ -100,23 +78,23 @@ namespace FrameByFrame.src.Engine.Scenes
             _rename = new UIActionButton("Rename project", BeginRename);
             _confirmRename = new UIActionButton("Save name", ConfirmRename);
             _cancelRename = new UIActionButton("Cancel", CancelRename);
-            _exportStartDown = new UIActionButton("-", () => SetExportStart(_exportStart - 1));
-            _exportStartUp = new UIActionButton("+", () => SetExportStart(_exportStart + 1));
-            _exportEndDown = new UIActionButton("-", () => SetExportEnd(_exportEnd - 1));
-            _exportEndUp = new UIActionButton("+", () => SetExportEnd(_exportEnd + 1));
-            _exportFormatPrevious = new UIActionButton("<", () => SelectExportFormat(-1));
-            _exportFormatNext = new UIActionButton(">", () => SelectExportFormat(1));
+            _exportStartDown = new UIActionButton("-", () => _exportDialog.SetStart(_exportDialog.StartFrame - 1));
+            _exportStartUp = new UIActionButton("+", () => _exportDialog.SetStart(_exportDialog.StartFrame + 1));
+            _exportEndDown = new UIActionButton("-", () => _exportDialog.SetEnd(_exportDialog.EndFrame - 1));
+            _exportEndUp = new UIActionButton("+", () => _exportDialog.SetEnd(_exportDialog.EndFrame + 1));
+            _exportFormatPrevious = new UIActionButton("<", () => _exportDialog.SelectFormat(-1));
+            _exportFormatNext = new UIActionButton(">", () => _exportDialog.SelectFormat(1));
             _confirmExport = new UIActionButton("Export range", ExportSelectedProject);
-            _cancelExport = new UIActionButton("Cancel", () => _isSelectingExportRange = false);
+            _cancelExport = new UIActionButton("Cancel", _exportDialog.Close);
             _chooseExportDirectory = new UIActionButton("Choose export folder", ChooseExportDirectory);
             _replaceExistingExport = new UIActionButton("Replace existing: No", () =>
             {
-                _replaceExisting = !_replaceExisting;
-                _replaceExistingExport.Text = $"Replace existing: {(_replaceExisting ? "Yes" : "No")}";
-                _replaceExistingExport.IsSelected = _replaceExisting;
+                _exportDialog.ToggleReplace();
+                _replaceExistingExport.Text = $"Replace existing: {(_exportDialog.ReplaceExisting ? "Yes" : "No")}";
+                _replaceExistingExport.IsSelected = _exportDialog.ReplaceExisting;
             });
             _folder = new UIActionButton("Open projects folder", OpenProjectFolder);
-            _folder.Tooltip = SaveService.ProjectsDirectory;
+            _folder.Tooltip = _operations.ProjectsDirectory;
             _create = new UIActionButton("Create animation", CreateAnimation);
             _feedbackOverlay = new UIFeedbackOverlay(_feedback);
         }
@@ -147,12 +125,11 @@ namespace FrameByFrame.src.Engine.Scenes
 
             int columns = GalleryColumnCount(GlobalParameters.screenWidth);
             int pageSize = columns * 2;
-            _pageStart = ResolvePageStart(_pageStart, _selected, _projects.Count, pageSize);
+            _gallery.NormalizePage(pageSize);
             Rectangle gallery = new(margin, navigationY + S(50),
                 Math.Max(1, GlobalParameters.screenWidth - margin * 2),
                 Math.Max(1, actionY - S(14) - (navigationY + S(50))));
-            _projectCardBounds.Clear();
-            _projectCardBounds.AddRange(UILayoutEngine.Grid(gallery, pageSize, columns, S(14)));
+            _galleryView.Arrange(gallery, pageSize, columns, S(14));
 
             _renameInputBounds = new Rectangle(cx - S(220), cy - S(15), S(440), S(54));
             _confirmRename.Bounds = new Rectangle(cx - S(220), cy + S(60), S(210), S(52));
@@ -168,10 +145,10 @@ namespace FrameByFrame.src.Engine.Scenes
             _chooseExportDirectory.Bounds = new Rectangle(cx - S(220), cy + S(98), S(440), S(44));
             _confirmExport.Bounds = new Rectangle(cx - S(220), cy + S(152), S(210), S(52));
             _cancelExport.Bounds = new Rectangle(cx + S(10), cy + S(152), S(210), S(52));
-            bool hasProjects = _projects.Count > 0;
-            bool hasSelection = _selected >= 0 && _selected < _projects.Count;
-            _previous.IsEnabled = hasProjects && _pageStart > 0;
-            _next.IsEnabled = hasProjects && _pageStart + pageSize < _projects.Count;
+            bool hasProjects = _gallery.Projects.Count > 0;
+            bool hasSelection = _gallery.SelectedIndex >= 0 && _gallery.SelectedIndex < _gallery.Projects.Count;
+            _previous.IsEnabled = hasProjects && _gallery.PageStart > 0;
+            _next.IsEnabled = hasProjects && _gallery.PageStart + pageSize < _gallery.Projects.Count;
             _edit.IsEnabled = _export.IsEnabled = _rename.IsEnabled = hasSelection;
             _feedbackOverlay.Arrange(new Rectangle(0, 0,
                 GlobalParameters.screenWidth, GlobalParameters.screenHeight));
@@ -180,16 +157,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private static int GalleryColumnCount(int width) => width >= 1000 ? 3 : width >= 600 ? 2 : 1;
 
         internal static int ResolvePageStart(int currentPageStart, int selectedIndex,
-            int itemCount, int pageSize)
-        {
-            if (itemCount <= 0) return 0;
-            pageSize = Math.Max(1, pageSize);
-            int maxPageStart = ((itemCount - 1) / pageSize) * pageSize;
-            if (selectedIndex >= 0 && selectedIndex < itemCount)
-                return Math.Clamp(selectedIndex / pageSize * pageSize, 0, maxPageStart);
-            int clamped = Math.Clamp(currentPageStart, 0, maxPageStart);
-            return clamped / pageSize * pageSize;
-        }
+            int itemCount, int pageSize) => ProjectGalleryState.ResolvePageStart(
+                currentPageStart, selectedIndex, itemCount, pageSize);
 
         public override void Update(GameTime gameTime)
         {
@@ -220,12 +189,12 @@ namespace FrameByFrame.src.Engine.Scenes
                 return;
             }
             AdvanceThumbnailLoading();
-            if (_isRenaming)
+            if (_renameDialog.IsOpen)
             {
                 _confirmRename.Update(); _cancelRename.Update(); UpdateRenameText();
                 return;
             }
-            if (_isSelectingExportRange)
+            if (_exportDialog.IsOpen)
             {
                 _exportFormatPrevious.Update(); _exportFormatNext.Update();
                 _exportStartDown.Update(); _exportStartUp.Update();
@@ -233,22 +202,15 @@ namespace FrameByFrame.src.Engine.Scenes
                 _replaceExistingExport.Update();
                 _chooseExportDirectory.Update();
                 _confirmExport.Update(); _cancelExport.Update();
-                if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) _isSelectingExportRange = false;
+                if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) _exportDialog.Close();
                 return;
             }
             _back.Update(); _folder.Update();
-            if (_projects.Count == 0) _create.Update();
+            if (_gallery.Projects.Count == 0) _create.Update();
             else
             {
                 _previous.Update(); _next.Update();
-                int visibleCount = Math.Min(_projectCardBounds.Count, _projects.Count - _pageStart);
-                bool clickedCard = false;
-                for (int i = 0; i < visibleCount; i++)
-                {
-                    if (!UIPointerRouter.Clicked(_projectCardBounds[i])) continue;
-                    clickedCard = true;
-                    SelectProject(_pageStart + i);
-                }
+                bool clickedCard = _galleryView.UpdateSelection();
                 _edit.Update(); _export.Update(); _rename.Update();
                 if (GlobalParameters.GlobalMouse.LeftClick() && !clickedCard &&
                     !UIPointerRouter.IsPointerBlocked()) DeselectProject();
@@ -263,9 +225,9 @@ namespace FrameByFrame.src.Engine.Scenes
             GlobalParameters.GlobalGraphics.Clear(UITheme.Background);
             int S(int value) => UILayoutEngine.Scale(value);
             UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, S(88)), UITheme.Surface);
-            string heading = _projects.Count == 0
+            string heading = _gallery.Projects.Count == 0
                 ? "Your animations - No saved projects yet"
-                : $"Your animations - {_pageStart + 1}-{Math.Min(_pageStart + _projectCardBounds.Count, _projects.Count)} of {_projects.Count}";
+                : $"Your animations - {_gallery.PageStart + 1}-{Math.Min(_gallery.PageStart + _galleryView.CardBounds.Count, _gallery.Projects.Count)} of {_gallery.Projects.Count}";
             new UITextContainer
             {
                 Bounds = new Rectangle(_back.Bounds.Right + S(16), S(7), Math.Max(1, _folder.Bounds.X - _back.Bounds.Right - S(32)), S(42)),
@@ -279,12 +241,12 @@ namespace FrameByFrame.src.Engine.Scenes
                 HorizontalAlignment = UIAlign.Start,
                 MaxLines = 1,
                 Padding = 0
-            }.Draw(SaveService.ProjectsDirectory, UITheme.TextMuted, UITextRole.Caption);
+            }.Draw(_operations.ProjectsDirectory, UITheme.TextMuted, UITextRole.Caption);
             _back.Draw(); _folder.Draw();
 
-            if (_projects.Count == 0) DrawEmptyState(); else DrawSelectedProject();
-            if (_isRenaming) DrawRenameDialog();
-            if (_isSelectingExportRange) DrawExportRangeDialog();
+            if (_gallery.Projects.Count == 0) DrawEmptyState(); else DrawSelectedProject();
+            if (_renameDialog.IsOpen) DrawRenameDialog();
+            if (_exportDialog.IsOpen) DrawExportRangeDialog();
             _feedbackOverlay.Draw();
         }
 
@@ -302,131 +264,62 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void DrawSelectedProject()
         {
-            int S(int value) => UILayoutEngine.Scale(value);
-            int visibleCount = Math.Min(_projectCardBounds.Count,
-                Math.Max(0, _projects.Count - _pageStart));
-            for (int i = 0; i < visibleCount; i++)
-            {
-                int projectIndex = _pageStart + i;
-                GalleryProject project = _projects[projectIndex];
-                FbfProjectFile.ProjectMetadata metadata = project.Metadata;
-                Rectangle card = _projectCardBounds[i];
-                bool selected = projectIndex == _selected;
-                UIRenderer.Fill(card, selected ? UITheme.SurfaceRaised : UITheme.Surface);
-                UIRenderer.Border(card, selected ? UITheme.Primary : UITheme.Border, selected ? 3 : 2);
-
-                int padding = Math.Max(4, S(10));
-                int detailsHeight = Math.Min(S(66), Math.Max(S(42), card.Height / 3));
-                Rectangle previewArea = new(card.X + padding, card.Y + padding,
-                    Math.Max(1, card.Width - padding * 2),
-                    Math.Max(1, card.Height - detailsHeight - padding * 2));
-                Rectangle preview = UILayoutEngine.FitAspect(previewArea,
-                    metadata.Width / (float)metadata.Height);
-                project.Thumbnail?.DrawPreview(preview, 1f,
-                    metadata.IsBackgroundTransparent, metadata.BackgroundColor);
-                if (project.Thumbnail == null)
-                    new UITextContainer { Bounds = preview, MaxLines = 1 }.Draw(
-                        project.ThumbnailFailed ? "Preview unavailable" : "Loading preview...",
-                        UITheme.TextMuted, UITextRole.Caption);
-                else project.LastThumbnailAccess = ++_thumbnailAccess;
-                UIRenderer.Border(preview, selected ? UITheme.Secondary : UITheme.Border, 2);
-
-                Rectangle nameBounds = new(card.X + padding, previewArea.Bottom + S(3),
-                    Math.Max(1, card.Width - padding * 2), Math.Max(20, detailsHeight / 2));
-                new UITextContainer { Bounds = nameBounds, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
-                    .Draw(metadata.ProjectName, UITheme.Text, UITextRole.Label);
-                Rectangle details = new(nameBounds.X, nameBounds.Bottom, nameBounds.Width,
-                    Math.Max(18, card.Bottom - padding - nameBounds.Bottom));
-                new UITextContainer { Bounds = details, HorizontalAlignment = UIAlign.Start, MaxLines = 1, Padding = 2 }
-                    .Draw($"{metadata.FrameCount} frames | {metadata.FramesPerSecond} fps", UITheme.TextMuted, UITextRole.Caption);
-            }
+            _galleryView.Draw();
 
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
-            if (_projects.Count > pageSize) { _previous.Draw(); _next.Draw(); }
+            if (_gallery.Projects.Count > pageSize) { _previous.Draw(); _next.Draw(); }
             _edit.Draw(true); _export.Draw(); _rename.Draw();
         }
 
         private void BeginRename()
         {
-            if (_selected < 0 || _selected >= _projects.Count) return;
-            _renameText = _projects[_selected].Metadata.ProjectName;
-            _renameError = string.Empty;
-            _isRenaming = true;
+            if (_gallery.Selected == null) return;
+            _renameDialog.Open(_gallery.Selected.Metadata.ProjectName);
         }
 
-        private void CancelRename() { _isRenaming = false; _renameError = string.Empty; }
+        private void CancelRename() => _renameDialog.Cancel();
 
         private void ConfirmRename()
         {
-            try
+            GalleryProject? project = _gallery.Selected;
+            if (project == null) return;
+            if (_renameDialog.Confirm(name =>
             {
-                GalleryProject project = _projects[_selected];
-                using Animation.Animation animation = SaveService.LoadAnimation(project.FilePath);
-                project.FilePath = SaveService.RenameAnimation(animation, project.FilePath, _renameText);
-                project.Metadata = SaveService.ReadProjectMetadata(project.FilePath);
-                _isRenaming = false;
-                _renameError = string.Empty;
+                ProjectRenameResult result = _operations.Rename(project.FilePath, name);
+                project.FilePath = result.FilePath;
+                project.Metadata = result.Metadata;
+                return null;
+            }))
                 _feedback.ShowSuccess("Project renamed", "The new project name was saved successfully.");
-            }
-            catch (Exception ex)
-            {
-                _renameError = $"{ex.Message} Choose a unique name without path characters, then try again.";
-            }
         }
 
         private void UpdateRenameText()
         {
             bool shift = GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.LeftShift) ||
                 GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightShift);
-            foreach (Keys key in GlobalParameters.GlobalKeyboard.GetNewlyPressedKeys())
+            RenameInputResult result = _renameDialog.ApplyKeys(
+                GlobalParameters.GlobalKeyboard.GetNewlyPressedKeys(), shift);
+            if (result == RenameInputResult.Confirm)
             {
-                if (key == Keys.Enter) { ConfirmRename(); return; }
-                if (key == Keys.Escape) { CancelRename(); return; }
-                if (key == Keys.Back && _renameText.Length > 0) { _renameText = _renameText[..^1]; continue; }
-                char? character = KeyToCharacter(key, shift);
-                if (character.HasValue && _renameText.Length < 80) _renameText += character.Value;
+                ConfirmRename();
+                return;
             }
+            if (result == RenameInputResult.Cancel) CancelRename();
         }
 
-        private static char? KeyToCharacter(Keys key, bool shift)
-        {
-            if (key >= Keys.A && key <= Keys.Z)
-            {
-                char value = (char)('a' + (int)key - (int)Keys.A);
-                return shift ? char.ToUpperInvariant(value) : value;
-            }
-            if (key >= Keys.D0 && key <= Keys.D9) return (char)('0' + (int)key - (int)Keys.D0);
-            if (key >= Keys.NumPad0 && key <= Keys.NumPad9) return (char)('0' + (int)key - (int)Keys.NumPad0);
-            return key switch { Keys.Space => ' ', Keys.OemMinus => shift ? '_' : '-', _ => null };
-        }
-
-        private void DrawRenameDialog()
-        {
-            int S(int value) => UILayoutEngine.Scale(value);
-            Rectangle dialog = new(GlobalParameters.screenWidth / 2 - S(260), GlobalParameters.screenHeight / 2 - S(120), S(520), S(270));
-            UIRenderer.Fill(dialog, UITheme.SurfaceRaised); UIRenderer.Border(dialog, UITheme.Primary, 3);
-            new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18), dialog.Width - S(48), S(42)), MaxLines = 1 }
-                .Draw("Rename project", UITheme.Primary, UITextRole.Heading);
-            UIRenderer.Fill(_renameInputBounds, UITheme.Surface); UIRenderer.Border(_renameInputBounds, UITheme.Border, 2);
-            string display = string.IsNullOrEmpty(_renameText) ? "Type a project name" : _renameText + "|";
-            new UITextContainer { Bounds = _renameInputBounds, HorizontalAlignment = UIAlign.Start, Padding = S(12), MaxLines = 1 }
-                .Draw(display, string.IsNullOrEmpty(_renameText) ? UITheme.TextMuted : UITheme.Text, UITextRole.Body);
-            if (!string.IsNullOrEmpty(_renameError))
-                new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), _renameInputBounds.Bottom + S(4), dialog.Width - S(48), S(34)), MaxLines = 1 }
-                    .Draw(_renameError, Color.IndianRed, UITextRole.Caption);
-            _confirmRename.Draw(true); _cancelRename.Draw();
-        }
+        private void DrawRenameDialog() => ProjectRenameDialogComponent.Draw(
+            _renameDialog, _renameInputBounds, _confirmRename, _cancelRename);
 
         public void LoadAnimations()
         {
-            DisposeProjects(); _selected = -1; _pageStart = 0;
+            DisposeProjects();
             _pendingProjectFiles.Clear();
             _projectLoadErrors.Clear();
             _projectLoadProcessed = 0;
             _feedback.Clear();
             try
             {
-                foreach (string file in Directory.GetFiles(SaveService.ProjectsDirectory, "*.fbf"))
+                foreach (string file in _operations.ListProjectFiles())
                     _pendingProjectFiles.Enqueue(file);
                 _projectLoadTotal = _pendingProjectFiles.Count;
                 if (_projectLoadTotal > 0)
@@ -448,7 +341,7 @@ namespace FrameByFrame.src.Engine.Scenes
                 _metadataLoad = Task.Run(() =>
                 {
                     try { return new MetadataLoadResult(generation, pendingFile,
-                        SaveService.ReadProjectMetadata(pendingFile), null); }
+                        _operations.ReadMetadata(pendingFile), null); }
                     catch (Exception ex) { return new MetadataLoadResult(generation, pendingFile, null, ex); }
                 });
                 return;
@@ -457,7 +350,7 @@ namespace FrameByFrame.src.Engine.Scenes
             MetadataLoadResult result = _metadataLoad.GetAwaiter().GetResult();
             _metadataLoad = null;
             if (result.Generation != _thumbnailGeneration) return;
-            if (result.Metadata != null) _projects.Add(new GalleryProject(result.FilePath, result.Metadata));
+            if (result.Metadata != null) _gallery.Add(new GalleryProject(result.FilePath, result.Metadata));
             else if (result.Error != null)
                 _projectLoadErrors.Add($"{Path.GetFileName(result.FilePath)}: {result.Error.Message}");
             _projectLoadProcessed++;
@@ -485,13 +378,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 ThumbnailLoadResult result = _thumbnailLoad.GetAwaiter().GetResult();
                 _thumbnailLoad = null;
                 if (result.Generation != _thumbnailGeneration) return;
-                GalleryProject? project = _projects.FirstOrDefault(candidate => candidate.FilePath == result.FilePath);
+                GalleryProject? project = _gallery.Projects.FirstOrDefault(candidate => candidate.FilePath == result.FilePath);
                 if (result.Thumbnail != null && project != null)
                 {
                     project.Thumbnail?.Dispose();
                     project.Thumbnail = SaveService.MaterializeProjectThumbnail(result.Thumbnail);
-                    project.LastThumbnailAccess = ++_thumbnailAccess;
-                    TrimThumbnailCache();
+                    _gallery.Touch(project);
+                    _gallery.TrimThumbnailCache(MaximumCachedThumbnails, _galleryView.CardBounds.Count);
                 }
                 else if (result.Error != null && project != null)
                 {
@@ -503,71 +396,34 @@ namespace FrameByFrame.src.Engine.Scenes
                 }
             }
 
-            int visibleCount = Math.Min(_projectCardBounds.Count, Math.Max(0, _projects.Count - _pageStart));
-            GalleryProject? next = Enumerable.Range(_pageStart, visibleCount)
-                .Select(index => _projects[index])
+            int visibleCount = Math.Min(_galleryView.CardBounds.Count, Math.Max(0, _gallery.Projects.Count - _gallery.PageStart));
+            GalleryProject? next = Enumerable.Range(_gallery.PageStart, visibleCount)
+                .Select(index => _gallery.Projects[index])
                 .FirstOrDefault(project => project.Thumbnail == null && !project.ThumbnailFailed);
             if (next == null) return;
             string file = next.FilePath;
             int generation = _thumbnailGeneration;
             _thumbnailLoad = Task.Run(() =>
             {
-                try { return new ThumbnailLoadResult(generation, file, SaveService.LoadProjectThumbnail(file), null); }
+                try { return new ThumbnailLoadResult(generation, file, _operations.LoadThumbnail(file), null); }
                 catch (Exception ex) { return new ThumbnailLoadResult(generation, file, null, ex); }
             });
         }
 
-        private void TrimThumbnailCache()
-        {
-            int cached = _projects.Count(project => project.Thumbnail != null);
-            while (cached > MaximumCachedThumbnails)
-            {
-                GalleryProject? oldest = _projects
-                    .Where(project => project.Thumbnail != null && !IsVisible(project))
-                    .OrderBy(project => project.LastThumbnailAccess)
-                    .FirstOrDefault();
-                if (oldest == null) return;
-                oldest.Thumbnail!.Dispose();
-                oldest.Thumbnail = null;
-                cached--;
-            }
-        }
+        private void SelectProject(int index) => _gallery.Select(index);
 
-        private bool IsVisible(GalleryProject project)
-        {
-            int index = _projects.IndexOf(project);
-            return index >= _pageStart && index < _pageStart + _projectCardBounds.Count;
-        }
-
-        private void SelectProject(int index)
-        {
-            if (index < 0 || index >= _projects.Count) return;
-            _selected = index;
-            _projects[index].LastThumbnailAccess = ++_thumbnailAccess;
-        }
-
-        private void DeselectProject()
-        {
-            if (_selected < 0 || _selected >= _projects.Count) return;
-            _selected = -1;
-        }
+        private void DeselectProject() => _gallery.Deselect();
 
         private void ChangePage(int delta)
         {
-            if (_projects.Count == 0) return;
             int pageSize = GalleryColumnCount(GlobalParameters.screenWidth) * 2;
-            int nextPageStart = ResolvePageStart(_pageStart + delta * pageSize,
-                -1, _projects.Count, pageSize);
-            if (nextPageStart == _pageStart) return;
-            DeselectProject();
-            _pageStart = nextPageStart;
-            Layout();
+            if (_gallery.ChangePage(delta, pageSize)) Layout();
         }
 
         private void OpenSelectedProject()
         {
-            if (_selected < 0 || _selected >= _projects.Count) return;
-            _pendingOpenFile = _projects[_selected].FilePath;
+            if (_gallery.SelectedIndex < 0 || _gallery.SelectedIndex >= _gallery.Projects.Count) return;
+            _pendingOpenFile = _gallery.Projects[_gallery.SelectedIndex].FilePath;
             _feedback.ShowBusy("Opening project", $"Loading {Path.GetFileNameWithoutExtension(_pendingOpenFile)}...");
         }
 
@@ -578,7 +434,7 @@ namespace FrameByFrame.src.Engine.Scenes
             if (string.IsNullOrWhiteSpace(file)) return;
             try
             {
-                Animation.Animation loaded = SaveService.LoadAnimation(file);
+                Animation.Animation loaded = _operations.Load(file);
                 DrawingScene drawing = (DrawingScene)GlobalParameters.Scenes[UIConstants.DRAWING_SCENE];
                 drawing.LoadAnimation(loaded);
                 _feedback.Clear();
@@ -599,26 +455,15 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void BeginExportRange()
         {
-            if (_selected < 0 || _selected >= _projects.Count) return;
-            _exportStart = 0;
-            _exportEnd = _projects[_selected].Metadata.FrameCount - 1;
-            _exportMessage = string.Empty;
-            _replaceExisting = false;
+            if (_gallery.Selected == null) return;
+            _exportDialog.Open(_gallery.Selected.Metadata.FrameCount);
             _replaceExistingExport.Text = "Replace existing: No";
             _replaceExistingExport.IsSelected = false;
-            _isSelectingExportRange = true;
-        }
-        private void SetExportStart(int value) => _exportStart = Math.Clamp(value, 0, _exportEnd);
-        private void SetExportEnd(int value) => _exportEnd = Math.Clamp(value, _exportStart, _projects[_selected].Metadata.FrameCount - 1);
-        private void SelectExportFormat(int delta)
-        {
-            int count = Enum.GetValues<ExportFormat>().Length;
-            _exportFormat = (ExportFormat)(((int)_exportFormat + delta + count) % count);
         }
         private void ExportSelectedProject()
         {
-            if (_selected < 0 || _selected >= _projects.Count) return;
-            _isSelectingExportRange = false;
+            if (_gallery.SelectedIndex < 0 || _gallery.SelectedIndex >= _gallery.Projects.Count) return;
+            _exportDialog.Close();
             _exportOperation = null;
             _exportPending = true;
             _feedback.ShowBusy("Preparing export", "Saving the project and preparing frames...", 0f);
@@ -629,10 +474,10 @@ namespace FrameByFrame.src.Engine.Scenes
             _exportPending = false;
             try
             {
-                using Animation.Animation animation = SaveService.LoadAnimation(_projects[_selected].FilePath);
-                _exportOperation = SaveService.BeginExportAnimation(
-                    animation, _exportStart, _exportEnd, _exportDirectory, _exportFormat,
-                    _replaceExisting ? ExportCollisionBehavior.Replace : ExportCollisionBehavior.Fail);
+                GalleryProject project = _gallery.Selected ?? throw new InvalidOperationException("No project is selected.");
+                _exportOperation = _operations.BeginExport(project.FilePath,
+                    _exportDialog.StartFrame, _exportDialog.EndFrame, _exportDialog.Directory,
+                    _exportDialog.Format, _exportDialog.ReplaceExisting);
                 _feedback.ShowBusy("Exporting animation", _exportOperation.Status, _exportOperation.Progress);
             }
             catch (Exception ex)
@@ -676,68 +521,30 @@ namespace FrameByFrame.src.Engine.Scenes
             try
             {
                 using var dialog = new NativeFileDialog().SelectFolder();
-                DialogResult result = dialog.Open(out string[]? output, _exportDirectory);
+                DialogResult result = dialog.Open(out string[]? output, _exportDialog.Directory);
                 if (result == DialogResult.Okay && output is { Length: > 0 })
                 {
-                    _exportDirectory = Path.GetFullPath(output[0]);
-                    _exportMessage = string.Empty;
+                    _exportDialog.SetDirectory(output[0]);
                 }
             }
             catch (Exception ex)
             {
-                _exportMessage = $"Could not choose an export folder: {ex.Message}";
+                _exportDialog.SetError($"Could not choose an export folder: {ex.Message}");
                 _feedback.ShowError("Export folder could not be selected", ex.Message,
                     "Check folder access permissions, then choose another destination.");
             }
         }
-        private void DrawExportRangeDialog()
-        {
-            int S(int value) => UILayoutEngine.Scale(value);
-            int cx = GlobalParameters.screenWidth / 2;
-            int cy = GlobalParameters.screenHeight / 2;
-            Rectangle dialog = new(cx - S(260), cy - S(240), S(520), S(500));
-            UIRenderer.Fill(dialog, UITheme.SurfaceRaised); UIRenderer.Border(dialog, UITheme.Primary, 3);
-            new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18), dialog.Width - S(48), S(42)), MaxLines = 1 }
-                .Draw("Export frame range", UITheme.Primary, UITextRole.Heading);
-            new UITextContainer { Bounds = new Rectangle(cx - S(210), cy - S(130), S(150), S(42)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Format", UITheme.Text, UITextRole.Body);
-            new UITextContainer { Bounds = new Rectangle(cx + S(10), cy - S(130), S(90), S(42)), MaxLines = 1 }
-                .Draw(ExportFormatLabel(_exportFormat), UITheme.Primary, UITextRole.Label);
-            _exportFormatPrevious.Draw(); _exportFormatNext.Draw();
-            new UITextContainer { Bounds = new Rectangle(cx - S(210), cy - S(75), S(150), S(42)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("First frame", UITheme.Text, UITextRole.Body);
-            new UITextContainer { Bounds = new Rectangle(cx + S(10), cy - S(75), S(90), S(42)), MaxLines = 1 }
-                .Draw((_exportStart + 1).ToString(), UITheme.Primary, UITextRole.Label);
-            _exportStartDown.Draw(); _exportStartUp.Draw();
-            new UITextContainer { Bounds = new Rectangle(cx - S(210), cy - S(20), S(150), S(42)), HorizontalAlignment = UIAlign.Start, MaxLines = 1 }
-                .Draw("Last frame", UITheme.Text, UITextRole.Body);
-            new UITextContainer { Bounds = new Rectangle(cx + S(10), cy - S(20), S(90), S(42)), MaxLines = 1 }
-                .Draw((_exportEnd + 1).ToString(), UITheme.Primary, UITextRole.Label);
-            _exportEndDown.Draw(); _exportEndUp.Draw();
-            new UITextContainer
-            {
-                Bounds = new Rectangle(cx - S(220), cy + S(70), S(440), S(24)),
-                HorizontalAlignment = UIAlign.Start,
-                MaxLines = 1
-            }.Draw(string.IsNullOrEmpty(_exportMessage) ? _exportDirectory : _exportMessage,
-                string.IsNullOrEmpty(_exportMessage) ? UITheme.TextMuted : UITheme.Danger, UITextRole.Caption);
-            _replaceExistingExport.Draw();
-            _chooseExportDirectory.Draw();
-            _confirmExport.Draw(true); _cancelExport.Draw();
-        }
-        private static string ExportFormatLabel(ExportFormat format) => format switch
-        {
-            ExportFormat.PngSequence => "PNG files",
-            ExportFormat.SpriteSheet => "Spritesheet",
-            _ => format.ToString().ToUpperInvariant()
-        };
+        private void DrawExportRangeDialog() => ProjectExportDialogComponent.Draw(
+            _exportDialog, _exportFormatPrevious, _exportFormatNext,
+            _exportStartDown, _exportStartUp, _exportEndDown, _exportEndUp,
+            _replaceExistingExport, _chooseExportDirectory, _confirmExport, _cancelExport);
         private void OpenProjectFolder()
         {
-            try { Process.Start(new ProcessStartInfo { FileName = SaveService.ProjectsDirectory, UseShellExecute = true, Verb = "open" }); }
+            try { _operations.OpenProjectsFolder(); }
             catch (Exception ex)
             {
                 _feedback.ShowError("Projects folder could not be opened", ex.Message,
-                    $"Open this folder manually: {SaveService.ProjectsDirectory}");
+                    $"Open this folder manually: {_operations.ProjectsDirectory}");
             }
         }
         private void GoHome()
@@ -749,8 +556,7 @@ namespace FrameByFrame.src.Engine.Scenes
             _thumbnailGeneration++;
             _thumbnailLoad = null;
             _metadataLoad = null;
-            foreach (GalleryProject project in _projects) project.Thumbnail?.Dispose();
-            _projects.Clear();
+            _gallery.Clear();
         }
         public override void Dispose() => DisposeProjects();
     }
