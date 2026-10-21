@@ -59,6 +59,48 @@ AssertInvalidFbfBoolean("layer visibility");
 AssertInvalidFbfBoolean("layer lock");
 AssertInvalidFbfBoolean("audio mute");
 
+const int largeCanvasDimension = 4096;
+long legacyHistoryBytes = 2L * largeCanvasDimension * largeCanvasDimension * sizeof(uint);
+long sparseHistoryBytes = Animation.EstimateHistoryBytes(3);
+Assert(sparseHistoryBytes < legacyHistoryBytes / 1_000_000,
+    "A small edit on a 4096x4096 canvas should be sized by changed pixels, not canvas area.");
+long maxHistoryPixels = Animation.MaxHistoryBytes / Animation.EstimateHistoryBytes(1);
+Assert(Animation.EstimateHistoryBytes(maxHistoryPixels) <= Animation.MaxHistoryBytes &&
+       Animation.EstimateHistoryBytes(maxHistoryPixels + 1) > Animation.MaxHistoryBytes,
+    "Sparse history accounting should enforce the configured byte budget.");
+int sampledPixels = 0;
+PixelSelection? boundedSelection = SelectionOperations.ExtractFreeform((x, y) =>
+{
+    sampledPixels++;
+    return x == y ? Color.Red : Color.Transparent;
+}, largeCanvasDimension, largeCanvasDimension,
+    [new Vector2(10, 10), new Vector2(12, 10), new Vector2(12, 12), new Vector2(10, 12)]);
+Assert(boundedSelection != null && sampledPixels == 4,
+    "A small selection on a 4096x4096 canvas should read only its bounded region.");
+var sparseLayer = new AnimationLayer("Sparse");
+using (var sparseAnimation = new Animation("Sparse history", [sparseLayer]))
+{
+    var largeFrame = new Frame(Vector2.Zero,
+        new Vector2(largeCanvasDimension, largeCanvasDimension), [sparseLayer]);
+    sparseAnimation.LoadFrames([largeFrame], Vector2.Zero,
+        new Vector2(largeCanvasDimension, largeCanvasDimension));
+    sparseAnimation.HistoryByteBudget = Animation.EstimateHistoryBytes(2);
+    Assert(sparseAnimation.ApplyCurrentLayerPixelChanges(new Dictionary<int, Color> { [1] = Color.Red }) &&
+           sparseAnimation.ApplyCurrentLayerPixelChanges(new Dictionary<int, Color> { [2] = Color.Green }) &&
+           sparseAnimation.ApplyCurrentLayerPixelChanges(new Dictionary<int, Color> { [3] = Color.Blue }),
+        "Sparse pixel edits should fit without allocating full 4096x4096 layer copies.");
+    Assert(sparseAnimation.HistoryBytes == sparseAnimation.HistoryByteBudget,
+        "History should evict its oldest edit when the byte budget is exceeded.");
+    Assert(sparseAnimation.Undo() && sparseAnimation.GetCurrentLayerPixel(3, 0) == Color.Transparent &&
+           sparseAnimation.Undo() && sparseAnimation.GetCurrentLayerPixel(2, 0) == Color.Transparent &&
+           !sparseAnimation.Undo() && sparseAnimation.GetCurrentLayerPixel(1, 0) == Color.Red,
+        "Undo should remain correct after the oldest edit is evicted.");
+    Assert(sparseAnimation.Redo() && sparseAnimation.Redo() &&
+           sparseAnimation.GetCurrentLayerPixel(2, 0) == Color.Green &&
+           sparseAnimation.GetCurrentLayerPixel(3, 0) == Color.Blue,
+        "Redo should remain correct after byte-budget eviction.");
+}
+
 Assert(Animation.CalculateOnionOpacity(1f, 0, 1) == 0f,
     "An onion-skin range with no frames should have zero opacity.");
 foreach (float setting in new[] { 0f, .25f, .5f, 1f, 2f })

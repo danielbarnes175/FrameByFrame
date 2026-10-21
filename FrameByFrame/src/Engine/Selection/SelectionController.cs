@@ -78,20 +78,19 @@ namespace FrameByFrame.src.Engine.Selection
             EnsureCurrentTarget();
             if (_clipboard == null || _animation.CurrentFrame == null) return;
             PixelSelection pasted = SelectionOperations.PrepareForPaste(_clipboard.Clone());
-            Color[] pixels = _animation.GetCurrentLayerPixels();
-            PixelSelection underlay = SelectionOperations.Capture(pixels, _animation.CurrentFrame.width,
-                _animation.CurrentFrame.height, pasted);
-            SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height, pasted);
-            if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(pasted, underlay);
+            var changes = new Dictionary<int, Color>();
+            PixelSelection underlay = Capture(pasted, changes);
+            Composite(changes, pasted);
+            if (_animation.ApplyCurrentLayerPixelChanges(changes)) SetSelection(pasted, underlay);
         }
 
         public void Delete()
         {
             EnsureCurrentTarget();
             if (_selection == null) return;
-            Color[] pixels = _animation.GetCurrentLayerPixels();
-            RemoveSelectionFrom(pixels);
-            if (_animation.ReplaceCurrentLayerPixels(pixels)) Clear();
+            var changes = new Dictionary<int, Color>();
+            RemoveSelectionFrom(changes);
+            if (_animation.ApplyCurrentLayerPixelChanges(changes)) Clear();
         }
 
         public void Resize(float scale)
@@ -145,7 +144,7 @@ namespace FrameByFrame.src.Engine.Selection
             if (completed == Gesture.Lasso)
             {
                 PixelSelection? selected = SelectionOperations.ExtractFreeform(
-                    _animation.GetCurrentLayerPixels(), _animation.CurrentFrame.width,
+                    _animation.GetCurrentLayerPixel, _animation.CurrentFrame.width,
                     _animation.CurrentFrame.height, _lassoPoints);
                 if (selected == null) Clear(); else SetSelection(selected);
             }
@@ -156,13 +155,11 @@ namespace FrameByFrame.src.Engine.Selection
 
         private void ApplyTransform(PixelSelection transformed)
         {
-            Color[] pixels = _animation.GetCurrentLayerPixels();
-            RemoveSelectionFrom(pixels);
-            PixelSelection underlay = SelectionOperations.Capture(pixels, _animation.CurrentFrame.width,
-                _animation.CurrentFrame.height, transformed);
-            SelectionOperations.Composite(pixels, _animation.CurrentFrame.width, _animation.CurrentFrame.height,
-                transformed);
-            if (_animation.ReplaceCurrentLayerPixels(pixels)) SetSelection(transformed, underlay);
+            var changes = new Dictionary<int, Color>();
+            RemoveSelectionFrom(changes);
+            PixelSelection underlay = Capture(transformed, changes);
+            Composite(changes, transformed);
+            if (_animation.ApplyCurrentLayerPixelChanges(changes)) SetSelection(transformed, underlay);
         }
 
         private void SetSelection(PixelSelection selection, PixelSelection? underlay = null)
@@ -175,15 +172,56 @@ namespace FrameByFrame.src.Engine.Selection
             _lassoPoints.Clear();
         }
 
-        private void RemoveSelectionFrom(Color[] pixels)
+        private void RemoveSelectionFrom(Dictionary<int, Color> changes)
         {
-            if (_underlay != null)
-                SelectionOperations.Restore(pixels, _animation.CurrentFrame.width,
-                    _animation.CurrentFrame.height, _underlay);
-            else
-                SelectionOperations.Clear(pixels, _animation.CurrentFrame.width,
-                    _animation.CurrentFrame.height, _selection!);
+            PixelSelection source = _underlay ?? _selection!;
+            for (int y = 0; y < source.Height; y++)
+            for (int x = 0; x < source.Width; x++)
+            {
+                int sourceIndex = x + y * source.Width;
+                if (!source.Mask[sourceIndex]) continue;
+                SetChange(changes, source.Bounds.X + x, source.Bounds.Y + y,
+                    _underlay == null ? Color.Transparent : source.Pixels[sourceIndex]);
+            }
         }
+
+        private PixelSelection Capture(PixelSelection shape, IReadOnlyDictionary<int, Color> changes)
+        {
+            Color[] pixels = new Color[shape.Width * shape.Height];
+            for (int y = 0; y < shape.Height; y++)
+            for (int x = 0; x < shape.Width; x++)
+            {
+                int sourceIndex = x + y * shape.Width;
+                if (!shape.Mask[sourceIndex]) continue;
+                int canvasX = shape.Bounds.X + x;
+                int canvasY = shape.Bounds.Y + y;
+                if (!IsOnCanvas(canvasX, canvasY)) continue;
+                int canvasIndex = canvasX + canvasY * _animation.CurrentFrame.width;
+                pixels[sourceIndex] = changes.TryGetValue(canvasIndex, out Color changed)
+                    ? changed : _animation.GetCurrentLayerPixel(canvasX, canvasY);
+            }
+            return new PixelSelection(shape.Bounds, pixels, shape.Mask);
+        }
+
+        private void Composite(Dictionary<int, Color> changes, PixelSelection selection)
+        {
+            for (int y = 0; y < selection.Height; y++)
+            for (int x = 0; x < selection.Width; x++)
+            {
+                int sourceIndex = x + y * selection.Width;
+                if (!selection.Mask[sourceIndex] || selection.Pixels[sourceIndex].A == 0) continue;
+                SetChange(changes, selection.Bounds.X + x, selection.Bounds.Y + y,
+                    selection.Pixels[sourceIndex]);
+            }
+        }
+
+        private void SetChange(Dictionary<int, Color> changes, int x, int y, Color color)
+        {
+            if (IsOnCanvas(x, y)) changes[x + y * _animation.CurrentFrame.width] = color;
+        }
+
+        private bool IsOnCanvas(int x, int y) => x >= 0 && x < _animation.CurrentFrame.width &&
+            y >= 0 && y < _animation.CurrentFrame.height;
 
         private void EnsureCurrentTarget()
         {

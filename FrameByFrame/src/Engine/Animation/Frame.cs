@@ -34,9 +34,6 @@ namespace FrameByFrame.src.Engine.Animation
             drawRectangle = new Rectangle((int)givenPosition.X, (int)givenPosition.Y, width, height);
             _layers = (layers ?? CreateDefaultLayers()).Select(layer => new FrameLayer(layer)).ToList();
 
-            if (_sharedBackgroundTexture == null)
-                _sharedBackgroundTexture = DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, width, height,
-                    _ => Color.White, Shapes.RECTANGLE);
         }
 
         private static IEnumerable<AnimationLayer> CreateDefaultLayers() =>
@@ -92,6 +89,26 @@ namespace FrameByFrame.src.Engine.Animation
             FrameLayer? layer = FindLayer(layerId);
             if (layer == null || x < 0 || x >= width || y < 0 || y >= height) return Color.Transparent;
             return layer.Pixels.TryGetValue(y * width + x, out Color color) ? color : Color.Transparent;
+        }
+
+        internal Color GetLayerPixel(Guid layerId, int index)
+        {
+            FrameLayer layer = FindLayer(layerId) ?? throw new ArgumentException("Unknown layer.", nameof(layerId));
+            return layer.Pixels.TryGetValue(index, out Color color) ? color : Color.Transparent;
+        }
+
+        internal void ApplyPixelChanges(Guid layerId, IEnumerable<KeyValuePair<int, Color>> changes)
+        {
+            FrameLayer layer = FindLayer(layerId) ?? throw new ArgumentException("Unknown layer.", nameof(layerId));
+            foreach (KeyValuePair<int, Color> change in changes)
+            {
+                if (change.Key < 0 || change.Key >= width * height)
+                    throw new ArgumentOutOfRangeException(nameof(changes), "A pixel index is outside the frame.");
+                if (change.Value == Color.Transparent) layer.Pixels.Remove(change.Key);
+                else layer.Pixels[change.Key] = change.Value;
+            }
+            _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
         }
 
         public Color[] GetLayerPixels(Guid layerId)
@@ -154,16 +171,51 @@ namespace FrameByFrame.src.Engine.Animation
             return result;
         }
 
-        public bool FloodFill(Guid layerId, int startX, int startY, Color replacement, long availablePixels = long.MaxValue)
+        public bool FloodFill(Guid layerId, int startX, int startY, Color replacement,
+            long availablePixels = long.MaxValue, long maxChangedPixels = long.MaxValue,
+            Action<int, Color>? beforeChange = null)
         {
             FrameLayer? layer = FindLayer(layerId);
             if (layer == null || layer.Definition.IsLocked || startX < 0 || startX >= width || startY < 0 || startY >= height) return false;
-            Color[] pixels = GetLayerPixels(layerId);
-            FloodFillPixels(pixels, width, height, startX, startY, replacement);
-            int newPixelCount = pixels.Count(pixel => pixel != Color.Transparent);
-            if (newPixelCount - layer.Pixels.Count > availablePixels) return false;
-            SetLayerPixels(layerId, pixels);
+            int startIndex = startY * width + startX;
+            Color target = layer.Pixels.TryGetValue(startIndex, out Color startColor)
+                ? startColor : Color.Transparent;
+            if (target == replacement) return false;
+
+            var changed = new List<int>();
+            var visited = new HashSet<int> { startIndex };
+            var pending = new Queue<int>();
+            pending.Enqueue(startIndex);
+            while (pending.Count > 0)
+            {
+                int index = pending.Dequeue();
+                changed.Add(index);
+                if (changed.Count > maxChangedPixels) return false;
+                int x = index % width;
+                int y = index / width;
+                TryQueue(x - 1, y); TryQueue(x + 1, y); TryQueue(x, y - 1); TryQueue(x, y + 1);
+            }
+
+            long addedPixels = target == Color.Transparent && replacement != Color.Transparent ? changed.Count : 0;
+            if (addedPixels > availablePixels) return false;
+            foreach (int index in changed)
+            {
+                beforeChange?.Invoke(index, target);
+                if (replacement == Color.Transparent) layer.Pixels.Remove(index);
+                else layer.Pixels[index] = replacement;
+            }
+            _texturesNeedUpdate = true;
+            _previewNeedsUpdate = true;
             return true;
+
+            void TryQueue(int x, int y)
+            {
+                if (x < 0 || x >= width || y < 0 || y >= height) return;
+                int index = y * width + x;
+                if (!visited.Add(index)) return;
+                Color color = layer.Pixels.TryGetValue(index, out Color value) ? value : Color.Transparent;
+                if (color == target) pending.Enqueue(index);
+            }
         }
 
         public static void FloodFillPixels(Color[] pixels, int width, int height, int startX, int startY, Color replacement)
@@ -221,6 +273,7 @@ namespace FrameByFrame.src.Engine.Animation
 
         public virtual void Draw(float opacity)
         {
+            EnsureBackgroundTexture();
             if (_sharedBackgroundTexture != null)
                 GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, drawRectangle, null, Color.White * opacity,
                     0f, Vector2.Zero, SpriteEffects.None, .2f);
@@ -228,11 +281,18 @@ namespace FrameByFrame.src.Engine.Animation
 
         public void Draw(Rectangle destination, float opacity)
         {
+            EnsureBackgroundTexture();
             if (_sharedBackgroundTexture != null)
                 GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
         }
 
         public void DrawLayers(Rectangle destination, float opacity) => DrawLayersCore(destination, opacity);
+
+        private static void EnsureBackgroundTexture()
+        {
+            _sharedBackgroundTexture ??= DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1,
+                _ => Color.White, Shapes.RECTANGLE);
+        }
         public void DrawLayers(CanvasView view, float opacity)
         {
             ArgumentNullException.ThrowIfNull(view);

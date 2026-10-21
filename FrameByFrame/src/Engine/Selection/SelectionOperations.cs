@@ -10,6 +10,15 @@ namespace FrameByFrame.src.Engine.Selection
             IReadOnlyList<Vector2> polygon)
         {
             ValidateCanvas(source, canvasWidth, canvasHeight);
+            return ExtractFreeform((x, y) => source[x + y * canvasWidth], canvasWidth, canvasHeight, polygon);
+        }
+
+        public static PixelSelection? ExtractFreeform(Func<int, int, Color> getPixel,
+            int canvasWidth, int canvasHeight, IReadOnlyList<Vector2> polygon)
+        {
+            ArgumentNullException.ThrowIfNull(getPixel);
+            if (canvasWidth <= 0 || canvasHeight <= 0)
+                throw new ArgumentOutOfRangeException(nameof(canvasWidth));
             ArgumentNullException.ThrowIfNull(polygon);
             if (polygon.Count < 3) return null;
 
@@ -43,7 +52,7 @@ namespace FrameByFrame.src.Engine.Selection
                 Vector2 pixelCenter = new(bounds.X + x + .5f, bounds.Y + y + .5f);
                 if (!ContainsPoint(polygon, pixelCenter)) continue;
                 mask[index] = true;
-                pixels[index] = source[bounds.X + x + (bounds.Y + y) * canvasWidth];
+                pixels[index] = getPixel(bounds.X + x, bounds.Y + y);
                 hasSelectedPixel = true;
             }
             return hasSelectedPixel ? new PixelSelection(bounds, pixels, mask) : null;
