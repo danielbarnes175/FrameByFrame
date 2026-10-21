@@ -6,6 +6,12 @@ namespace FrameByFrame.src.Engine.Projects
 {
     internal sealed class ProjectRenameDialogState
     {
+        private static readonly TimeSpan BackspaceRepeatDelay = TimeSpan.FromMilliseconds(400);
+        private static readonly TimeSpan BackspaceRepeatInterval = TimeSpan.FromMilliseconds(50);
+        private TimeSpan _backspaceHeldFor;
+        private int _backspaceRepeatsApplied;
+        private bool _backspaceWasHeld;
+
         public bool IsOpen { get; private set; }
         public string Text { get; private set; } = string.Empty;
         public string Error { get; private set; } = string.Empty;
@@ -15,12 +21,14 @@ namespace FrameByFrame.src.Engine.Projects
             Text = projectName ?? string.Empty;
             Error = string.Empty;
             IsOpen = true;
+            ResetBackspaceRepeat();
         }
 
         public void Cancel()
         {
             IsOpen = false;
             Error = string.Empty;
+            ResetBackspaceRepeat();
         }
 
         public bool Confirm(Func<string, string?> rename)
@@ -41,16 +49,64 @@ namespace FrameByFrame.src.Engine.Projects
         }
 
         public RenameInputResult ApplyKeys(Keys[] keys, bool shift)
+            => ApplyKeys(keys, shift, backspaceHeld: false, TimeSpan.Zero);
+
+        public RenameInputResult ApplyKeys(Keys[] keys, bool shift,
+            bool backspaceHeld, TimeSpan elapsed)
         {
+            bool backspacePressed = false;
             foreach (Keys key in keys)
             {
                 if (key == Keys.Enter) return RenameInputResult.Confirm;
                 if (key == Keys.Escape) return RenameInputResult.Cancel;
-                if (key == Keys.Back && Text.Length > 0) { Text = Text[..^1]; continue; }
+                if (key == Keys.Back)
+                {
+                    backspacePressed = true;
+                    DeleteLastCharacter();
+                    continue;
+                }
                 char? character = KeyToCharacter(key, shift);
                 if (character.HasValue && Text.Length < 80) Text += character.Value;
             }
+
+            ApplyBackspaceRepeat(backspacePressed, backspaceHeld, elapsed);
             return RenameInputResult.None;
+        }
+
+        private void ApplyBackspaceRepeat(bool pressed, bool held, TimeSpan elapsed)
+        {
+            if (!held)
+            {
+                ResetBackspaceRepeat();
+                return;
+            }
+
+            if (!_backspaceWasHeld || pressed)
+            {
+                _backspaceHeldFor = TimeSpan.Zero;
+                _backspaceRepeatsApplied = 0;
+            }
+            _backspaceWasHeld = true;
+            if (elapsed > TimeSpan.Zero) _backspaceHeldFor += elapsed;
+            if (_backspaceHeldFor < BackspaceRepeatDelay) return;
+
+            int repeatCount = 1 + (int)((_backspaceHeldFor - BackspaceRepeatDelay).Ticks /
+                BackspaceRepeatInterval.Ticks);
+            int pending = repeatCount - _backspaceRepeatsApplied;
+            for (int i = 0; i < pending; i++) DeleteLastCharacter();
+            _backspaceRepeatsApplied = repeatCount;
+        }
+
+        private void DeleteLastCharacter()
+        {
+            if (Text.Length > 0) Text = Text[..^1];
+        }
+
+        private void ResetBackspaceRepeat()
+        {
+            _backspaceHeldFor = TimeSpan.Zero;
+            _backspaceRepeatsApplied = 0;
+            _backspaceWasHeld = false;
         }
 
         internal static char? KeyToCharacter(Keys key, bool shift)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FrameByFrame.src.Engine.Animation;
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.UI;
 using Microsoft.Xna.Framework;
@@ -33,7 +34,7 @@ namespace FrameByFrame.src.Engine.Projects
             return false;
         }
 
-        public void Draw()
+        public void Draw(Frame? selectedPreview = null)
         {
             int S(int value) => UILayoutEngine.Scale(value);
             int visibleCount = Math.Min(CardBounds.Count,
@@ -53,9 +54,12 @@ namespace FrameByFrame.src.Engine.Projects
                     Math.Max(1, card.Width - padding * 2),
                     Math.Max(1, card.Height - detailsHeight - padding * 2));
                 Rectangle preview = UILayoutEngine.FitAspect(previewArea, metadata.Width / (float)metadata.Height);
-                project.Thumbnail?.DrawPreview(preview, 1f,
+                Frame? previewFrame = selected && selectedPreview != null
+                    ? selectedPreview
+                    : project.Thumbnail;
+                previewFrame?.DrawPreview(preview, 1f,
                     metadata.IsBackgroundTransparent, metadata.BackgroundColor);
-                if (project.Thumbnail == null)
+                if (previewFrame == null)
                     new UITextContainer { Bounds = preview, MaxLines = 1 }.Draw(
                         project.ThumbnailFailed ? "Preview unavailable" : "Loading preview...",
                         UITheme.TextMuted, UITextRole.Caption);

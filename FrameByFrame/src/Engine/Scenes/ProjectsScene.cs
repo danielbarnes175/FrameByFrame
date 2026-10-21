@@ -19,6 +19,8 @@ namespace FrameByFrame.src.Engine.Scenes
             FbfProjectFile.ProjectThumbnail? Thumbnail, Exception? Error);
         private sealed record MetadataLoadResult(int Generation, string FilePath,
             FbfProjectFile.ProjectMetadata? Metadata, Exception? Error);
+        private sealed record PreviewLoadResult(int Generation, string FilePath,
+            Animation.Animation? Animation, Exception? Error);
 
         private const int MaximumCachedThumbnails = 8;
         private readonly ProjectGalleryState _gallery = new();
@@ -26,6 +28,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private readonly ProjectRenameDialogState _renameDialog = new();
         private readonly ProjectExportDialogState _exportDialog = new();
         private readonly ProjectOperationsService _operations = new();
+        private readonly ProjectPreviewState _preview = new();
         private UIActionButton _back = null!;
         private UIActionButton _previous = null!;
         private UIActionButton _next = null!;
@@ -58,7 +61,9 @@ namespace FrameByFrame.src.Engine.Scenes
         private string? _pendingOpenFile;
         private Task<ThumbnailLoadResult>? _thumbnailLoad;
         private Task<MetadataLoadResult>? _metadataLoad;
+        private Task<PreviewLoadResult>? _previewLoad;
         private int _thumbnailGeneration;
+        private int _previewGeneration;
 
         public ProjectsScene(IApplicationContext app, INavigationService navigation)
             : base(app, navigation) => _galleryView = new ProjectGalleryComponent(_gallery);
@@ -190,9 +195,10 @@ namespace FrameByFrame.src.Engine.Scenes
                 return;
             }
             AdvanceThumbnailLoading();
+            AdvancePreviewLoading(gameTime);
             if (_renameDialog.IsOpen)
             {
-                _confirmRename.Update(); _cancelRename.Update(); UpdateRenameText();
+                _confirmRename.Update(); _cancelRename.Update(); UpdateRenameText(gameTime);
                 return;
             }
             if (_exportDialog.IsOpen)
@@ -212,6 +218,7 @@ namespace FrameByFrame.src.Engine.Scenes
             {
                 _previous.Update(); _next.Update();
                 bool clickedCard = _galleryView.UpdateSelection();
+                if (clickedCard) BeginSelectedPreview();
                 _edit.Update(); _export.Update(); _rename.Update();
                 if (App.Mouse.LeftClick() && !clickedCard &&
                     !UIPointerRouter.IsPointerBlocked()) DeselectProject();
@@ -265,7 +272,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void DrawSelectedProject()
         {
-            _galleryView.Draw();
+            _galleryView.Draw(_preview.CurrentFrame);
 
             int pageSize = GalleryColumnCount(App.ScreenWidth) * 2;
             if (_gallery.Projects.Count > pageSize) { _previous.Draw(); _next.Draw(); }
@@ -294,12 +301,13 @@ namespace FrameByFrame.src.Engine.Scenes
                 _feedback.ShowSuccess("Project renamed", "The new project name was saved successfully.");
         }
 
-        private void UpdateRenameText()
+        private void UpdateRenameText(GameTime gameTime)
         {
             bool shift = App.Keyboard.IsKeyHeldDown(Keys.LeftShift) ||
                 App.Keyboard.IsKeyHeldDown(Keys.RightShift);
             RenameInputResult result = _renameDialog.ApplyKeys(
-                App.Keyboard.GetNewlyPressedKeys(), shift);
+                App.Keyboard.GetNewlyPressedKeys(), shift,
+                App.Keyboard.IsKeyHeldDown(Keys.Back), gameTime.ElapsedGameTime);
             if (result == RenameInputResult.Confirm)
             {
                 ConfirmRename();
@@ -411,19 +419,73 @@ namespace FrameByFrame.src.Engine.Scenes
             });
         }
 
-        private void SelectProject(int index) => _gallery.Select(index);
+        private void BeginSelectedPreview()
+        {
+            StopSelectedPreview();
+            GalleryProject? selected = _gallery.Selected;
+            if (selected == null) return;
+            string file = selected.FilePath;
+            int generation = _previewGeneration;
+            _previewLoad = Task.Run(() =>
+            {
+                try { return new PreviewLoadResult(generation, file, _operations.Load(file), null); }
+                catch (Exception ex) { return new PreviewLoadResult(generation, file, null, ex); }
+            });
+        }
 
-        private void DeselectProject() => _gallery.Deselect();
+        private void AdvancePreviewLoading(GameTime gameTime)
+        {
+            if (_previewLoad != null && _previewLoad.IsCompleted)
+            {
+                PreviewLoadResult result = _previewLoad.GetAwaiter().GetResult();
+                _previewLoad = null;
+                if (result.Generation == _previewGeneration &&
+                    _gallery.Selected?.FilePath == result.FilePath)
+                {
+                    if (result.Animation != null) _preview.Start(result.Animation);
+                    else if (result.Error != null)
+                        _feedback.ShowError("Project preview could not be loaded", result.Error.Message,
+                            "The project can still be selected. Repair or replace the file to restore its preview.");
+                }
+                else result.Animation?.Dispose();
+            }
+            _preview.Update(gameTime);
+        }
+
+        private void StopSelectedPreview()
+        {
+            _previewGeneration++;
+            Task<PreviewLoadResult>? abandonedLoad = _previewLoad;
+            _previewLoad = null;
+            if (abandonedLoad != null)
+                _ = abandonedLoad.ContinueWith(completed =>
+                {
+                    if (completed.Status == TaskStatus.RanToCompletion)
+                        completed.Result.Animation?.Dispose();
+                }, TaskScheduler.Default);
+            _preview.Clear();
+        }
+
+        private void DeselectProject()
+        {
+            StopSelectedPreview();
+            _gallery.Deselect();
+        }
 
         private void ChangePage(int delta)
         {
             int pageSize = GalleryColumnCount(App.ScreenWidth) * 2;
-            if (_gallery.ChangePage(delta, pageSize)) Layout();
+            if (_gallery.ChangePage(delta, pageSize))
+            {
+                StopSelectedPreview();
+                Layout();
+            }
         }
 
         private void OpenSelectedProject()
         {
             if (_gallery.SelectedIndex < 0 || _gallery.SelectedIndex >= _gallery.Projects.Count) return;
+            StopSelectedPreview();
             _pendingOpenFile = _gallery.Projects[_gallery.SelectedIndex].FilePath;
             _feedback.ShowBusy("Opening project", $"Loading {Path.GetFileNameWithoutExtension(_pendingOpenFile)}...");
         }
@@ -555,6 +617,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void DisposeProjects()
         {
             _thumbnailGeneration++;
+            StopSelectedPreview();
             _thumbnailLoad = null;
             _metadataLoad = null;
             _gallery.Clear();

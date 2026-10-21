@@ -1,5 +1,6 @@
 using FrameByFrame.src.Engine.Export;
 using FrameByFrame.src.Engine.Projects;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Xunit;
 
@@ -36,6 +37,39 @@ public sealed class ProjectSceneComponentTests
         Assert.False(renamed);
         Assert.Contains("name collision", dialog.Error);
         Assert.True(dialog.IsOpen);
+    }
+
+    [Fact]
+    public void RenameDialogRepeatsBackspaceWhileHeld()
+    {
+        ProjectRenameDialogState dialog = new();
+        dialog.Open("Project");
+
+        dialog.ApplyKeys([Keys.Back], shift: false, backspaceHeld: true,
+            TimeSpan.FromMilliseconds(16));
+        dialog.ApplyKeys([], shift: false, backspaceHeld: true,
+            TimeSpan.FromMilliseconds(384));
+        dialog.ApplyKeys([], shift: false, backspaceHeld: true,
+            TimeSpan.FromMilliseconds(50));
+
+        Assert.Equal("Proj", dialog.Text);
+    }
+
+    [Fact]
+    public void SelectedProjectPreviewStartsAndAdvancesAutomatically()
+    {
+        ProjectPreviewState preview = new();
+        FrameByFrame.src.Engine.Animation.Animation animation = new("Preview");
+        animation.InitializeFrames(8, 8);
+        animation.NextFrame();
+        animation.SelectFrame(0);
+
+        preview.Start(animation);
+        preview.Update(new GameTime(TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(100)));
+
+        Assert.True(animation.IsPlaying);
+        Assert.Equal(1, animation.CurrentFrameIndex);
+        preview.Dispose();
     }
 
     [Fact]
