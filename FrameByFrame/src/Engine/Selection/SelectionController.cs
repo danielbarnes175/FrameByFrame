@@ -31,17 +31,17 @@ namespace FrameByFrame.src.Engine.Selection
         public void Update(bool canEdit)
         {
             EnsureCurrentTarget();
-            if (!GlobalParameters.GlobalMouse.LeftClickHold())
+            if (!ApplicationRuntime.Current.Mouse.LeftClickHold())
             {
                 if (_gesture != Gesture.None) CompleteGesture();
                 return;
             }
             if (!canEdit || UIPointerRouter.IsPointerBlocked() || _animation.CurrentFrame == null) return;
 
-            Vector2 canvasPoint = _animation.ToCanvasPosition(GlobalParameters.GlobalMouse.newMousePos);
-            if (GlobalParameters.GlobalMouse.LeftClick())
+            Vector2 canvasPoint = _animation.ToCanvasPosition(ApplicationRuntime.Current.Mouse.newMousePos);
+            if (ApplicationRuntime.Current.Mouse.LeftClick())
             {
-                bool isOnCanvas = _animation.IsScreenPointOnCanvas(GlobalParameters.GlobalMouse.newMousePos);
+                bool isOnCanvas = _animation.IsScreenPointOnCanvas(ApplicationRuntime.Current.Mouse.newMousePos);
                 bool isOnSelection = _selection != null && _selection.Contains(canvasPoint);
                 if (!isOnCanvas && !isOnSelection) return;
                 _gestureStart = canvasPoint;

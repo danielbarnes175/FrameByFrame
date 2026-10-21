@@ -10,6 +10,7 @@ namespace FrameByFrame.src.UI.Components
     {
         private const int IconSize = 32;
         private readonly DrawingTools _drawingTools;
+        private readonly IApplicationContext _app;
         private readonly Texture2D _icon;
         private readonly UIActionButton _previous;
         private readonly UIActionButton _next;
@@ -24,11 +25,12 @@ namespace FrameByFrame.src.UI.Components
         public UIIconButton Button { get; }
         public UIPopover Popover { get; } = new();
 
-        public NavbarBrushesComponent(DrawingTools drawingTools, Action toggle)
+        public NavbarBrushesComponent(IApplicationContext app, DrawingTools drawingTools, Action toggle)
         {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             _drawingTools = drawingTools ?? throw new ArgumentNullException(nameof(drawingTools));
             ArgumentNullException.ThrowIfNull(toggle);
-            _icon = new Texture2D(GlobalParameters.GlobalGraphics, IconSize, IconSize);
+            _icon = new Texture2D(_app.Graphics, IconSize, IconSize);
             UpdateIcon();
             Button = new UIIconButton(_icon, toggle)
                 { Tooltip = "Brush presets", UseToolSelectionStyle = true };
@@ -65,8 +67,8 @@ namespace FrameByFrame.src.UI.Components
         public void UpdateContent()
         {
             BrushPreset brush = _drawingTools.SelectedBrush;
-            Vector2 pointer = GlobalParameters.GlobalMouse.newMousePos;
-            if (GlobalParameters.GlobalMouse.LeftClick())
+            Vector2 pointer = _app.Mouse.newMousePos;
+            if (_app.Mouse.LeftClick())
             {
                 foreach ((int index, Rectangle bounds) in VisiblePresetBounds())
                     if (bounds.Contains(pointer))
@@ -89,10 +91,10 @@ namespace FrameByFrame.src.UI.Components
                 editorSize, editorSize), brush);
             UpdateIcon();
             if (!canEdit || !_tipBounds.Contains(pointer) ||
-                (!GlobalParameters.GlobalMouse.LeftClickHold() && !GlobalParameters.GlobalMouse.RightClickHold())) return;
+                (!_app.Mouse.LeftClickHold() && !_app.Mouse.RightClickHold())) return;
             int x = Math.Clamp((int)((pointer.X - _tipBounds.X) * brush.TipWidth / _tipBounds.Width), 0, brush.TipWidth - 1);
             int y = Math.Clamp((int)((pointer.Y - _tipBounds.Y) * brush.TipHeight / _tipBounds.Height), 0, brush.TipHeight - 1);
-            byte alpha = GlobalParameters.GlobalMouse.RightClickHold() ? (byte)0
+            byte alpha = _app.Mouse.RightClickHold() ? (byte)0
                 : (byte)Math.Clamp((int)Math.Round(_tipAlphaPercent / 100f * 255f), 0, 255);
             _drawingTools.SetBrushTipAlpha(x, y, alpha);
             UpdateIcon();

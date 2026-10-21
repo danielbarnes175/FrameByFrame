@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using FrameByFrame.src;
 using FrameByFrame.src.Engine;
 using FrameByFrame.src.Engine.Input;
@@ -19,10 +18,13 @@ namespace FrameByFrame
     {
         GraphicsDeviceManager graphics;
         BasicTexture cursor = null!;
+        readonly ApplicationContext appContext;
+        readonly NavigationService navigation = new();
 
         public Main()
         {
             graphics = new GraphicsDeviceManager(this);
+            appContext = new ApplicationContext(UITheme.DefaultScreenWidth, UITheme.DefaultScreenHeight);
             Content.RootDirectory = "Content";
 
             // Max fps with refresh rate
@@ -39,27 +41,18 @@ namespace FrameByFrame
 
         protected override void Initialize()
         {
-            GlobalParameters.screenWidth = UITheme.DefaultScreenWidth;
-            GlobalParameters.screenHeight = UITheme.DefaultScreenHeight;
-            graphics.PreferredBackBufferWidth = GlobalParameters.screenWidth;
-            graphics.PreferredBackBufferHeight = GlobalParameters.screenHeight;
-
-            GlobalParameters.scaleX = GlobalParameters.screenWidth / 1600f;
-            GlobalParameters.scaleY = GlobalParameters.screenHeight / 900f;
+            graphics.PreferredBackBufferWidth = appContext.ScreenWidth;
+            graphics.PreferredBackBufferHeight = appContext.ScreenHeight;
 
             this.IsMouseVisible = true;
 
             this.Window.AllowUserResizing = true;
             this.Window.ClientSizeChanged += new EventHandler<EventArgs>(OnResize);
 
-            GlobalParameters.Scenes = new Dictionary<string, BaseScene>
-            {
-                { "Menu Scene", new MenuScene() },
-                { "Projects Scene", new ProjectsScene() },
-                { "Drawing Scene", new DrawingScene() }
-            };
-
-            GlobalParameters.CurrentScene = GlobalParameters.Scenes["Menu Scene"];
+            navigation.Register(UIConstants.MENU_SCENE, new MenuScene(appContext, navigation));
+            navigation.Register(UIConstants.PROJECTS_SCENE, new ProjectsScene(appContext, navigation));
+            navigation.Register(UIConstants.DRAWING_SCENE, new DrawingScene(appContext, navigation));
+            navigation.Navigate(UIConstants.MENU_SCENE);
             
             // Initialize debug manager
             DebugManager.Initialize();
@@ -70,27 +63,20 @@ namespace FrameByFrame
 
         protected override void LoadContent()
         {
-            GlobalParameters.GlobalContent = this.Content;
-            GlobalParameters.GlobalSpriteBatch = new SpriteBatch(GraphicsDevice);
-            GlobalParameters.GlobalGraphics = graphics.GraphicsDevice;
-            GlobalParameters.GlobalKeyboard = new KeyboardController();
-            GlobalParameters.GlobalMouse = new MouseController();
-
-            GlobalParameters.font = Content.Load<SpriteFont>("Roboto");
-            GlobalParameters.uiFont = Content.Load<SpriteFont>("UIFont");
+            appContext.InitializeGraphics(Content, new SpriteBatch(GraphicsDevice), graphics.GraphicsDevice,
+                new MouseController(), new KeyboardController(), Content.Load<SpriteFont>("Roboto"),
+                Content.Load<SpriteFont>("UIFont"));
+            ApplicationRuntime.Initialize(appContext);
 
             cursor = new BasicTexture("pencil-cursor", new Vector2(0, 0), new Vector2(28, 28));
 
-            foreach (KeyValuePair<string, BaseScene> scene in GlobalParameters.Scenes)
-            {
-                scene.Value.LoadContent();
-            }
+            foreach (BaseScene scene in navigation.Scenes) scene.LoadContent();
         }
 
         protected override void UnloadContent()
         {
             // Dispose all scenes
-            foreach (var scene in GlobalParameters.Scenes.Values)
+            foreach (BaseScene scene in navigation.Scenes)
             {
                 if (scene is IDisposable disposable)
                     disposable.Dispose();
@@ -105,9 +91,7 @@ namespace FrameByFrame
 
         private void OnExiting(object? sender, EventArgs args)
         {
-            if (GlobalParameters.Scenes.TryGetValue("Drawing Scene", out BaseScene? scene) &&
-                scene is DrawingScene drawing)
-                drawing.PrepareForShutdown();
+            navigation.Get<DrawingScene>(UIConstants.DRAWING_SCENE).PrepareForShutdown();
         }
 
         protected override void Update(GameTime gameTime)
@@ -117,10 +101,9 @@ namespace FrameByFrame
             
             PerformanceMonitor.StartFrame();
             
-            GlobalParameters.GlobalMouse.Update();
-            GlobalParameters.GlobalKeyboard.Update();
-
-            GlobalParameters.CurrentScene.Update(gameTime);
+            appContext.Mouse.Update();
+            appContext.Keyboard.Update();
+            navigation.Current.Update(gameTime);
 
             base.Update(gameTime);
         }
@@ -128,19 +111,19 @@ namespace FrameByFrame
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.White);
-            GlobalParameters.GlobalSpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.DepthRead, RasterizerState.CullCounterClockwise);
+            appContext.SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, DepthStencilState.DepthRead, RasterizerState.CullCounterClockwise);
 
-            GlobalParameters.CurrentScene.Draw(Vector2.Zero);
-            cursor.Draw(new Vector2(GlobalParameters.GlobalMouse.newMousePos.X - 5, GlobalParameters.GlobalMouse.newMousePos.Y - 25), new Vector2(0, 0));
+            navigation.Current.Draw(Vector2.Zero);
+            cursor.Draw(new Vector2(appContext.Mouse.newMousePos.X - 5, appContext.Mouse.newMousePos.Y - 25), new Vector2(0, 0));
 
             // Draw debug overlays only in debug mode
             if (DebugManager.IsDebugMode)
             {
                 PerformanceMonitor.DrawPerformanceOverlay(new Vector2(10, 10), UIConstants.DEBUG_PERFORMANCE);
-                DebugManager.DrawDebugHelp(new Vector2(10, GlobalParameters.screenHeight - 100));
+                DebugManager.DrawDebugHelp(new Vector2(10, appContext.ScreenHeight - 100));
             }
 
-            GlobalParameters.GlobalSpriteBatch.End();
+            appContext.SpriteBatch.End();
             
             PerformanceMonitor.EndFrame();
             base.Draw(gameTime);
@@ -148,11 +131,7 @@ namespace FrameByFrame
 
         private void OnResize(object? sender, EventArgs e)
         {
-            GlobalParameters.screenWidth = Math.Max(1, GraphicsDevice.Viewport.Width);
-            GlobalParameters.screenHeight = Math.Max(1, GraphicsDevice.Viewport.Height);
-
-            GlobalParameters.scaleX = GlobalParameters.screenWidth / 1600f;
-            GlobalParameters.scaleY = GlobalParameters.screenHeight / 900f;
+            appContext.Resize(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         }
     }
 

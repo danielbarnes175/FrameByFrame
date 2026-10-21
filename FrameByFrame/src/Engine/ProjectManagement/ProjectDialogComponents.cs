@@ -7,12 +7,13 @@ namespace FrameByFrame.src.Engine.Projects
 {
     internal static class ProjectRenameDialogComponent
     {
-        public static void Draw(ProjectRenameDialogState state, Rectangle input,
+        public static void Draw(IApplicationContext app, ProjectRenameDialogState state, Rectangle input,
             UIActionButton confirm, UIActionButton cancel)
         {
+            ArgumentNullException.ThrowIfNull(app);
             int S(int value) => UILayoutEngine.Scale(value);
-            Rectangle dialog = new(GlobalParameters.screenWidth / 2 - S(260),
-                GlobalParameters.screenHeight / 2 - S(120), S(520), S(270));
+            Rectangle dialog = new(app.ScreenWidth / 2 - S(260),
+                app.ScreenHeight / 2 - S(120), S(520), S(270));
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised);
             UIRenderer.Border(dialog, UITheme.Primary, 3);
             new UITextContainer { Bounds = new Rectangle(dialog.X + S(24), dialog.Y + S(18),
@@ -35,16 +36,17 @@ namespace FrameByFrame.src.Engine.Projects
 
     internal static class ProjectExportDialogComponent
     {
-        public static void Draw(ProjectExportDialogState state,
+        public static void Draw(IApplicationContext app, ProjectExportDialogState state,
             UIActionButton formatPrevious, UIActionButton formatNext,
             UIActionButton startDown, UIActionButton startUp,
             UIActionButton endDown, UIActionButton endUp,
             UIActionButton replaceExisting, UIActionButton chooseDirectory,
             UIActionButton confirm, UIActionButton cancel)
         {
+            ArgumentNullException.ThrowIfNull(app);
             int S(int value) => UILayoutEngine.Scale(value);
-            int cx = GlobalParameters.screenWidth / 2;
-            int cy = GlobalParameters.screenHeight / 2;
+            int cx = app.ScreenWidth / 2;
+            int cy = app.ScreenHeight / 2;
             Rectangle dialog = new(cx - S(260), cy - S(240), S(520), S(500));
             UIRenderer.Fill(dialog, UITheme.SurfaceRaised);
             UIRenderer.Border(dialog, UITheme.Primary, 3);

@@ -19,10 +19,10 @@ namespace FrameByFrame.src.Engine.Services
         public static void DrawCanvasBackground(Rectangle bounds, bool isTransparent, Color backgroundColor)
         {
             Texture2D pixel = TextureManager.GetOrCreateColorTexture(
-                GlobalParameters.GlobalGraphics, Color.White, 1);
+                ApplicationRuntime.Current.Graphics, Color.White, 1);
             if (!isTransparent)
             {
-                GlobalParameters.GlobalSpriteBatch.Draw(pixel, bounds, backgroundColor);
+                ApplicationRuntime.Current.SpriteBatch.Draw(pixel, bounds, backgroundColor);
                 return;
             }
 
@@ -32,7 +32,7 @@ namespace FrameByFrame.src.Engine.Services
             {
                 Rectangle tile = new(x, y, Math.Min(tileSize, bounds.Right - x),
                     Math.Min(tileSize, bounds.Bottom - y));
-                GlobalParameters.GlobalSpriteBatch.Draw(pixel, tile,
+                ApplicationRuntime.Current.SpriteBatch.Draw(pixel, tile,
                     CheckerboardColor((x - bounds.X) / tileSize, (y - bounds.Y) / tileSize, 1));
             }
         }
@@ -41,7 +41,7 @@ namespace FrameByFrame.src.Engine.Services
         {
             ArgumentNullException.ThrowIfNull(view);
             Texture2D pixel = TextureManager.GetOrCreateColorTexture(
-                GlobalParameters.GlobalGraphics, Color.White, 1);
+                ApplicationRuntime.Current.Graphics, Color.White, 1);
             if (!isTransparent)
             {
                 DrawCanvasTile(pixel, view, 0, 0, view.CanvasWidth, view.CanvasHeight, backgroundColor);
@@ -63,7 +63,7 @@ namespace FrameByFrame.src.Engine.Services
         {
             ArgumentNullException.ThrowIfNull(view);
             Texture2D pixel = TextureManager.GetOrCreateColorTexture(
-                GlobalParameters.GlobalGraphics, Color.White, 1);
+                ApplicationRuntime.Current.Graphics, Color.White, 1);
             float canvasThickness = Math.Max(1f / view.Scale, thickness / view.Scale);
             DrawCanvasTile(pixel, view, 0, 0, view.CanvasWidth, canvasThickness, color);
             DrawCanvasTile(pixel, view, 0, view.CanvasHeight - canvasThickness,
@@ -77,7 +77,7 @@ namespace FrameByFrame.src.Engine.Services
             float width, float height, Color color)
         {
             Vector2 center = view.CanvasToScreen(new Vector2(x + width / 2f, y + height / 2f));
-            GlobalParameters.GlobalSpriteBatch.Draw(pixel, center, null, color, view.RotationRadians,
+            ApplicationRuntime.Current.SpriteBatch.Draw(pixel, center, null, color, view.RotationRadians,
                 new Vector2(.5f, .5f), new Vector2(width * view.Scale, height * view.Scale),
                 SpriteEffects.None, 0f);
         }

@@ -13,6 +13,7 @@ namespace FrameByFrame.src.UI.Components
         private const int ValueStripX = 208;
         private const int ValueStripWidth = 28;
         private readonly Texture2D _wheelTexture;
+        private readonly IApplicationContext _app;
         private readonly Texture2D _swatchTexture;
         private readonly Color[] _swatchPixels = new Color[SwatchSize * SwatchSize];
         private float _hue;
@@ -23,10 +24,11 @@ namespace FrameByFrame.src.UI.Components
         public UIPopover Popover { get; } = new() { ShowOutline = false };
         public Color SelectedColor { get; private set; } = Color.Black;
 
-        public NavbarColorComponent(Action toggle)
+        public NavbarColorComponent(IApplicationContext app, Action toggle)
         {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             ArgumentNullException.ThrowIfNull(toggle);
-            _swatchTexture = new Texture2D(GlobalParameters.GlobalGraphics, SwatchSize, SwatchSize);
+            _swatchTexture = new Texture2D(_app.Graphics, SwatchSize, SwatchSize);
             UpdateSwatch();
             Button = new UIIconButton(_swatchTexture, toggle) { Tooltip = "Brush color" };
             _wheelTexture = GeneratePickerTexture(Width, Height);
@@ -36,7 +38,7 @@ namespace FrameByFrame.src.UI.Components
         {
             Rectangle bounds = Popover.Bounds;
             if (!UIPointerRouter.Held(Popover, bounds)) return;
-            Vector2 local = GlobalParameters.GlobalMouse.newMousePos - new Vector2(bounds.X, bounds.Y);
+            Vector2 local = _app.Mouse.newMousePos - new Vector2(bounds.X, bounds.Y);
             float radius = (WheelDiameter - 1) / 2f;
             Vector2 offset = local - new Vector2(radius, radius);
             if (local.X >= 0 && local.Y >= 0 && local.X < WheelDiameter &&
@@ -65,7 +67,7 @@ namespace FrameByFrame.src.UI.Components
         public void DrawContent()
         {
             Popover.Draw();
-            GlobalParameters.GlobalSpriteBatch.Draw(_wheelTexture, Popover.Bounds, Color.White);
+            _app.SpriteBatch.Draw(_wheelTexture, Popover.Bounds, Color.White);
         }
 
         private void CommitColor()
@@ -91,9 +93,9 @@ namespace FrameByFrame.src.UI.Components
             _swatchTexture.SetData(_swatchPixels);
         }
 
-        private static Texture2D GeneratePickerTexture(int width, int height)
+        private Texture2D GeneratePickerTexture(int width, int height)
         {
-            Texture2D texture = new(GlobalParameters.GlobalGraphics, width, height);
+            Texture2D texture = new(_app.Graphics, width, height);
             Color[] colors = new Color[width * height];
             float radius = (WheelDiameter - 1) / 2f;
             Vector2 center = new(radius, radius);

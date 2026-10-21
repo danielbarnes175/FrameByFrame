@@ -9,7 +9,14 @@ namespace FrameByFrame.src.Engine.Scenes
 {
     public class BaseScene : IDisposable
     {
-        public BaseScene() { }
+        protected IApplicationContext App { get; }
+        protected INavigationService Navigation { get; }
+
+        protected BaseScene(IApplicationContext app, INavigationService navigation)
+        {
+            App = app ?? throw new ArgumentNullException(nameof(app));
+            Navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        }
 
         public virtual void LoadContent() { }
 

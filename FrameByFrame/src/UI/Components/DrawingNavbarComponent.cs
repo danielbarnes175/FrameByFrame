@@ -53,6 +53,7 @@ namespace FrameByFrame.src.UI.Components
         private enum PopoverKind { None, Help, Settings, Color, Layers, Brushes }
 
         private readonly Animation _animation;
+        private readonly IApplicationContext _app;
         private readonly DrawingTools _drawingTools;
         private readonly NavbarSaveCoordinator _saveCoordinator;
         private readonly UIActionButton _home;
@@ -72,22 +73,23 @@ namespace FrameByFrame.src.UI.Components
         public bool HasPendingSave => _saveCoordinator.IsPending;
         public static int PreferredHeight(int width) => width < 560 ? 160 : width < 960 ? 112 : UITheme.AppBarHeight;
 
-        public DrawingNavbarComponent(Animation animation, DrawingTools drawingTools, AutosaveService autosave,
+        public DrawingNavbarComponent(IApplicationContext app, Animation animation, DrawingTools drawingTools, AutosaveService autosave,
             UIFeedbackState? feedback = null, Action? requestHome = null)
         {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             _animation = animation;
             _drawingTools = drawingTools;
             ArgumentNullException.ThrowIfNull(autosave);
             _saveCoordinator = new NavbarSaveCoordinator(animation, autosave, feedback);
-            _home = new UIActionButton("HOME", requestHome ?? GoHome);
-            _helpComponent = new NavbarHelpComponent(Icon("help", () => Toggle(PopoverKind.Help), "Help"));
-            _layersComponent = new NavbarLayersComponent(animation,
+            _home = new UIActionButton("HOME", requestHome ?? throw new ArgumentNullException(nameof(requestHome)));
+            _helpComponent = new NavbarHelpComponent(app, Icon("help", () => Toggle(PopoverKind.Help), "Help"));
+            _layersComponent = new NavbarLayersComponent(app, animation,
                 Icon("layers", () => Toggle(PopoverKind.Layers), "Layers"));
 
-            _colorComponent = new NavbarColorComponent(() => Toggle(PopoverKind.Color));
+            _colorComponent = new NavbarColorComponent(app, () => Toggle(PopoverKind.Color));
 
-            _toolsComponent = new NavbarToolsComponent(drawingTools,
-                asset => GlobalParameters.GlobalContent.Load<Texture2D>(asset));
+            _toolsComponent = new NavbarToolsComponent(app, drawingTools,
+                asset => _app.Content.Load<Texture2D>(asset));
 
             _playback.Add(Icon("first_frame", _animation.FirstFrame, "First frame"));
             _playback.Add(Icon("previous_frame", _animation.PreviousFrame, "Previous frame - N"));
@@ -97,13 +99,13 @@ namespace FrameByFrame.src.UI.Components
 
             _brushSize = new UISlider(UIConstants.MIN_BRUSH_SIZE, UIConstants.MAX_BRUSH_SIZE,
                 _drawingTools.BrushSize, value => _drawingTools.BrushSize = value);
-            _brushesComponent = new NavbarBrushesComponent(drawingTools, () => Toggle(PopoverKind.Brushes));
-            _settingsComponent = new NavbarSettingsComponent(animation, autosave, _saveCoordinator,
+            _brushesComponent = new NavbarBrushesComponent(app, drawingTools, () => Toggle(PopoverKind.Brushes));
+            _settingsComponent = new NavbarSettingsComponent(app, animation, autosave, _saveCoordinator,
                 () => SelectedColor, Icon("gear", () => Toggle(PopoverKind.Settings), "Animation settings"));
         }
 
         private UIIconButton Icon(string asset, Action action, string tooltip) =>
-            new(GlobalParameters.GlobalContent.Load<Texture2D>(asset), action) { Tooltip = tooltip };
+            new(_app.Content.Load<Texture2D>(asset), action) { Tooltip = tooltip };
 
         public void SaveAnimation()
         {
@@ -113,12 +115,6 @@ namespace FrameByFrame.src.UI.Components
         public void ProcessPendingSave()
         {
             if (!_saveCoordinator.Process()) _openPopover = PopoverKind.Settings;
-        }
-
-        private void GoHome()
-        {
-            _animation.Stop();
-            GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
         }
 
         private void Toggle(PopoverKind kind) => _openPopover = _openPopover == kind ? PopoverKind.None : kind;
@@ -192,9 +188,9 @@ namespace FrameByFrame.src.UI.Components
 
         Popovers:
             int popoverTop = bounds.Bottom + Layout.ItemGap;
-            int availableHeight = Math.Max(80, GlobalParameters.screenHeight - popoverTop - Layout.PopoverEdge);
-            int helpWidth = Math.Min(Layout.HelpWidth, GlobalParameters.screenWidth - Layout.PopoverEdge * 2);
-            int settingsWidth = Math.Min(Layout.SettingsWidth, GlobalParameters.screenWidth - Layout.PopoverEdge * 2);
+            int availableHeight = Math.Max(80, _app.ScreenHeight - popoverTop - Layout.PopoverEdge);
+            int helpWidth = Math.Min(Layout.HelpWidth, _app.ScreenWidth - Layout.PopoverEdge * 2);
+            int settingsWidth = Math.Min(Layout.SettingsWidth, _app.ScreenWidth - Layout.PopoverEdge * 2);
             _helpComponent.ArrangePopover(ClampPopover(new Rectangle(_helpComponent.Button.Bounds.X, popoverTop, helpWidth,
                 Math.Min(Layout.HelpContentHeight, availableHeight)), popoverTop));
             _settingsComponent.ArrangePopover(ClampPopover(new Rectangle(_settingsComponent.Button.Bounds.X, popoverTop, settingsWidth,
@@ -207,13 +203,13 @@ namespace FrameByFrame.src.UI.Components
 
         }
 
-        private static Rectangle ClampPopover(Rectangle bounds, int minimumTop = Layout.PopoverTop)
+        private Rectangle ClampPopover(Rectangle bounds, int minimumTop = Layout.PopoverTop)
         {
-            bounds.Width = Math.Min(bounds.Width, Math.Max(1, GlobalParameters.screenWidth - Layout.PopoverEdge * 2));
-            bounds.Height = Math.Min(bounds.Height, Math.Max(1, GlobalParameters.screenHeight - minimumTop - Layout.PopoverEdge));
-            bounds.X = Math.Clamp(bounds.X, Layout.PopoverEdge, Math.Max(Layout.PopoverEdge, GlobalParameters.screenWidth - bounds.Width - Layout.PopoverEdge));
+            bounds.Width = Math.Min(bounds.Width, Math.Max(1, _app.ScreenWidth - Layout.PopoverEdge * 2));
+            bounds.Height = Math.Min(bounds.Height, Math.Max(1, _app.ScreenHeight - minimumTop - Layout.PopoverEdge));
+            bounds.X = Math.Clamp(bounds.X, Layout.PopoverEdge, Math.Max(Layout.PopoverEdge, _app.ScreenWidth - bounds.Width - Layout.PopoverEdge));
             bounds.Y = Math.Clamp(bounds.Y, minimumTop,
-                Math.Max(minimumTop, GlobalParameters.screenHeight - bounds.Height - Layout.PopoverEdge));
+                Math.Max(minimumTop, _app.ScreenHeight - bounds.Height - Layout.PopoverEdge));
             return bounds;
         }
 
@@ -259,8 +255,8 @@ namespace FrameByFrame.src.UI.Components
         private void DismissPopoverOnOutsideClick()
         {
             UIPopover? active = ActivePopover();
-            if (active == null || !GlobalParameters.GlobalMouse.LeftClick()) return;
-            if (active.Bounds.Contains(GlobalParameters.GlobalMouse.newMousePos)) return;
+            if (active == null || !_app.Mouse.LeftClick()) return;
+            if (active.Bounds.Contains(_app.Mouse.newMousePos)) return;
             Rectangle anchor = _openPopover switch
             {
                 PopoverKind.Help => _helpComponent.Button.Bounds,
@@ -270,7 +266,7 @@ namespace FrameByFrame.src.UI.Components
                 PopoverKind.Brushes => _brushesComponent.Button.Bounds,
                 _ => Rectangle.Empty
             };
-            if (!anchor.Contains(GlobalParameters.GlobalMouse.newMousePos)) _openPopover = PopoverKind.None;
+            if (!anchor.Contains(_app.Mouse.newMousePos)) _openPopover = PopoverKind.None;
         }
 
         public void SetSelectedColor(Color color)
@@ -297,7 +293,7 @@ namespace FrameByFrame.src.UI.Components
             new UITextContainer { Bounds = _frameCounterBounds, MaxLines = 1 }.Draw(
                 $"{_animation.CurrentFrameIndex + 1} / {_animation.TotalFrames}", Color.White, UITextRole.Label);
 
-            if (GlobalParameters.screenWidth >= Layout.ProjectLabelMinScreenWidth)
+            if (_app.ScreenWidth >= Layout.ProjectLabelMinScreenWidth)
             {
                 int labelX = _brushSize.Bounds.Right + 8;
                 int labelWidth = Math.Max(1, _toolsComponent.Buttons[0].Bounds.X - labelX - 8);

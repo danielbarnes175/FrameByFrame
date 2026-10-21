@@ -263,7 +263,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (!_texturesNeedUpdate) return;
             foreach (FrameLayer layer in _layers)
             {
-                layer.Texture ??= new Texture2D(GlobalParameters.GlobalGraphics, width, height);
+                layer.Texture ??= new Texture2D(ApplicationRuntime.Current.Graphics, width, height);
                 Color[] pixels = GetLayerPixels(layer.Id);
                 for (int i = 0; i < pixels.Length; i++) pixels[i] = ColorCompositor.Premultiply(pixels[i]);
                 layer.Texture.SetData(pixels);
@@ -275,7 +275,7 @@ namespace FrameByFrame.src.Engine.Animation
         {
             EnsureBackgroundTexture();
             if (_sharedBackgroundTexture != null)
-                GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, drawRectangle, null, Color.White * opacity,
+                ApplicationRuntime.Current.SpriteBatch.Draw(_sharedBackgroundTexture, drawRectangle, null, Color.White * opacity,
                     0f, Vector2.Zero, SpriteEffects.None, .2f);
         }
 
@@ -283,14 +283,14 @@ namespace FrameByFrame.src.Engine.Animation
         {
             EnsureBackgroundTexture();
             if (_sharedBackgroundTexture != null)
-                GlobalParameters.GlobalSpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
+                ApplicationRuntime.Current.SpriteBatch.Draw(_sharedBackgroundTexture, destination, Color.White * opacity);
         }
 
         public void DrawLayers(Rectangle destination, float opacity) => DrawLayersCore(destination, opacity);
 
         private static void EnsureBackgroundTexture()
         {
-            _sharedBackgroundTexture ??= DrawingService.CreateTexture(GlobalParameters.GlobalGraphics, 1, 1,
+            _sharedBackgroundTexture ??= DrawingService.CreateTexture(ApplicationRuntime.Current.Graphics, 1, 1,
                 _ => Color.White, Shapes.RECTANGLE);
         }
         public void DrawLayers(CanvasView view, float opacity)
@@ -302,7 +302,7 @@ namespace FrameByFrame.src.Engine.Animation
             {
                 FrameLayer layer = _layers[i];
                 if (layer.Definition.IsVisible && layer.Pixels.Count > 0 && layer.Texture != null)
-                    GlobalParameters.GlobalSpriteBatch.Draw(layer.Texture, view.Center, null, Color.White * opacity,
+                    ApplicationRuntime.Current.SpriteBatch.Draw(layer.Texture, view.Center, null, Color.White * opacity,
                         view.RotationRadians, origin, view.Scale, SpriteEffects.None, 0f);
             }
         }
@@ -315,7 +315,7 @@ namespace FrameByFrame.src.Engine.Animation
             {
                 FrameLayer layer = _layers[i];
                 if (layer.Definition.IsVisible && layer.Pixels.Count > 0 && layer.Texture != null)
-                    GlobalParameters.GlobalSpriteBatch.Draw(layer.Texture, destination, Color.White * opacity);
+                    ApplicationRuntime.Current.SpriteBatch.Draw(layer.Texture, destination, Color.White * opacity);
             }
         }
 
@@ -333,7 +333,7 @@ namespace FrameByFrame.src.Engine.Animation
             if (_previewTexture == null || _previewTexture.Width != previewWidth || _previewTexture.Height != previewHeight)
             {
                 _previewTexture?.Dispose();
-                _previewTexture = new Texture2D(GlobalParameters.GlobalGraphics, previewWidth, previewHeight);
+                _previewTexture = new Texture2D(ApplicationRuntime.Current.Graphics, previewWidth, previewHeight);
                 _previewNeedsUpdate = true;
             }
 
@@ -359,7 +359,7 @@ namespace FrameByFrame.src.Engine.Animation
                 _previewNeedsUpdate = false;
             }
 
-            GlobalParameters.GlobalSpriteBatch.Draw(_previewTexture, destination, Color.White * opacity);
+            ApplicationRuntime.Current.SpriteBatch.Draw(_previewTexture, destination, Color.White * opacity);
         }
 
         public long GetMemoryUsage() => _layers.Sum(layer =>

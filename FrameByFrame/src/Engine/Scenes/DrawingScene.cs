@@ -33,7 +33,8 @@ namespace FrameByFrame.src.Engine.Scenes
         private string _lastHistoryError = string.Empty;
         public bool loadedScene;
 
-        public DrawingScene()
+        public DrawingScene(IApplicationContext app, INavigationService navigation)
+            : base(app, navigation)
         {
             _saveAndLeave = new UIActionButton("Save", SaveAndContinue);
             _discardAndLeave = new UIActionButton("Discard", DiscardAndContinue);
@@ -65,12 +66,12 @@ namespace FrameByFrame.src.Engine.Scenes
         {
             _navbar?.Dispose();
             _audioPlayback?.Dispose();
-            _navbar = new DrawingNavbarComponent(animation, drawingTools, _autosave, _feedback, RequestHome);
+            _navbar = new DrawingNavbarComponent(App, animation, drawingTools, _autosave, _feedback, RequestHome);
             _audioPlayback = new AudioPlaybackController(animation);
             _timeline = new TimelineComponent(animation, _audioPlayback);
             _selectionControls = new SelectionControlsComponent(drawingTools);
             _feedbackOverlay ??= new UIFeedbackOverlay(_feedback);
-            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, UITheme.AppBarHeight));
+            _navbar.Arrange(new Rectangle(0, 0, App.ScreenWidth, UITheme.AppBarHeight));
         }
 
         public override void Update(GameTime gameTime)
@@ -82,19 +83,19 @@ namespace FrameByFrame.src.Engine.Scenes
                 _navbar.ProcessPendingSave();
                 return;
             }
-            int navbarHeight = DrawingNavbarComponent.PreferredHeight(GlobalParameters.screenWidth);
+            int navbarHeight = DrawingNavbarComponent.PreferredHeight(App.ScreenWidth);
             int timelineHeight = Math.Min(UITheme.TimelineHeight,
-                Math.Max(72, (GlobalParameters.screenHeight - navbarHeight) / 3));
-            _navbar.Arrange(new Rectangle(0, 0, GlobalParameters.screenWidth, navbarHeight));
-            _timeline.Arrange(new Rectangle(0, GlobalParameters.screenHeight - timelineHeight,
-                GlobalParameters.screenWidth, timelineHeight));
+                Math.Max(72, (App.ScreenHeight - navbarHeight) / 3));
+            _navbar.Arrange(new Rectangle(0, 0, App.ScreenWidth, navbarHeight));
+            _timeline.Arrange(new Rectangle(0, App.ScreenHeight - timelineHeight,
+                App.ScreenWidth, timelineHeight));
             Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
             _canvasView.Arrange(stage, (int)animation.frameSize.X, (int)animation.frameSize.Y);
-            int selectionWidth = Math.Max(1, Math.Min(500, GlobalParameters.screenWidth - 16));
-            _selectionControls.Arrange(new Rectangle(GlobalParameters.screenWidth - selectionWidth - 8,
+            int selectionWidth = Math.Max(1, Math.Min(500, App.ScreenWidth - 16));
+            _selectionControls.Arrange(new Rectangle(App.ScreenWidth - selectionWidth - 8,
                 _timeline.Bounds.Y - 70, selectionWidth, 62));
             _feedbackOverlay.Arrange(new Rectangle(0, 0,
-                GlobalParameters.screenWidth, GlobalParameters.screenHeight));
+                App.ScreenWidth, App.ScreenHeight));
             ArrangeLeaveDialog();
             if (_pendingNavigation != null)
             {
@@ -128,7 +129,7 @@ namespace FrameByFrame.src.Engine.Scenes
 
         public override void Draw(Vector2 offset)
         {
-            GlobalParameters.GlobalGraphics.Clear(UITheme.CanvasStage);
+            App.Graphics.Clear(UITheme.CanvasStage);
             int navbarHeight = _navbar.Bounds.Height;
             int timelineHeight = _timeline.Bounds.Height;
             Rectangle stage = CanvasStageBounds(navbarHeight, timelineHeight);
@@ -138,23 +139,23 @@ namespace FrameByFrame.src.Engine.Scenes
             _timeline.Draw();
             _navbar.Draw();
             _selectionControls.Draw();
-            MemoryMonitor.DrawMemoryOverlay(new Vector2(10, GlobalParameters.screenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
+            MemoryMonitor.DrawMemoryOverlay(new Vector2(10, App.ScreenHeight - 30), UIConstants.DEBUG_MEMORY, animation);
             _feedbackOverlay.Draw();
             DrawLeaveDialog();
         }
 
-        private static Rectangle CanvasStageBounds(int navbarHeight, int timelineHeight)
+        private Rectangle CanvasStageBounds(int navbarHeight, int timelineHeight)
         {
             int margin = Math.Min(24, Math.Max(4,
-                Math.Min(GlobalParameters.screenWidth, GlobalParameters.screenHeight) / 30));
+                Math.Min(App.ScreenWidth, App.ScreenHeight) / 30));
             return new Rectangle(margin, navbarHeight + margin,
-                Math.Max(1, GlobalParameters.screenWidth - margin * 2),
-                Math.Max(1, GlobalParameters.screenHeight - navbarHeight - timelineHeight - margin * 2));
+                Math.Max(1, App.ScreenWidth - margin * 2),
+                Math.Max(1, App.ScreenHeight - navbarHeight - timelineHeight - margin * 2));
         }
 
         private void HandleCanvasViewInput(Rectangle stage)
         {
-            var mouse = GlobalParameters.GlobalMouse;
+            var mouse = App.Mouse;
             if (!mouse.MiddleClickHold()) _isPanning = false;
             if (!mouse.RightClickHold()) _isRotating = false;
 
@@ -187,7 +188,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void HandleMouseShortcuts()
         {
             drawingTools.Update(GetSelectedColorFromColorWheel(), SetSelectedColor, loadedScene);
-            if (!GlobalParameters.GlobalMouse.LeftClickHold() && !loadedScene) loadedScene = true;
+            if (!App.Mouse.LeftClickHold() && !loadedScene) loadedScene = true;
         }
 
         public void BeginNewAnimation(int width, int height)
@@ -225,43 +226,43 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void HandleKeyboardShortcuts()
         {
-            bool control = GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.LeftControl)
-                || GlobalParameters.GlobalKeyboard.IsKeyHeldDown(Keys.RightControl);
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Z) && animation.Undo())
+            bool control = App.Keyboard.IsKeyHeldDown(Keys.LeftControl)
+                || App.Keyboard.IsKeyHeldDown(Keys.RightControl);
+            if (control && App.Keyboard.OnKeyPress(Keys.Z) && animation.Undo())
                 drawingTools.Selection.Clear();
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Y) && animation.Redo())
+            if (control && App.Keyboard.OnKeyPress(Keys.Y) && animation.Redo())
                 drawingTools.Selection.Clear();
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.D)) animation.DuplicateCurrentFrame();
+            if (control && App.Keyboard.OnKeyPress(Keys.D)) animation.DuplicateCurrentFrame();
             bool selectionActive = drawingTools.SelectedTool == DrawingTool.Selection && drawingTools.Selection.HasSelection;
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.C))
+            if (control && App.Keyboard.OnKeyPress(Keys.C))
             {
                 if (selectionActive) drawingTools.Selection.Copy(); else animation.CopyCurrentFrame();
             }
-            if (control && GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.V))
+            if (control && App.Keyboard.OnKeyPress(Keys.V))
             {
                 if (drawingTools.SelectedTool == DrawingTool.Selection && drawingTools.Selection.CanPaste)
                     drawingTools.Selection.Paste();
                 else animation.PasteFrame();
             }
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC"))
+            if (App.Keyboard.GetPressSingle("ESC"))
                 RequestHome();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("DELETE"))
+            if (App.Keyboard.GetPressSingle("DELETE"))
             {
                 if (selectionActive) drawingTools.Selection.Delete(); else animation.DeleteFrame();
             }
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("P")) animation.TogglePlaying();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("BACKSPACE"))
+            if (App.Keyboard.GetPressSingle("P")) animation.TogglePlaying();
+            if (App.Keyboard.GetPressSingle("BACKSPACE"))
             {
                 animation.EraseCurrentLayer();
                 drawingTools.Selection.Clear();
             }
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("O")) animation.isOnionSkinEnabled = !animation.isOnionSkinEnabled;
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("M")) animation.NextFrame();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("N")) animation.PreviousFrame();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("B")) animation.InsertFrame();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("L")) _navbar.SaveAnimation();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("[")) drawingTools.BrushSize--;
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("]")) drawingTools.BrushSize++;
+            if (App.Keyboard.GetPressSingle("O")) animation.isOnionSkinEnabled = !animation.isOnionSkinEnabled;
+            if (App.Keyboard.GetPressSingle("M")) animation.NextFrame();
+            if (App.Keyboard.GetPressSingle("N")) animation.PreviousFrame();
+            if (App.Keyboard.GetPressSingle("B")) animation.InsertFrame();
+            if (App.Keyboard.GetPressSingle("L")) _navbar.SaveAnimation();
+            if (App.Keyboard.GetPressSingle("[")) drawingTools.BrushSize--;
+            if (App.Keyboard.GetPressSingle("]")) drawingTools.BrushSize++;
         }
 
         public void PrepareForShutdown()
@@ -274,7 +275,7 @@ namespace FrameByFrame.src.Engine.Scenes
         private void RequestHome() => RequestNavigation(() =>
         {
             animation.Stop();
-            GlobalParameters.CurrentScene = GlobalParameters.Scenes[UIConstants.MENU_SCENE];
+            Navigation.Navigate(UIConstants.MENU_SCENE);
         });
 
         private void RequestNavigation(Action navigation)
@@ -286,10 +287,10 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void ArrangeLeaveDialog()
         {
-            int width = Math.Min(620, Math.Max(300, GlobalParameters.screenWidth - 32));
+            int width = Math.Min(620, Math.Max(300, App.ScreenWidth - 32));
             int height = 250;
-            _leaveDialog = new Rectangle((GlobalParameters.screenWidth - width) / 2,
-                (GlobalParameters.screenHeight - height) / 2, width, height);
+            _leaveDialog = new Rectangle((App.ScreenWidth - width) / 2,
+                (App.ScreenHeight - height) / 2, width, height);
             int buttonWidth = Math.Min(150, (width - 64) / 3);
             int gap = 12;
             int totalWidth = buttonWidth * 3 + gap * 2;
@@ -302,17 +303,17 @@ namespace FrameByFrame.src.Engine.Scenes
 
         private void UpdateLeaveDialog()
         {
-            UIPointerRouter.Block(new Rectangle(0, 0, GlobalParameters.screenWidth, GlobalParameters.screenHeight));
+            UIPointerRouter.Block(new Rectangle(0, 0, App.ScreenWidth, App.ScreenHeight));
             _saveAndLeave.Update();
             _discardAndLeave.Update();
             _cancelLeave.Update();
-            if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) CancelNavigation();
+            if (App.Keyboard.GetPressSingle("ESC")) CancelNavigation();
         }
 
         private void DrawLeaveDialog()
         {
             if (_pendingNavigation == null) return;
-            UIRenderer.Fill(new Rectangle(0, 0, GlobalParameters.screenWidth, GlobalParameters.screenHeight),
+            UIRenderer.Fill(new Rectangle(0, 0, App.ScreenWidth, App.ScreenHeight),
                 new Color(0, 0, 0, 150));
             UIRenderer.Fill(_leaveDialog, UITheme.SurfaceRaised);
             UIRenderer.Border(_leaveDialog, UITheme.Primary, 3);

@@ -7,6 +7,7 @@ namespace FrameByFrame.src.UI.Components
     {
         private const int ContentHeight = 470;
         private int _scroll;
+        private readonly IApplicationContext _app;
 
         private static readonly string[] Shortcuts =
         {
@@ -31,8 +32,11 @@ namespace FrameByFrame.src.UI.Components
         public UIIconButton Button { get; }
         public UIPopover Popover { get; } = new();
 
-        public NavbarHelpComponent(UIIconButton button) =>
+        public NavbarHelpComponent(IApplicationContext app, UIIconButton button)
+        {
+            _app = app ?? throw new ArgumentNullException(nameof(app));
             Button = button ?? throw new ArgumentNullException(nameof(button));
+        }
 
         public void ArrangePopover(Rectangle bounds)
         {
@@ -43,10 +47,10 @@ namespace FrameByFrame.src.UI.Components
         public void UpdateContent()
         {
             Rectangle panel = Popover.Bounds;
-            if (panel.Contains(GlobalParameters.GlobalMouse.newMousePos) && GlobalParameters.GlobalMouse.ScrollDelta != 0)
+            if (panel.Contains(_app.Mouse.newMousePos) && _app.Mouse.ScrollDelta != 0)
             {
                 int maxScroll = Math.Max(0, ContentHeight - panel.Height);
-                _scroll = Math.Clamp(_scroll - Math.Sign(GlobalParameters.GlobalMouse.ScrollDelta) * 36, 0, maxScroll);
+                _scroll = Math.Clamp(_scroll - Math.Sign(_app.Mouse.ScrollDelta) * 36, 0, maxScroll);
             }
         }
 

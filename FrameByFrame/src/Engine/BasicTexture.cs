@@ -14,7 +14,7 @@ namespace FrameByFrame.src.Engine
             position = pos;
             this.dimensions = dimensions;
 
-            texture = GlobalParameters.GlobalContent.Load<Texture2D>(path);
+            texture = ApplicationRuntime.Current.Content.Load<Texture2D>(path);
         }
 
         public BasicTexture(Texture2D texture, Vector2 pos, Vector2 dimensions)
@@ -49,11 +49,11 @@ namespace FrameByFrame.src.Engine
         {
             if (texture != null)
             {
-                Vector2 scaledDimensions = new Vector2(dimensions.X * GlobalParameters.scaleX, dimensions.Y * GlobalParameters.scaleY);
+                Vector2 scaledDimensions = new Vector2(dimensions.X * ApplicationRuntime.Current.ScaleX, dimensions.Y * ApplicationRuntime.Current.ScaleY);
                 Vector2 drawPosition = (position + offset) * scaleFactor;
                 Rectangle scaleRect = new Rectangle((int)drawPosition.X, (int)drawPosition.Y, (int)scaledDimensions.X, (int)scaledDimensions.Y);
 
-                GlobalParameters.GlobalSpriteBatch.Draw(
+                ApplicationRuntime.Current.SpriteBatch.Draw(
                     texture,
                     scaleRect,
                     null,

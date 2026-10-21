@@ -127,7 +127,7 @@ namespace FrameByFrame.src.UI
             if (!_state.IsBusy)
             {
                 _dismiss.Update();
-                if (GlobalParameters.GlobalKeyboard.GetPressSingle("ESC")) _state.Dismiss();
+                if (ApplicationRuntime.Current.Keyboard.GetPressSingle("ESC")) _state.Dismiss();
             }
         }
 
@@ -167,13 +167,13 @@ namespace FrameByFrame.src.UI
             int visibleRows = VisibleDetailRows();
             int maxScroll = Math.Max(0, _state.Details.Count - visibleRows);
             int delta = 0;
-            if (_detailsViewport.Contains(GlobalParameters.GlobalMouse.newMousePos) &&
-                GlobalParameters.GlobalMouse.ScrollDelta != 0)
-                delta = -Math.Sign(GlobalParameters.GlobalMouse.ScrollDelta);
-            if (GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Up)) delta = -1;
-            if (GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.Down)) delta = 1;
-            if (GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.PageUp)) delta = -visibleRows;
-            if (GlobalParameters.GlobalKeyboard.OnKeyPress(Keys.PageDown)) delta = visibleRows;
+            if (_detailsViewport.Contains(ApplicationRuntime.Current.Mouse.newMousePos) &&
+                ApplicationRuntime.Current.Mouse.ScrollDelta != 0)
+                delta = -Math.Sign(ApplicationRuntime.Current.Mouse.ScrollDelta);
+            if (ApplicationRuntime.Current.Keyboard.OnKeyPress(Keys.Up)) delta = -1;
+            if (ApplicationRuntime.Current.Keyboard.OnKeyPress(Keys.Down)) delta = 1;
+            if (ApplicationRuntime.Current.Keyboard.OnKeyPress(Keys.PageUp)) delta = -visibleRows;
+            if (ApplicationRuntime.Current.Keyboard.OnKeyPress(Keys.PageDown)) delta = visibleRows;
             _detailScrollIndex = Math.Clamp(_detailScrollIndex + delta, 0, maxScroll);
         }
 
