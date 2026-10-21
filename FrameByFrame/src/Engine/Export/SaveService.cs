@@ -212,6 +212,15 @@ namespace FrameByFrame.src.Engine.Export
             return FbfProjectFile.Load(filename);
         }
 
+        internal static FbfProjectFile.ProjectMetadata ReadProjectMetadata(string filename) =>
+            FbfProjectFile.ReadMetadata(filename);
+
+        internal static FbfProjectFile.ProjectThumbnail LoadProjectThumbnail(string filename) =>
+            FbfProjectFile.LoadThumbnail(filename);
+
+        internal static Frame MaterializeProjectThumbnail(FbfProjectFile.ProjectThumbnail thumbnail) =>
+            FbfProjectFile.MaterializeThumbnail(thumbnail);
+
         public static string RenameAnimation(Animation.Animation animation, string currentFilename, string newName)
         {
             ArgumentNullException.ThrowIfNull(animation);
