@@ -63,7 +63,7 @@
     <TrimmerRootAssembly Include="Microsoft.Xna.Framework.Content.ContentTypeReader" Visible="false" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="15.0.0" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="15.1.0" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.6" />
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6" />
     <PackageReference Include="NativeFileDialogNET" Version="2.0.2" />
